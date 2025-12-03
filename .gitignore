@@ -213,3 +213,8 @@ __marimo__/
 /sub_system/analysis_service/logs/
 /sub_system/analysis_service/models/
 /core/state_management/logs/
+/sub_system/train/py_cyclegan/checkpoints/
+/sub_system/train/py_cyclegan/logs/
+/sub_system/train/RF/training_reports/
+/sub_system/train/RF/uuid_list.txt
+/sub_system/train/RF/models/
