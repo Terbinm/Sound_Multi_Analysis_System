@@ -212,3 +212,4 @@ __marimo__/
 /debug_tools/simplify_mongodb_record/output/
 /sub_system/analysis_service/logs/
 /sub_system/analysis_service/models/
+/core/state_management/logs/

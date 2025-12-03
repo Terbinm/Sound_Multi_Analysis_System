@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}編輯使用者{% endblock %}
+{% block page_title %}編輯使用者 - {{ user.username }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+    <form method="POST" class="space-y-6">
+        {{ form.hidden_tag() }}
+
+        <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
+            <div class="px-4 py-6 sm:p-8">
+                <div class="grid grid-cols-1 gap-x-6 gap-y-8">
+                    <!-- 使用者名稱（唯讀） -->
+                    <div>
+                        <label class="block text-sm font-medium leading-6 text-gray-500">
+                            使用者名稱
+                        </label>
+                        <div class="mt-2">
+                            <input type="text" value="{{ user.username }}" readonly
+                                   class="block w-full rounded-md border-0 py-1.5 text-gray-500 bg-gray-50 shadow-sm ring-1 ring-inset ring-gray-300 sm:text-sm sm:leading-6">
+                            <p class="mt-2 text-sm text-gray-500">使用者名稱不可修改</p>
+                        </div>
+                    </div>
+
+                    <!-- 電子郵件 -->
+                    <div>
+                        <label for="email" class="block text-sm font-medium leading-6 text-gray-900">
+                            電子郵件 <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-2">
+                            {{ form.email(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6") }}
+                            {% if form.email.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.email.errors[0] }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- 角色 -->
+                    <div>
+                        <label for="role" class="block text-sm font-medium leading-6 text-gray-900">
+                            角色 <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-2">
+                            {{ form.role(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6") }}
+                            {% if form.role.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.role.errors[0] }}</p>
+                            {% endif %}
+                            <p class="mt-2 text-sm text-gray-500">
+                                <span class="font-medium">管理員</span>: 擁有所有權限<br>
+                                <span class="font-medium">一般使用者</span>: 唯讀權限
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 帳戶啟用狀態 -->
+                    <div>
+                        <div class="flex items-center">
+                            {{ form.is_active(class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600") }}
+                            <label for="is_active" class="ml-2 block text-sm text-gray-900">
+                                帳戶啟用狀態
+                            </label>
+                        </div>
+                        <p class="mt-2 text-sm text-gray-500">取消勾選將停用此使用者帳戶</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作按鈕 -->
+            <div class="flex items-center justify-end gap-x-6 border-t border-gray-900/10 px-4 py-4 sm:px-8">
+                <a href="{{ url_for('views.users_list') }}" class="text-sm font-semibold leading-6 text-gray-900">
+                    取消
+                </a>
+                <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                    <i class="fas fa-save mr-1"></i> 儲存修改
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- 密碼修改提示 -->
+    <div class="mt-6 rounded-md bg-blue-50 p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    若需修改密碼，請使用 <a href="{{ url_for('views.users_list') }}" class="font-medium underline">使用者列表</a> 中的「重設密碼」功能。
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

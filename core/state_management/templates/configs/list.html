@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}分析設定{% endblock %}
+{% block page_title %}分析設定管理{% endblock %}
+
+{% block content %}
+<div class="sm:flex sm:items-center parallax-layer parallax-layer2">
+    <div class="sm:flex-auto">
+        <p class="mt-2 text-sm text-gray-600">管理所有分析方法的設定參數與模型檔案</p>
+    </div>
+    <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+        {% if current_user.is_admin() %}
+        <a href="{{ url_for('views.config_create') }}"
+           class="tech-button inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3.5 text-base font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300">
+            <i class="fas fa-plus"></i>
+            <span>建立設定</span>
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 操作指引 -->
+<div class="mt-6 tech-card-sm parallax-layer parallax-layer2 border-l-4 border-indigo-500">
+    <div class="p-5">
+        <div class="flex items-start gap-3">
+            <div class="flex-shrink-0">
+                <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-md">
+                    <i class="fas fa-lightbulb text-white"></i>
+                </div>
+            </div>
+            <div class="flex-1">
+                <p class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <span>建立分析設定提示</span>
+                </p>
+                <ul class="space-y-2 text-sm text-gray-700">
+                    <li class="flex items-start gap-2">
+                        <i class="fas fa-check-circle text-indigo-500 mt-0.5 flex-shrink-0"></i>
+                        <span>先決定 <code class="tech-code">analysis_method_id</code>，需與分析服務訂閱的 routing key 一致。</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fas fa-check-circle text-indigo-500 mt-0.5 flex-shrink-0"></i>
+                        <span><code class="tech-code">config_id</code> 由系統產生，路由規則會在 actions 中引用它。</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fas fa-check-circle text-indigo-500 mt-0.5 flex-shrink-0"></i>
+                        <span><code class="tech-code">parameters</code> 必須是有效 JSON，可包含模型路徑、特徵參數與後處理選項。</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fas fa-check-circle text-indigo-500 mt-0.5 flex-shrink-0"></i>
+                        <span>停用的設定不會被調度器引用，請確認與路由規則一致後再切換狀態。</span>
+                    </li>
+                </ul>
+                <p class="mt-3 text-xs text-gray-500 flex items-center gap-1.5">
+                    <i class="fas fa-book-open"></i>
+                    <span>詳細說明見 <code class="tech-code text-xs">docs/設定規則說明.html</code> 的「分析設定」。</span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 篩選條件 -->
+<div class="mt-6 flex items-center space-x-4 parallax-layer parallax-layer2">
+    <div class="tech-card-sm inline-flex items-center px-4 py-2.5 gap-3">
+        <input type="checkbox" id="enabled_only" {% if enabled_only %}checked{% endif %}
+               onchange="window.location.href='{{ url_for('views.configs_list') }}?enabled_only=' + this.checked"
+               class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 transition-all">
+        <label for="enabled_only" class="text-sm font-medium text-gray-700 cursor-pointer select-none">僅顯示啟用的設定</label>
+    </div>
+</div>
+
+<!-- 設定列表 -->
+<div class="mt-8 parallax-layer parallax-layer2">
+    {% if configs %}
+    <div class="tech-grid tech-grid-responsive">
+        {% for config in configs %}
+        <div class="tech-card h-full p-6 flex flex-col gap-4">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <p class="text-lg font-semibold text-gray-900">{{ config.config_name }}</p>
+                        {% if config.is_system %}
+                        <span class="tech-badge tech-badge-gray">
+                            <i class="fas fa-cog text-xs mr-1"></i>
+                            系統
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-2 text-sm">
+                        <span class="tech-badge tech-badge-info">
+                            <i class="fas fa-flask mr-1"></i>
+                            {{ config.analysis_method_id }}
+                        </span>
+                        <span class="tech-badge tech-badge-gray">
+                            <i class="fas fa-hashtag mr-1"></i>
+                            {{ config.config_id }}
+                        </span>
+                    </div>
+                </div>
+                {% if config.enabled %}
+                <span class="tech-badge tech-badge-success">
+                    <i class="fas fa-check-circle mr-1"></i> 啟用
+                </span>
+                {% else %}
+                <span class="tech-badge tech-badge-gray">
+                    <i class="fas fa-times-circle mr-1"></i> 停用
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="text-sm text-gray-600 leading-relaxed">
+                {{ config.description if config.description else '未提供描述' }}
+            </div>
+
+            <div class="flex items-center justify-between pt-4 border-t border-dashed border-gray-200">
+                <div class="text-xs text-gray-500 flex items-center gap-2">
+                    <i class="fas fa-clock text-gray-400"></i>
+                    <span>更新於 {{ config.updated_at.strftime('%Y-%m-%d %H:%M') if config.updated_at else '未知' }}</span>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <a href="{{ url_for('views.config_view', config_id=config.config_id) }}"
+                       class="text-indigo-600 hover:text-indigo-900 transition-colors"
+                       title="檢視">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    {% if current_user.is_admin() and not config.is_system %}
+                        <a href="{{ url_for('views.config_edit', config_id=config.config_id) }}"
+                           class="text-blue-600 hover:text-blue-900 transition-colors"
+                           title="編輯">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('views.config_delete', config_id=config.config_id) }}"
+                              class="inline"
+                              onsubmit="return confirm('確定要刪除此設定嗎？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-red-600 hover:text-red-900 transition-colors" title="刪除">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    {% elif config.is_system %}
+                        <span class="text-xs text-gray-400">系統內建</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="tech-card overflow-hidden">
+        <div class="px-6 py-16">
+            <div class="tech-empty-state">
+                <i class="fas fa-cog"></i>
+                <p>暫無設定資料</p>
+                {% if current_user.is_admin() %}
+                <a href="{{ url_for('views.config_create') }}" class="tech-button-outline mt-4 inline-flex items-center gap-2">
+                    <i class="fas fa-plus"></i>
+                    <span>建立第一個設定</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}使用者管理{% endblock %}
+{% block page_title %}使用者管理{% endblock %}
+
+{% block content %}
+<div class="sm:flex sm:items-center parallax-layer parallax-layer2">
+    <div class="sm:flex-auto">
+        <p class="mt-2 text-sm text-gray-600">管理系統使用者帳戶與權限</p>
+    </div>
+    <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+        <a href="{{ url_for('views.user_create') }}"
+           class="tech-button inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3.5 text-base font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300">
+            <i class="fas fa-plus"></i>
+            <span>建立使用者</span>
+        </a>
+    </div>
+</div>
+
+<!-- 篩選條件 -->
+<div class="mt-6 flex items-center space-x-4 parallax-layer parallax-layer2">
+    <div class="tech-card-sm inline-flex items-center px-4 py-2.5 gap-3">
+        <input type="checkbox" id="include_inactive" {% if include_inactive %}checked{% endif %}
+               onchange="window.location.href='{{ url_for('views.users_list') }}?include_inactive=' + this.checked"
+               class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 transition-all">
+        <label for="include_inactive" class="text-sm font-medium text-gray-700 cursor-pointer select-none">顯示已停用的使用者</label>
+    </div>
+</div>
+
+<!-- 使用者列表 -->
+<div class="mt-8 parallax-layer parallax-layer2">
+    {% if users %}
+    <div class="tech-grid tech-grid-responsive">
+        {% for user in users %}
+        <div class="tech-card h-full p-6 flex flex-col gap-4 {% if not user.is_active %}opacity-75{% endif %}">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <p class="text-lg font-semibold text-gray-900">{{ user.username }}</p>
+                        {% if user.username == current_user.username %}
+                        <span class="tech-badge tech-badge-info text-xs">您</span>
+                        {% endif %}
+                    </div>
+                    <p class="mt-2 text-sm text-gray-600 flex items-center gap-1.5">
+                        <i class="fas fa-envelope text-gray-400 text-xs"></i>
+                        <span>{{ user.email }}</span>
+                    </p>
+                </div>
+                <div class="flex flex-col items-end gap-2 text-sm">
+                    {% if user.is_admin() %}
+                    <span class="tech-badge tech-badge-warning">
+                        <i class="fas fa-crown mr-1"></i> 管理員
+                    </span>
+                    {% else %}
+                    <span class="tech-badge tech-badge-gray">
+                        <i class="fas fa-user mr-1"></i> 一般使用者
+                    </span>
+                    {% endif %}
+
+                    {% if user.is_active %}
+                    <span class="tech-badge tech-badge-success">
+                        <i class="fas fa-check-circle mr-1"></i> 啟用
+                    </span>
+                    {% else %}
+                    <span class="tech-badge tech-badge-danger">
+                        <i class="fas fa-ban mr-1"></i> 停用
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-600">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-400">最後登入</p>
+                    <p class="mt-1 font-medium text-gray-900">
+                        {{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else '從未登入' }}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-400">建立時間</p>
+                    <p class="mt-1 font-medium text-gray-900">
+                        {{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-4 border-t border-dashed border-gray-200">
+                <div class="text-xs text-gray-500 flex items-center gap-2">
+                    <i class="fas fa-id-card text-gray-400"></i>
+                    <span>{{ '帳號狀態良好' if user.is_active else '此帳號已被停用' }}</span>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <a href="{{ url_for('views.user_view', username=user.username) }}"
+                       class="text-indigo-600 hover:text-indigo-900 transition-colors"
+                       title="檢視">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    {% if user.username != current_user.username %}
+                    <a href="{{ url_for('views.user_edit', username=user.username) }}"
+                       class="text-blue-600 hover:text-blue-900 transition-colors"
+                       title="編輯">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <button onclick="resetPassword('{{ user.username }}')"
+                            class="text-yellow-600 hover:text-yellow-900 transition-colors"
+                            title="重設密碼">
+                        <i class="fas fa-key"></i>
+                    </button>
+                    <form method="POST" action="{{ url_for('views.user_delete', username=user.username) }}"
+                          class="inline"
+                          onsubmit="return confirm('確定要停用此使用者嗎？');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="text-red-600 hover:text-red-900 transition-colors" title="停用">
+                            <i class="fas fa-ban"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="tech-card overflow-hidden">
+        <div class="px-6 py-16">
+            <div class="tech-empty-state">
+                <i class="fas fa-users"></i>
+                <p>暫無使用者</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function resetPassword(username) {
+    if (!confirm(`確定要重設使用者 ${username} 的密碼嗎？`)) {
+        return;
+    }
+
+    try {
+        const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = tokenMeta ? tokenMeta.getAttribute('content') : '';
+
+        const response = await fetch(`/users/${username}/reset-password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': csrfToken
+            }
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            alert(`密碼重設成功\n\n臨時密碼: ${data.temp_password}\n\n請將此密碼告知使用者，並請其盡快更新。`);
+        } else {
+            alert('密碼重設失敗\n\n' + data.message);
+        }
+    } catch (error) {
+        alert('密碼重設失敗\n\n' + error.message);
+    }
+}
+</script>
+{% endblock %}

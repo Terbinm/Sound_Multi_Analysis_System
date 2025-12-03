@@ -1,0 +1,736 @@
+/**
+ * Parallax Tech Theme - 視差科技風格樣式
+ * 特色：點狀網格背景、懸停上浮發光效果、大量留白
+ */
+
+/* ==================== 1. 全局變數定義 ==================== */
+:root {
+  /* 配色方案 */
+  --bg-primary: #f4f4f4;
+  --bg-card: #ffffff;
+  --bg-sidebar: #1f2937;
+  --color-brand: #6366f1;
+  --color-brand-light: #818cf8;
+  --color-brand-dark: #4f46e5;
+
+  /* 點狀網格 */
+  --dot-color: #d0d0d0;
+  --dot-size: 1px;
+  --dot-spacing: 24px;
+
+  /* 陰影與發光 */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.15);
+  --glow-brand: 0 0 20px rgba(99, 102, 241, 0.3);
+  --glow-brand-strong: 0 0 30px rgba(99, 102, 241, 0.5);
+
+  /* 動畫參數 */
+  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 間距 */
+  --spacing-xs: 8px;
+  --spacing-sm: 16px;
+  --spacing-md: 24px;
+  --spacing-lg: 32px;
+  --spacing-xl: 48px;
+  --spacing-2xl: 64px;
+}
+
+/* ==================== 2. 點狀網格背景 ==================== */
+.dot-grid-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-primary);
+  background-image: radial-gradient(circle, var(--dot-color) var(--dot-size), transparent var(--dot-size));
+  background-size: var(--dot-spacing) var(--dot-spacing);
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* 漸層覆蓋層（增加深度感） */
+.gradient-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.05) 0%, transparent 50%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ==================== 3. 視差容器 ==================== */
+.parallax-container {
+  position: relative;
+}
+
+.parallax-layer {
+  transition: transform var(--transition-fast);
+  will-change: transform;
+  position: relative;
+  transform: translate3d(var(--parallax-x, 0px), var(--parallax-y, 0px), 0);
+}
+
+.parallax-layer-1 {
+  /* 背景層 - 最小位移 */
+}
+
+.parallax-layer-2 {
+  /* 內容層 - 中等位移 */
+}
+
+.parallax-layer-3 {
+  /* 前景層 - 最大位移 */
+}
+
+/* ==================== 4. 卡片美化 ==================== */
+.tech-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+  position: relative;
+  z-index: 1;
+}
+
+.tech-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.03) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+  pointer-events: none;
+  z-index: -1;
+  border-radius: inherit;
+}
+
+.tech-card:hover {
+  transform: translate3d(var(--parallax-x, 0px), calc(var(--parallax-y, 0px) - 8px), 0);
+  box-shadow: var(--shadow-xl);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+.tech-card:hover::before {
+  opacity: 1;
+}
+
+/* 小型卡片（統計卡片等） */
+.tech-card-sm {
+  background: var(--bg-card);
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+  position: relative;
+  z-index: 1;
+}
+
+.tech-card-sm:hover {
+  transform: translate3d(var(--parallax-x, 0px), calc(var(--parallax-y, 0px) - 4px), 0);
+  box-shadow: var(--shadow-lg);
+  border-color: rgba(99, 102, 241, 0.15);
+}
+
+/* ==================== 5. 按鈕美化 ==================== */
+.tech-button {
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-base);
+}
+
+.tech-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.tech-button:active {
+  transform: translateY(0);
+}
+
+/* 按鈕波紋效果容器 */
+.tech-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.tech-button:active::after {
+  width: 300px;
+  height: 300px;
+}
+
+.tech-button-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.5rem;
+  border-radius: 12px;
+  border: 1.5px solid rgba(99, 102, 241, 0.5);
+  color: var(--color-brand);
+  background: rgba(99, 102, 241, 0.05);
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all var(--transition-base);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.tech-button-outline:hover {
+  background: rgba(99, 102, 241, 0.15);
+  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.2);
+  transform: translateY(-1px);
+}
+
+.tech-button-outline:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+/* ==================== 6. 表格美化 ==================== */
+.tech-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--bg-card);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.tech-table thead {
+  background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f5 100%);
+}
+
+.tech-table tbody tr {
+  transition: all var(--transition-fast);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.tech-table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.04);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+}
+
+/* ==================== 7. 表單輸入框美化 ==================== */
+.tech-input {
+  transition: all var(--transition-base);
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
+  background: var(--bg-card);
+}
+
+.tech-input:focus {
+  outline: none;
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), var(--glow-brand);
+  transform: translateY(-1px);
+}
+
+.tech-input:hover:not(:focus) {
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+/* 浮動標籤效果 */
+.tech-input-group {
+  position: relative;
+}
+
+.tech-input-group label {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bg-card);
+  padding: 0 4px;
+  color: #6b7280;
+  transition: all var(--transition-base);
+  pointer-events: none;
+}
+
+.tech-input-group input:focus ~ label,
+.tech-input-group input:not(:placeholder-shown) ~ label {
+  top: 0;
+  font-size: 0.75rem;
+  color: var(--color-brand);
+}
+
+/* ==================== 8. 徽章與標籤美化 ==================== */
+.tech-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all var(--transition-base);
+}
+
+.tech-badge:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
+}
+
+.tech-badge-success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid rgba(22, 101, 52, 0.2);
+}
+
+.tech-badge-info {
+  background: #e0f2fe;
+  color: #075985;
+  border: 1px solid rgba(7, 89, 133, 0.2);
+}
+
+.tech-badge-warning {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+.tech-badge-danger {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.tech-badge-gray {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid rgba(55, 65, 81, 0.15);
+}
+
+/* 程式碼標籤 */
+.tech-code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Menlo, monospace;
+  background: #f8fafc;
+  color: #0f172a;
+  border-radius: 6px;
+  padding: 0.125rem 0.45rem;
+  font-size: 0.85em;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.tech-code-block {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 14px;
+  padding: var(--spacing-md);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.875rem;
+  overflow: auto;
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+/* 脈動動畫（在線狀態等） */
+.tech-badge-pulse {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+  }
+}
+
+/* ==================== 9. 懸停發光效果組件 ==================== */
+.glow-on-hover {
+  position: relative;
+  transition: all var(--transition-base);
+}
+
+.glow-on-hover::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--color-brand), var(--color-brand-light));
+  opacity: 0;
+  z-index: -1;
+  filter: blur(10px);
+  transition: opacity var(--transition-base);
+}
+
+.glow-on-hover:hover::before {
+  opacity: 0.6;
+}
+
+/* ==================== 10. 側邊欄美化 ==================== */
+.tech-sidebar {
+  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+}
+
+.tech-sidebar-item {
+  position: relative;
+  transition: all var(--transition-base);
+  border-radius: 8px;
+  margin: 4px 8px;
+}
+
+.tech-sidebar-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background: var(--color-brand);
+  border-radius: 0 3px 3px 0;
+  transition: height var(--transition-base);
+}
+
+.tech-sidebar-item:hover {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.tech-sidebar-item:hover::before {
+  height: 60%;
+}
+
+.tech-sidebar-item.active {
+  background: rgba(99, 102, 241, 0.15);
+}
+
+.tech-sidebar-item.active::before {
+  height: 80%;
+}
+
+/* ==================== 11. 載入動畫 ==================== */
+.tech-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(99, 102, 241, 0.2);
+  border-top-color: var(--color-brand);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 載入發光效果 */
+.tech-spinner-glow {
+  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
+}
+
+/* Shimmer 骨架屏動畫 */
+.tech-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ==================== 12. 進度條美化 ==================== */
+.tech-progress {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.tech-progress-bar {
+  background: linear-gradient(90deg, var(--color-brand-dark), var(--color-brand-light));
+  border-radius: 9999px;
+  transition: width var(--transition-slow);
+  position: relative;
+  overflow: hidden;
+}
+
+.tech-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: progress-shine 2s infinite;
+}
+
+@keyframes progress-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ==================== 13. Toast 通知樣式 ==================== */
+.tech-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 300px;
+  max-width: 500px;
+  z-index: 9999;
+  animation: toast-slide-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.tech-toast.toast-exit {
+  animation: toast-slide-out 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes toast-slide-out {
+  to {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+}
+
+/* ==================== 14. 空狀態設計 ==================== */
+.tech-empty-state {
+  text-align: center;
+  padding: var(--spacing-2xl) var(--spacing-md);
+  color: #6b7280;
+}
+
+.tech-empty-state-icon {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto var(--spacing-md);
+  opacity: 0.4;
+  filter: grayscale(1);
+  transition: all var(--transition-base);
+}
+
+.tech-empty-state:hover .tech-empty-state-icon {
+  opacity: 0.7;
+  filter: grayscale(0);
+  transform: scale(1.05);
+}
+
+/* ==================== 15. 分隔線美化 ==================== */
+.tech-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.1), transparent);
+  margin: var(--spacing-md) 0;
+}
+
+/* ==================== 16. 圖標動畫 ==================== */
+.tech-icon-float {
+  animation: icon-float 3s ease-in-out infinite;
+}
+
+@keyframes icon-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.tech-icon-rotate {
+  transition: transform var(--transition-base);
+}
+
+.tech-icon-rotate:hover {
+  transform: rotate(180deg);
+}
+
+.tech-icon-pulse {
+  animation: icon-pulse 2s ease-in-out infinite;
+}
+
+@keyframes icon-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+/* ==================== 17. 數字計數動畫 ==================== */
+.tech-counter {
+  font-variant-numeric: tabular-nums;
+  transition: transform var(--transition-base);
+}
+
+.tech-counter.updating {
+  animation: counter-update 0.3s ease-in-out;
+}
+
+@keyframes counter-update {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); color: var(--color-brand); }
+}
+
+/* ==================== 18. 麵包屑導航美化 ==================== */
+.tech-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.tech-breadcrumb a {
+  transition: color var(--transition-fast);
+}
+
+.tech-breadcrumb a:hover {
+  color: var(--color-brand);
+}
+
+.tech-breadcrumb-separator {
+  opacity: 0.5;
+}
+
+/* ==================== 19. 網格佈局優化 ==================== */
+.tech-grid {
+  display: grid;
+  gap: var(--spacing-md);
+}
+
+.tech-grid-responsive {
+  grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+}
+
+/* ==================== 20. 響應式調整 ==================== */
+@media (max-width: 768px) {
+  :root {
+    --dot-spacing: 20px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+  }
+
+  /* 平板與手機停用視差位移，但保留進場動畫 */
+  .parallax-layer {
+    --parallax-x: 0px;
+    --parallax-y: 0px;
+  }
+
+  .tech-card:hover,
+  .tech-card-sm:hover {
+    transform: translateY(-4px);
+  }
+
+  .tech-toast {
+    left: 20px;
+    right: 20px;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .tech-card:hover,
+  .tech-card-sm:hover {
+    transform: none;
+  }
+
+  .tech-button:hover {
+    transform: none;
+  }
+}
+
+/* ==================== 24. 進場與運動輔助 ==================== */
+.tech-animate-ready {
+  opacity: 0;
+  transform: translate3d(var(--parallax-x, 0px), calc(var(--parallax-y, 0px) + 16px), 0);
+}
+
+.tech-animate-in {
+  opacity: 1;
+  transform: translate3d(var(--parallax-x, 0px), var(--parallax-y, 0px), 0);
+  transition: opacity 0.45s ease-out, transform 0.45s ease-out, box-shadow var(--transition-base), border-color var(--transition-base);
+}
+
+/* ==================== 21. 可訪問性增強 ==================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 焦點可見性 */
+.tech-button:focus-visible,
+.tech-input:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* ==================== 22. 玻璃擬態效果 ==================== */
+.tech-glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  z-index: 1;
+}
+
+.tech-glass-dark {
+  background: rgba(31, 41, 55, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  z-index: 1;
+}
+
+/* ==================== 23. 滾動條美化 ==================== */
+.tech-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tech-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.tech-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 4px;
+  transition: background var(--transition-fast);
+}
+
+.tech-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
+}

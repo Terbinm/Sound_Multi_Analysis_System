@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+{% from "macros/json_display.html" import json_viewer, json_table, status_badge %}
+
+{% block title %}監控 - {{ rule.rule_name }}{% endblock %}
+
+{% block page_title %}Router 監控儀表板{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        @apply bg-gradient-to-br from-white to-gray-50 rounded-xl p-6 shadow-lg border border-gray-100;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    .stat-value {
+        @apply text-4xl font-bold mb-2;
+    }
+
+    .stat-label {
+        @apply text-sm text-gray-500 uppercase tracking-wide;
+    }
+
+    .progress-ring {
+        transform: rotate(-90deg);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6 parallax-container" x-data="routerStats()" x-on:stats-updated.window="applyStats($event.detail)">
+
+    {# 頁首資訊 #}
+    <div class="tech-card parallax-layer parallax-layer1">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="h-16 w-16 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-chart-line text-white text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">{{ rule.rule_name }}</h1>
+                        <p class="text-gray-600 mt-1">Router ID: <code class="tech-code">{{ router_id }}</code></p>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <a href="{{ url_for('views.routing_view', rule_id=rule.rule_id) }}"
+                       class="tech-button-outline">
+                        <i class="fas fa-eye mr-2"></i>查看規則
+                    </a>
+                    <a href="{{ url_for('views.routing_list') }}"
+                       class="tech-button-outline">
+                        <i class="fas fa-arrow-left mr-2"></i>返回列表
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {% if rule.description %}
+        <div class="px-6 py-4 bg-gray-50">
+            <p class="text-gray-700">{{ rule.description }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    {# 統計卡片 #}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 parallax-layer parallax-layer2">
+        {# 總處理數 #}
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="stat-value text-blue-600" x-text="stats.total"></div>
+                    <div class="stat-label">總處理數</div>
+                </div>
+                <div class="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+                    <i class="fas fa-tasks text-blue-600 text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        {# 成功率 #}
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="stat-value text-green-600" x-text="successRate"></div>
+                    <div class="stat-label">成功率</div>
+                </div>
+                <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+                    <i class="fas fa-check-circle text-green-600 text-2xl"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-sm text-gray-600">
+                成功: <span x-text="stats.success_count"></span> / 失敗: <span x-text="stats.failed_count"></span>
+            </div>
+        </div>
+
+        {# 待處理 #}
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="stat-value text-orange-600" x-text="stats.pending_count"></div>
+                    <div class="stat-label">待處理</div>
+                </div>
+                <div class="h-16 w-16 rounded-full bg-orange-100 flex items-center justify-center">
+                    <i class="fas fa-clock text-orange-600 text-2xl"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-sm text-gray-600">
+                處理中: <span x-text="stats.processing_count"></span>
+            </div>
+        </div>
+
+        {# 平均處理時間 #}
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="stat-value text-purple-600" x-text="avgProcessingTime"></div>
+                    <div class="stat-label">平均處理時間</div>
+                </div>
+                <div class="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center">
+                    <i class="fas fa-stopwatch text-purple-600 text-2xl"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-sm text-gray-600">
+                最後執行: <span x-text="lastExecutionText"></span>
+            </div>
+        </div>
+    </div>
+
+    {# 狀態分布 #}
+    <div class="tech-card parallax-layer parallax-layer3">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-indigo-100 to-blue-100 flex items-center justify-center">
+                    <i class="fas fa-chart-pie text-indigo-600"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900">狀態分布</h3>
+            </div>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div class="text-3xl font-bold text-green-600" x-text="stats.status_counts.completed"></div>
+                    <div class="text-sm text-green-700 mt-1">已完成</div>
+                </div>
+                <div class="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div class="text-3xl font-bold text-orange-600" x-text="stats.status_counts.pending"></div>
+                    <div class="text-sm text-orange-700 mt-1">待處理</div>
+                </div>
+                <div class="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="text-3xl font-bold text-blue-600" x-text="stats.status_counts.processing"></div>
+                    <div class="text-sm text-blue-700 mt-1">處理中</div>
+                </div>
+                <div class="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div class="text-3xl font-bold text-red-600" x-text="stats.status_counts.failed"></div>
+                    <div class="text-sm text-red-700 mt-1">失敗</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# 最近執行記錄 #}
+    <div class="tech-card parallax-layer parallax-layer4" x-data="taskMonitor()">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-green-100 to-teal-100 flex items-center justify-center">
+                        <i class="fas fa-list text-green-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">最近執行記錄</h3>
+                </div>
+                <button @click="refreshTasks()"
+                        class="tech-button-outline"
+                        :disabled="loading">
+                    <i class="fas fa-sync-alt mr-2" :class="{ 'fa-spin': loading }"></i>
+                    重新整理
+                </button>
+            </div>
+        </div>
+
+        <div class="px-6 py-6">
+            <div x-show="loading" class="text-center py-12">
+                <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-3"></i>
+                <p class="text-gray-500">載入中...</p>
+            </div>
+
+            <div x-show="!loading && tasks.length === 0" class="tech-empty-state py-12">
+                <i class="fas fa-inbox"></i>
+                <p>暫無執行記錄</p>
+            </div>
+
+            <div x-show="!loading && tasks.length > 0" class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Task ID</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Analyze UUID</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">分析方法</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">狀態</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">創建時間</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">處理時間</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <template x-for="task in tasks" :key="task.task_id">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm font-mono text-gray-900" x-text="task.task_id.substring(0, 8) + '...'"></td>
+                                <td class="px-4 py-3 text-sm font-mono text-gray-700" x-text="task.analyze_uuid.substring(0, 12) + '...'"></td>
+                                <td class="px-4 py-3 text-sm text-gray-700" x-text="task.analysis_method_id"></td>
+                                <td class="px-4 py-3 text-sm">
+                                    <span class="tech-badge"
+                                          :class="{
+                                              'tech-badge-success': task.status === 'completed',
+                                              'tech-badge-warning': task.status === 'pending',
+                                              'tech-badge-info': task.status === 'processing',
+                                              'tech-badge-danger': task.status === 'failed'
+                                          }"
+                                          x-text="task.status"></span>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-gray-600" x-text="formatDateTime(task.created_at)"></td>
+                                <td class="px-4 py-3 text-sm text-gray-600" x-text="getProcessingTime(task)"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            {# 分頁控制 #}
+            <div x-show="!loading && tasks.length > 0" class="mt-6 flex items-center justify-between">
+                <div class="text-sm text-gray-600">
+                    顯示 <span x-text="(currentPage - 1) * pageSize + 1"></span>
+                    到 <span x-text="Math.min(currentPage * pageSize, totalTasks)"></span>
+                    筆，共 <span x-text="totalTasks"></span> 筆
+                </div>
+                <div class="flex gap-2">
+                    <button @click="prevPage()"
+                            :disabled="currentPage === 1"
+                            class="tech-button-outline"
+                            :class="{ 'opacity-50 cursor-not-allowed': currentPage === 1 }">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button @click="nextPage()"
+                            :disabled="currentPage * pageSize >= totalTasks"
+                            class="tech-button-outline"
+                            :class="{ 'opacity-50 cursor-not-allowed': currentPage * pageSize >= totalTasks }">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function taskMonitor() {
+    return {
+        tasks: [],
+        loading: false,
+        currentPage: 1,
+        pageSize: 50,
+        totalTasks: 0,
+        socket: null,
+
+        init() {
+            this.refreshTasks();
+            this.refreshStats();
+            this.setupSocket();
+            // 每 30 秒自動重新整理（備援）
+            setInterval(() => {
+                this.refreshTasks();
+                this.refreshStats();
+            }, 30000);
+        },
+
+        setupSocket() {
+            if (!window.io) {
+                console.warn('Socket.IO 尚未載入，跳過即時更新');
+                return;
+            }
+            this.socket = io();
+            const room = 'rule_{{ rule.rule_id }}';
+            this.socket.emit('subscribe', {room});
+
+            const taskHandler = (payload) => {
+                if (payload?.rule_id !== '{{ rule.rule_id }}') return;
+                this.refreshTasks();
+                this.refreshStats();
+            };
+
+            this.socket.on('task.created', taskHandler);
+            this.socket.on('task.status_changed', taskHandler);
+            this.socket.on('rule.stats_updated', (payload) => {
+                if (payload?.rule_id !== '{{ rule.rule_id }}') return;
+                window.dispatchEvent(new CustomEvent('stats-updated', {detail: payload.statistics || payload}));
+            });
+        },
+
+        async refreshTasks() {
+            this.loading = true;
+            try {
+                const skip = (this.currentPage - 1) * this.pageSize;
+                const response = await fetch(`/api/routing/{{ router_id }}/monitor?limit=${this.pageSize}&skip=${skip}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    this.tasks = data.data.recent_tasks;
+                    this.totalTasks = data.data.statistics.total;
+                } else {
+                    console.error('載入任務失敗:', data.error);
+                }
+            } catch (error) {
+                console.error('載入任務失敗:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async refreshStats() {
+            try {
+                const response = await fetch(`/api/routing/{{ router_id }}/stats`);
+                const data = await response.json();
+                if (data.success) {
+                    window.dispatchEvent(new CustomEvent('stats-updated', {detail: data.data.statistics}));
+                }
+            } catch (error) {
+                console.error('載入統計失敗:', error);
+            }
+        },
+
+        formatDateTime(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleString('zh-TW', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        },
+
+        getProcessingTime(task) {
+            if (task.status !== 'completed' && task.status !== 'failed') {
+                return '-';
+            }
+            if (!task.started_at || !task.completed_at) {
+                return '-';
+            }
+            const start = new Date(task.started_at);
+            const end = new Date(task.completed_at);
+            const diff = (end - start) / 1000; // 轉換為秒
+            return `${diff.toFixed(2)}s`;
+        },
+
+        prevPage() {
+            if (this.currentPage > 1) {
+                this.currentPage--;
+                this.refreshTasks();
+            }
+        },
+
+        nextPage() {
+            if (this.currentPage * this.pageSize < this.totalTasks) {
+                this.currentPage++;
+                this.refreshTasks();
+            }
+        }
+    };
+}
+
+function routerStats(initialStats) {
+    return {
+        stats: initialStats || {
+            total: 0,
+            success_rate: 0,
+            success_count: 0,
+            failed_count: 0,
+            pending_count: 0,
+            processing_count: 0,
+            avg_processing_time: null,
+            last_execution: null,
+            status_counts: {completed: 0, pending: 0, processing: 0, failed: 0}
+        },
+
+        get successRate() {
+            return `${(this.stats.success_rate || 0).toFixed(1)}%`;
+        },
+
+        get avgProcessingTime() {
+            if (!this.stats.avg_processing_time) return '-';
+            return `${Number(this.stats.avg_processing_time).toFixed(2)}s`;
+        },
+
+        get lastExecutionText() {
+            if (!this.stats.last_execution) return '-';
+            const date = new Date(this.stats.last_execution);
+            return date.toLocaleString('zh-TW', {month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'});
+        },
+
+        applyStats(newStats) {
+            if (!newStats) return;
+            this.stats = {...this.stats, ...newStats};
+        }
+    };
+}
+</script>
+{% endblock %}

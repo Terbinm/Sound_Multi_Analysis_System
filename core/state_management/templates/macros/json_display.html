@@ -1,0 +1,266 @@
+{# JSON 資料展示組件 - 可重用的 Jinja2 Macros #}
+
+{#
+    完整的 JSON Viewer - 帶標題與折疊功能
+
+    參數：
+    - data: 要顯示的資料（dict 或 list）
+    - title: 卡片標題
+    - collapsible: 是否可折疊
+    - default_collapsed: 預設是否折疊
+    - icon: 圖示類別（預設 fa-code）
+#}
+{% macro json_viewer(data, title="JSON 資料", collapsible=false, default_collapsed=false, icon="fa-code") %}
+<div class="tech-card parallax-layer parallax-layer2"
+     {% if collapsible %}x-data="{ isOpen: {{ 'false' if default_collapsed else 'true' }} }"{% endif %}>
+    <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
+                    <i class="fas {{ icon }} text-purple-600"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900">{{ title }}</h3>
+            </div>
+            {% if collapsible %}
+            <button @click="isOpen = !isOpen"
+                    class="text-gray-500 hover:text-gray-700 transition-colors">
+                <i class="fas fa-chevron-down transition-transform duration-200"
+                   :class="{ 'rotate-180': isOpen }"></i>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    <div class="px-6 py-6" {% if collapsible %}x-show="isOpen" x-transition{% endif %}>
+        {% if data %}
+        <pre class="tech-code-block"><code>{{ data | tojson(indent=2) }}</code></pre>
+        {% else %}
+        <div class="tech-empty-state py-8">
+            <i class="fas {{ icon }} text-4xl mb-3"></i>
+            <p>暫無資料</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
+
+
+{#
+    簡化版 JSON Code Block - 僅顯示程式碼區塊
+
+    參數：
+    - data: 要顯示的資料
+    - empty_message: 無資料時的訊息
+#}
+{% macro json_code(data, empty_message="暫無資料") %}
+{% if data %}
+<pre class="tech-code-block"><code>{{ data | tojson(indent=2) }}</code></pre>
+{% else %}
+<div class="tech-empty-state py-8">
+    <i class="fas fa-code text-4xl mb-3"></i>
+    <p>{{ empty_message }}</p>
+</div>
+{% endif %}
+{% endmacro %}
+
+
+{#
+    表格式 JSON 顯示 - 適合物件陣列
+
+    參數：
+    - records: 記錄陣列
+    - columns: 欄位列表（字串陣列）
+    - show_index: 是否顯示序號
+    - collapsible_rows: 是否每行可折疊查看完整資料
+#}
+{% macro json_table(records, columns=[], show_index=true, collapsible_rows=false) %}
+<div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                {% if show_index %}
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    #
+                </th>
+                {% endif %}
+                {% for col in columns %}
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {{ col }}
+                </th>
+                {% endfor %}
+                {% if collapsible_rows %}
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    操作
+                </th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% if records %}
+                {% for record in records %}
+                <tr class="hover:bg-gray-50 transition-colors"
+                    {% if collapsible_rows %}x-data="{ expanded: false }"{% endif %}>
+                    {% if show_index %}
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
+                        {{ loop.index }}
+                    </td>
+                    {% endif %}
+
+                    {% if record is mapping %}
+                        {% for col in columns %}
+                        <td class="px-4 py-3 text-sm text-gray-700">
+                            {% set value = record.get(col.lower(), record.get(col, '-')) %}
+                            {% if value is mapping or (value is sequence and value is not string) %}
+                                <code class="tech-code text-xs">{{ value | tojson }}</code>
+                            {% else %}
+                                <span class="truncate max-w-xs inline-block" title="{{ value }}">
+                                    {{ value }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+
+                        {% if collapsible_rows %}
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">
+                            <button @click="expanded = !expanded"
+                                    class="text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-chevron-down transition-transform duration-200"
+                                   :class="{ 'rotate-180': expanded }"></i>
+                            </button>
+                        </td>
+                        {% endif %}
+                    {% endif %}
+                </tr>
+                {% if collapsible_rows %}
+                <tr x-show="expanded" x-transition class="bg-gray-50">
+                    <td colspan="{{ (columns | length) + (2 if show_index else 1) }}" class="px-4 py-4">
+                        <pre class="tech-code-block text-xs"><code>{{ record | tojson(indent=2) }}</code></pre>
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="{{ (columns | length) + (2 if collapsible_rows else 0) + (1 if show_index else 0) }}"
+                        class="px-4 py-8 text-center text-gray-500">
+                        <i class="fas fa-inbox text-4xl mb-3 block"></i>
+                        <p>暫無資料</p>
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
+
+
+{#
+    樹狀 JSON 顯示 - 可折疊的巢狀結構
+
+    參數：
+    - data: 要顯示的資料
+    - key: 當前鍵名（內部使用）
+    - level: 層級（內部使用）
+#}
+{% macro json_tree(data, key=none, level=0) %}
+{% if data is mapping %}
+    <div class="ml-{{ level * 4 }}" x-data="{ open: {{ 'true' if level < 2 else 'false' }} }">
+        {% if key %}
+        <div class="flex items-center gap-2 py-1 cursor-pointer hover:bg-gray-50" @click="open = !open">
+            <i class="fas fa-chevron-right text-xs text-gray-400 transition-transform duration-200"
+               :class="{ 'rotate-90': open }"></i>
+            <span class="font-medium text-blue-600">{{ key }}</span>
+            <span class="text-gray-400 text-sm">{...}</span>
+        </div>
+        {% endif %}
+        <div x-show="open" x-transition class="ml-4 border-l-2 border-gray-200 pl-3">
+            {% for k, v in data.items() %}
+                {{ json_tree(v, k, level + 1) }}
+            {% endfor %}
+        </div>
+    </div>
+{% elif data is sequence and data is not string %}
+    <div class="ml-{{ level * 4 }}" x-data="{ open: {{ 'true' if level < 2 else 'false' }} }">
+        {% if key %}
+        <div class="flex items-center gap-2 py-1 cursor-pointer hover:bg-gray-50" @click="open = !open">
+            <i class="fas fa-chevron-right text-xs text-gray-400 transition-transform duration-200"
+               :class="{ 'rotate-90': open }"></i>
+            <span class="font-medium text-blue-600">{{ key }}</span>
+            <span class="text-gray-400 text-sm">[{{ data | length }}]</span>
+        </div>
+        {% endif %}
+        <div x-show="open" x-transition class="ml-4 border-l-2 border-gray-200 pl-3">
+            {% for item in data %}
+                {{ json_tree(item, loop.index0, level + 1) }}
+            {% endfor %}
+        </div>
+    </div>
+{% else %}
+    <div class="ml-{{ level * 4 }} py-1 flex items-center gap-2">
+        {% if key %}
+        <span class="font-medium text-purple-600">{{ key }}:</span>
+        {% endif %}
+        <span class="text-gray-700">
+            {% if data is string %}
+                "{{ data }}"
+            {% else %}
+                {{ data }}
+            {% endif %}
+        </span>
+    </div>
+{% endif %}
+{% endmacro %}
+
+
+{#
+    資料統計卡片
+
+    參數：
+    - stats: 統計資料字典
+    - title: 標題
+    - icon: 圖示
+#}
+{% macro stats_card(stats, title="統計資訊", icon="fa-chart-bar") %}
+<div class="tech-card parallax-layer parallax-layer2">
+    <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+        <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
+                <i class="fas {{ icon }} text-blue-600"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900">{{ title }}</h3>
+        </div>
+    </div>
+    <div class="px-6 py-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {% for key, value in stats.items() %}
+            <div class="text-center p-4 bg-gray-50 rounded-lg">
+                <div class="text-2xl font-bold text-gray-900">{{ value }}</div>
+                <div class="text-sm text-gray-500 mt-1">{{ key }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+
+{#
+    Badge 標籤 - 根據狀態顯示不同顏色
+
+    參數：
+    - text: 顯示文字
+    - type: 類型（success, warning, danger, info, gray）
+#}
+{% macro status_badge(text, type="info") %}
+{% set badge_class = {
+    'success': 'tech-badge-success',
+    'warning': 'tech-badge-warning',
+    'danger': 'tech-badge-danger',
+    'info': 'tech-badge-info',
+    'gray': 'tech-badge-gray',
+    'pending': 'tech-badge-warning',
+    'completed': 'tech-badge-success',
+    'failed': 'tech-badge-danger',
+    'processing': 'tech-badge-info'
+}[type] or 'tech-badge-info' %}
+<span class="tech-badge {{ badge_class }}">{{ text }}</span>
+{% endmacro %}

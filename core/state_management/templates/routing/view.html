@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}規則詳情{% endblock %}
+{% block page_title %}路由規則詳情{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl space-y-6">
+    <!-- 操作按鈕 -->
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3 parallax-layer parallax-layer2">
+        <div class="flex items-center gap-2">
+            {% if current_user.is_admin() %}
+            <button type="button"
+                    onclick="toggleRule('{{ rule.rule_id }}')"
+                    class="tech-button inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300 {% if rule.enabled %}bg-gradient-to-r from-red-600 to-red-700{% else %}bg-gradient-to-r from-green-600 to-green-700{% endif %}">
+                <i class="fas {% if rule.enabled %}fa-stop-circle{% else %}fa-play-circle{% endif %}"></i>
+                <span>{% if rule.enabled %}停用規則{% else %}啟用規則{% endif %}</span>
+            </button>
+            <a href="{{ url_for('views.routing_edit', rule_id=rule.rule_id) }}"
+               class="tech-button inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3.5 text-base font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300">
+                <i class="fas fa-edit"></i>
+                <span>編輯規則</span>
+            </a>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('views.routing_list') }}"
+           class="tech-button-outline inline-flex items-center gap-2 rounded-xl transition-all duration-300">
+            <i class="fas fa-arrow-left"></i>
+            <span>返回列表</span>
+        </a>
+    </div>
+
+    <!-- 運作說明 -->
+    <div class="tech-card-sm parallax-layer parallax-layer2 border-l-4 border-amber-500">
+        <div class="p-5">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0">
+                    <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-md">
+                        <i class="fas fa-route text-white"></i>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <p class="font-semibold text-gray-900 mb-3">規則運作方式</p>
+                    <ul class="space-y-2 text-sm text-gray-700">
+                        <li class="flex items-start gap-2">
+                            <i class="fas fa-check-circle text-amber-500 mt-0.5 flex-shrink-0"></i>
+                            <span>調度器會依優先級從高到低檢查條件，命中後依序執行下方的每個 action。</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="fas fa-check-circle text-amber-500 mt-0.5 flex-shrink-0"></i>
+                            <span>任務優先級會依據此值決定，數字愈大愈先處理；請為重要規則設定較高值。</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="fas fa-check-circle text-amber-500 mt-0.5 flex-shrink-0"></i>
+                            <span>如需快速驗證條件，使用 <code class="tech-code">POST /api/routing/test</code> 搭配實際 <code class="tech-code">info_features</code>。</span>
+                        </li>
+                    </ul>
+                    <p class="mt-3 text-xs text-gray-500 flex items-center gap-1.5">
+                        <i class="fas fa-book-open"></i>
+                        <span>更多細節：<code class="tech-code text-xs">docs/設定規則說明.html</code>。</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 基本資訊 -->
+    <div class="tech-card parallax-layer parallax-layer2">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                    <i class="fas fa-info-circle text-amber-600"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900">基本資訊</h3>
+            </div>
+        </div>
+        <div class="px-6 py-6">
+            <dl class="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+                <div class="group">
+                    <dt class="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                        <i class="fas fa-fingerprint text-gray-400 text-xs"></i>
+                        規則 ID
+                    </dt>
+                    <dd class="text-sm">
+                        <code class="tech-code">{{ rule.rule_id }}</code>
+                    </dd>
+                </div>
+                <div class="group">
+                    <dt class="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                        <i class="fas fa-tag text-gray-400 text-xs"></i>
+                        規則名稱
+                    </dt>
+                    <dd class="text-sm font-semibold text-gray-900">{{ rule.rule_name }}</dd>
+                </div>
+                <div class="group">
+                    <dt class="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                        <i class="fas fa-star text-gray-400 text-xs"></i>
+                        優先級
+                    </dt>
+                    <dd class="text-sm">
+                        <span class="tech-badge tech-badge-info">
+                            <i class="fas fa-star mr-1"></i> {{ rule.priority }}
+                        </span>
+                    </dd>
+                </div>
+                <div class="group">
+                    <dt class="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                        <i class="fas fa-toggle-on text-gray-400 text-xs"></i>
+                        狀態
+                    </dt>
+                    <dd class="text-sm">
+                        {% if rule.enabled %}
+                        <span class="tech-badge tech-badge-success">
+                            <i class="fas fa-check-circle mr-1"></i> 啟用
+                        </span>
+                        {% else %}
+                        <span class="tech-badge tech-badge-gray">
+                            <i class="fas fa-times-circle mr-1"></i> 停用
+                        </span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div class="sm:col-span-2 group">
+                    <dt class="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                        <i class="fas fa-align-left text-gray-400 text-xs"></i>
+                        描述
+                    </dt>
+                    <dd class="text-sm text-gray-700">{{ rule.description if rule.description else '-' }}</dd>
+                </div>
+                <div class="group">
+                    <dt class="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                        <i class="fas fa-calendar-plus text-gray-400 text-xs"></i>
+                        建立時間
+                    </dt>
+                    <dd class="text-sm text-gray-700">
+                        {{ rule.created_at.strftime('%Y-%m-%d %H:%M:%S') if rule.created_at else '-' }}
+                    </dd>
+                </div>
+                <div class="group">
+                    <dt class="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                        <i class="fas fa-calendar-check text-gray-400 text-xs"></i>
+                        更新時間
+                    </dt>
+                    <dd class="text-sm text-gray-700">
+                        {{ rule.updated_at.strftime('%Y-%m-%d %H:%M:%S') if rule.updated_at else '-' }}
+                    </dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+
+    <!-- 規則狀態概覽 -->
+    {% if stats %}
+    <div class="tech-card parallax-layer parallax-layer2">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
+                        <i class="fas fa-chart-bar text-blue-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">規則狀態概覽</h3>
+                </div>
+                <p class="text-xs text-gray-500">更新時間：{{ stats.generated_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+            </div>
+        </div>
+        <div class="px-6 py-6 grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <div class="tech-card-sm p-4 border-l-4 border-gray-400">
+                <p class="text-xs text-gray-500 mb-2 flex items-center gap-1.5">
+                    <i class="fas fa-database text-xs"></i>
+                    <span>符合條件的資料</span>
+                </p>
+                <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
+            </div>
+            <div class="tech-card-sm p-4 border-l-4 border-amber-400">
+                <p class="text-xs text-gray-500 mb-2 flex items-center gap-1.5">
+                    <i class="fas fa-clock text-xs"></i>
+                    <span>待分析</span>
+                </p>
+                <p class="text-2xl font-bold text-amber-600">
+                    {{ stats.status_counts.get('pending', 0) }}
+                </p>
+            </div>
+            <div class="tech-card-sm p-4 border-l-4 border-blue-400">
+                <p class="text-xs text-gray-500 mb-2 flex items-center gap-1.5">
+                    <i class="fas fa-sync text-xs"></i>
+                    <span>分析中</span>
+                </p>
+                {% set processing_total = stats.status_counts.get('processing', 0) + stats.status_counts.get('running', 0) + stats.status_counts.get('sliced', 0) + stats.status_counts.get('features_extracted', 0) %}
+                <p class="text-2xl font-bold text-blue-600">
+                    {{ processing_total }}
+                </p>
+            </div>
+            <div class="tech-card-sm p-4 border-l-4 border-green-400">
+                <p class="text-xs text-gray-500 mb-2 flex items-center gap-1.5">
+                    <i class="fas fa-check text-xs"></i>
+                    <span>分析完成</span>
+                </p>
+                <p class="text-2xl font-bold text-green-600">
+                    {{ stats.status_counts.get('completed', 0) }}
+                </p>
+            </div>
+            <div class="tech-card-sm p-4 border-l-4 border-red-400">
+                <p class="text-xs text-gray-500 mb-2 flex items-center gap-1.5">
+                    <i class="fas fa-exclamation-triangle text-xs"></i>
+                    <span>發生錯誤</span>
+                </p>
+                <p class="text-2xl font-bold text-red-600">
+                    {{ stats.status_counts.get('error', 0) }}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 匹配條件 -->
+    <div class="tech-card parallax-layer parallax-layer2">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
+                    <i class="fas fa-filter text-purple-600"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900">匹配條件</h3>
+            </div>
+        </div>
+        <div class="px-6 py-6">
+            <pre class="tech-code-block"><code>{{ rule.conditions | tojson(indent=2) }}</code></pre>
+        </div>
+    </div>
+
+    <!-- 操作設定 -->
+    <div class="tech-card parallax-layer parallax-layer2">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center">
+                    <i class="fas fa-tasks text-green-600"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900">操作設定</h3>
+            </div>
+        </div>
+        <div class="px-6 py-6">
+            {% if rule.actions %}
+            <div class="space-y-4">
+                {% for action in rule.actions %}
+                <div class="tech-card-sm border border-gray-200 p-5 hover:border-indigo-300 hover:shadow-md transition-all duration-200">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                            {{ loop.index }}
+                        </div>
+                        <h4 class="text-sm font-semibold text-gray-900">操作 #{{ loop.index }}</h4>
+                    </div>
+                    <dl class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-3">
+                        <div>
+                            <dt class="text-xs font-medium text-gray-500 mb-1">分析方法 ID</dt>
+                            <dd class="text-sm">
+                                <code class="tech-code text-xs">{{ action.analysis_method_id }}</code>
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-medium text-gray-500 mb-1">設定 ID</dt>
+                            <dd class="text-sm">
+                                <code class="tech-code text-xs">{{ action.config_id }}</code>
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-medium text-gray-500 mb-1">MongoDB 實例</dt>
+                            <dd class="text-sm">
+                                <code class="tech-code text-xs">{{ action.mongodb_instance }}</code>
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="tech-empty-state py-8">
+                <i class="fas fa-tasks"></i>
+                <p>暫無操作設定</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function toggleRule(ruleId) {
+    try {
+        const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = tokenMeta ? tokenMeta.getAttribute('content') : '';
+
+        const response = await fetch(`/routing/${ruleId}/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': csrfToken
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            window.location.reload();
+        } else {
+            if (window.showToast) {
+                window.showToast(data.message || '切換狀態失敗', 'error');
+            } else {
+                alert(data.message || '切換狀態失敗');
+            }
+        }
+    } catch (error) {
+        if (window.showToast) {
+            window.showToast('切換狀態失敗：' + error.message, 'error');
+        } else {
+            alert('切換狀態失敗：' + error.message);
+        }
+    }
+}
+</script>
+{% endblock %}

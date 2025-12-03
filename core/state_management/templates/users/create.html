@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}建立使用者{% endblock %}
+{% block page_title %}建立新使用者{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+    <form method="POST" class="space-y-6">
+        {{ form.hidden_tag() }}
+
+        <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
+            <div class="px-4 py-6 sm:p-8">
+                <div class="grid grid-cols-1 gap-x-6 gap-y-8">
+                    <!-- 使用者名稱 -->
+                    <div>
+                        <label for="username" class="block text-sm font-medium leading-6 text-gray-900">
+                            使用者名稱 <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-2">
+                            {{ form.username(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6", placeholder="請輸入使用者名稱", autocomplete="off") }}
+                            {% if form.username.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.username.errors[0] }}</p>
+                            {% endif %}
+                            <p class="mt-2 text-sm text-gray-500">使用者名稱長度應在 3-50 個字元之間</p>
+                        </div>
+                    </div>
+
+                    <!-- 電子郵件 -->
+                    <div>
+                        <label for="email" class="block text-sm font-medium leading-6 text-gray-900">
+                            電子郵件 <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-2">
+                            {{ form.email(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6", placeholder="user@example.com", autocomplete="email") }}
+                            {% if form.email.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.email.errors[0] }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- 密碼 -->
+                    <div>
+                        <label for="password" class="block text-sm font-medium leading-6 text-gray-900">
+                            密碼 <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-2">
+                            {{ form.password(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6", autocomplete="new-password") }}
+                            {% if form.password.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.password.errors[0] }}</p>
+                            {% endif %}
+                            <p class="mt-2 text-sm text-gray-500">密碼長度至少需 6 個字元</p>
+                        </div>
+                    </div>
+
+                    <!-- 確認密碼 -->
+                    <div>
+                        <label for="password_confirm" class="block text-sm font-medium leading-6 text-gray-900">
+                            確認密碼 <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-2">
+                            {{ form.password_confirm(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6", autocomplete="new-password") }}
+                            {% if form.password_confirm.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.password_confirm.errors[0] }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- 角色 -->
+                    <div>
+                        <label for="role" class="block text-sm font-medium leading-6 text-gray-900">
+                            角色 <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-2">
+                            {{ form.role(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6") }}
+                            {% if form.role.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.role.errors[0] }}</p>
+                            {% endif %}
+                            <p class="mt-2 text-sm text-gray-500">
+                                <span class="font-medium">管理員</span>: 擁有所有權限<br>
+                                <span class="font-medium">一般使用者</span>: 唯讀權限
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作按鈕 -->
+            <div class="flex items-center justify-end gap-x-6 border-t border-gray-900/10 px-4 py-4 sm:px-8">
+                <a href="{{ url_for('views.users_list') }}" class="text-sm font-semibold leading-6 text-gray-900">
+                    取消
+                </a>
+                <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                    <i class="fas fa-user-plus mr-1"></i> 建立使用者
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

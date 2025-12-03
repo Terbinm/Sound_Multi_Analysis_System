@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% from "macros/json_display.html" import json_viewer %}
+{% block title %}資料詳情{% endblock %}
+{% block page_title %}資料詳情{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="tech-card">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">AnalyzeUUID</h3>
+                <p class="text-sm text-gray-600 mt-1 font-mono">{{ record.AnalyzeUUID }}</p>
+            </div>
+            <a href="{{ url_for('views.data_list') }}" class="tech-button-outline">
+                <i class="fas fa-arrow-left mr-2"></i>返回列表
+            </a>
+        </div>
+        <div class="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <dt class="text-xs font-semibold text-gray-500 uppercase">檔名</dt>
+                <dd class="text-sm text-gray-800">{{ record.get('files', {}).get('raw', {}).get('filename') or '-' }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-semibold text-gray-500 uppercase">Dataset</dt>
+                <dd class="text-sm text-gray-800">{{ record.get('info_features', {}).get('dataset_UUID') or '-' }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-semibold text-gray-500 uppercase">上傳時間</dt>
+                <dd class="text-sm text-gray-800">{{ record.get('info_features', {}).get('upload_time') or record.get('created_at') }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-semibold text-gray-500 uppercase">Run 次數</dt>
+                <dd class="text-sm text-gray-800">{{ runs|length }}</dd>
+            </div>
+        </div>
+    </div>
+
+    <!-- Run 列表 -->
+    <div class="space-y-4">
+        {% for run in runs %}
+        <div class="tech-card">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between">
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-900">Run {{ loop.index }} - {{ run.analysis_id }}</h4>
+                    <p class="text-xs text-gray-500 mt-1">
+                        Router: {{ run.router_id or '-' }} · Rule: {{ run.routing_rule_id or '-' }} · Config: {{ run.analysis_config_id or '-' }}
+                    </p>
+                </div>
+                <span class="tech-badge
+                    {% if run.status == 'completed' %} tech-badge-success
+                    {% elif run.status == 'processing' %} tech-badge-info
+                    {% elif run.status == 'failed' %} tech-badge-danger
+                    {% else %} tech-badge-warning {% endif %}">
+                    {{ run.status }}
+                </span>
+            </div>
+            <div class="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <div class="text-xs text-gray-500 uppercase font-semibold">節點</div>
+                    <div class="text-sm text-gray-800">{{ run.node_id or '-' }}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 uppercase font-semibold">分析方法</div>
+                    <div class="text-sm text-gray-800">{{ run.analysis_method_id or '-' }}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 uppercase font-semibold">開始</div>
+                    <div class="text-sm text-gray-800">{{ run.started_at or '-' }}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 uppercase font-semibold">完成</div>
+                    <div class="text-sm text-gray-800">{{ run.completed_at or '-' }}</div>
+                </div>
+                {% if run.analysis_summary %}
+                <div class="md:col-span-2">
+                    <div class="text-xs text-gray-500 uppercase font-semibold mb-1">摘要</div>
+                    <div class="text-sm text-gray-800 flex gap-3 flex-wrap">
+                        {% for key, val in run.analysis_summary.items() %}
+                        <span class="tech-badge tech-badge-secondary">{{ key }}: {{ val }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="px-6 pb-4">
+                <h5 class="text-sm font-semibold text-gray-700 mb-2">步驟</h5>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {% for step in run.steps %}
+                    <div class="p-4 rounded-lg border border-gray-100 bg-white shadow-sm">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-semibold text-gray-900">{{ step.name or step.features_name }}</span>
+                            <span class="tech-badge {% if step.features_state=='completed' %}tech-badge-success{% elif step.features_state=='processing' %}tech-badge-info{% elif step.features_state=='failed' or step.features_state=='error' %}tech-badge-danger{% else %}tech-badge-warning{% endif %}">
+                                {{ step.features_state or 'unknown' }}
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-500 space-y-1">
+                            {% if step.started_at %}<div>開始：{{ step.started_at }}</div>{% endif %}
+                            {% if step.completed_at %}<div>完成：{{ step.completed_at }}</div>{% endif %}
+                            {% if step.processor_metadata %}
+                            <div>處理資訊：{{ step.processor_metadata|default({}, true) }}</div>
+                            {% endif %}
+                            {% if step.features_data %}
+                            <div>資料筆數：{{ step.features_data|length }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="px-6 pb-4">
+                <details class="tech-accordion">
+                    <summary class="tech-accordion-summary">查看分析上下文與原始步驟</summary>
+                    <div class="mt-3 space-y-3">
+                        {{ json_viewer(run.analysis_context, 'analysis_context', collapsed=true) }}
+                        {{ json_viewer(run.steps, 'steps_raw', collapsed=true) }}
+                    </div>
+                </details>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="tech-card">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <h4 class="text-lg font-semibold text-gray-900">任務執行紀錄</h4>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Task ID</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Router</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rule</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Config</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">狀態</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">節點</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">建立/完成</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for log in logs %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm font-mono">{{ log.task_id or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">{{ log.router_id or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">{{ log.rule_id or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">{{ log.config_id or '-' }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="tech-badge {% if log.status=='completed' %}tech-badge-success{% elif log.status=='processing' %}tech-badge-info{% elif log.status=='failed' %}tech-badge-danger{% else %}tech-badge-warning{% endif %}">
+                                {{ log.status }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-700">{{ log.node_id or '-' }}</td>
+                        <td class="px-4 py-3 text-xs text-gray-600">
+                            <div>建立：{{ log.created_at }}</div>
+                            <div>完成：{{ log.completed_at or '-' }}</div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">尚無任務紀錄</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="tech-card">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                <h4 class="text-lg font-semibold text-gray-900">info_features</h4>
+            </div>
+            <div class="px-6 py-4">
+                {{ json_viewer(record.get('info_features', {}) or {}, 'info_features', collapsed=false) }}
+            </div>
+        </div>
+        <div class="tech-card">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                <h4 class="text-lg font-semibold text-gray-900">analyze_features</h4>
+            </div>
+            <div class="px-6 py-4">
+                {{ json_viewer(record.get('analyze_features', {}) or {}, 'analyze_features', collapsed=false) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

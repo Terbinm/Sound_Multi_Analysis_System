@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}節點詳情{% endblock %}
+{% block page_title %}節點詳情{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl">
+    <!-- 操作按鈕 -->
+    <div class="mb-6 flex justify-end gap-2">
+        {% if current_user.is_admin() %}
+        <form method="POST" action="{{ url_for('views.node_delete', node_id=node.node_id) }}"
+              class="inline"
+              onsubmit="return confirm('確定要註銷此節點嗎？');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit"
+                    class="inline-flex items-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500">
+                <i class="fas fa-trash mr-2"></i> 註銷節點
+            </button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('views.nodes_list') }}"
+           class="inline-flex items-center rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500">
+            <i class="fas fa-arrow-left mr-2"></i> 返回列表
+        </a>
+    </div>
+
+    <!-- 狀態指示 -->
+    <div class="mb-6">
+        {% if node.is_online() %}
+        <div class="rounded-md bg-green-50 p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-check-circle text-green-400 text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-green-800">節點在線</h3>
+                    <p class="mt-2 text-sm text-green-700">
+                        此節點正在運行中，最後心跳時間: {{ node.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S') if node.last_heartbeat else 'N/A' }}
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="rounded-md bg-red-50 p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-circle text-red-400 text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">節點離線</h3>
+                    <p class="mt-2 text-sm text-red-700">
+                        此節點已離線，最後心跳時間: {{ node.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S') if node.last_heartbeat else 'N/A' }}
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 基本資訊 -->
+    <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl mb-6">
+        <div class="px-6 py-5 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">基本資訊</h3>
+        </div>
+        <div class="px-6 py-4">
+            <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">節點 ID</dt>
+                    <dd class="mt-1 text-sm text-gray-900 font-semibold">{{ node.node_id }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">版本</dt>
+                    <dd class="mt-1 text-sm text-gray-900">
+                        <code class="bg-gray-100 px-2 py-1 rounded">{{ node.version if node.version else 'N/A' }}</code>
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">目前任務數</dt>
+                    <dd class="mt-1 text-sm text-gray-900">
+                        <span class="text-lg font-semibold">{{ node.current_tasks }}</span>
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">最大並行任務數</dt>
+                    <dd class="mt-1 text-sm text-gray-900">
+                        <span class="text-lg font-semibold">{{ node.max_concurrent_tasks }}</span>
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">任務負載率</dt>
+                    <dd class="mt-1 text-sm text-gray-900">
+                        {% set load_percent = (node.current_tasks / node.max_concurrent_tasks * 100) if node.max_concurrent_tasks > 0 else 0 %}
+                        <div class="flex items-center">
+                            <div class="flex-1 bg-gray-200 rounded-full h-2 mr-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: {{ load_percent }}%"></div>
+                            </div>
+                            <span class="text-sm font-medium">{{ "%.1f"|format(load_percent) }}%</span>
+                        </div>
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">狀態</dt>
+                    <dd class="mt-1 text-sm text-gray-900">
+                        {% if node.is_online() %}
+                        <span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                            <i class="fas fa-circle mr-1 text-xs"></i> 在線
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+                            <i class="fas fa-circle mr-1 text-xs"></i> 離線
+                        </span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">註冊時間</dt>
+                    <dd class="mt-1 text-sm text-gray-900">
+                        {{ node.created_at.strftime('%Y-%m-%d %H:%M:%S') if node.created_at else '-' }}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">最後心跳</dt>
+                    <dd class="mt-1 text-sm text-gray-900">
+                        {{ node.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S') if node.last_heartbeat else '-' }}
+                    </dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+
+    <!-- 能力列表 -->
+    <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl mb-6">
+        <div class="px-6 py-5 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">
+                <i class="fas fa-microchip mr-2 text-gray-400"></i>
+                支援的分析方法
+            </h3>
+        </div>
+        <div class="px-6 py-4">
+            {% if node.capabilities %}
+            <div class="flex flex-wrap gap-2">
+                {% for capability in node.capabilities %}
+                <span class="inline-flex items-center rounded-md bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                    <i class="fas fa-check mr-2"></i>
+                    {{ capability }}
+                </span>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-500">暫無能力資訊</p>
+            {% endif %}
+        </div>
+    </div>
+    <!-- 標籤 -->
+    {% if node.tags %}
+    <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
+        <div class="px-6 py-5 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">
+                <i class="fas fa-tags mr-2 text-gray-400"></i>
+                標籤
+            </h3>
+        </div>
+        <div class="px-6 py-4">
+            <div class="flex flex-wrap gap-2">
+                {% for tag in node.tags %}
+                <span class="inline-flex items-center rounded-md bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-600/20">
+                    {{ tag }}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 節點詳情實時更新
+document.addEventListener('DOMContentLoaded', function() {
+    const nodeId = '{{ node.node_id }}';
+
+    // 訂閱節點房間
+    wsClient.subscribe('nodes');
+
+    // 監聽節點心跳事件
+    wsClient.on('node.heartbeat', function(data) {
+        if (data.node_id === nodeId) {
+            console.log('[節點詳情] 收到心跳更新:', data);
+            updateNodeDetails(data);
+        }
+    });
+
+    // 監聽節點離線事件
+    wsClient.on('node.offline', function(data) {
+        if (data.node_id === nodeId) {
+            console.log('[節點詳情] 節點離線:', data);
+            // 重新載入頁面以更新狀態
+            location.reload();
+        }
+    });
+
+    // 監聽節點上線事件
+    wsClient.on('node.online', function(data) {
+        if (data.node_id === nodeId) {
+            console.log('[節點詳情] 節點上線:', data);
+            // 重新載入頁面以更新狀態
+            location.reload();
+        }
+    });
+
+    /**
+     * 更新節點詳情
+     */
+    function updateNodeDetails(data) {
+        // 更新目前任務數
+        if (data.current_tasks !== undefined) {
+            const currentTasksEl = document.querySelector('.text-lg.font-semibold');
+            if (currentTasksEl) {
+                animateNumber(currentTasksEl, parseInt(currentTasksEl.textContent) || 0, data.current_tasks);
+            }
+        }
+
+        // 更新任務負載率
+        if (data.load_ratio !== undefined && data.max_concurrent_tasks) {
+            const loadPercent = data.load_ratio;
+            const progressBar = document.querySelector('.bg-blue-600');
+            const progressText = document.querySelector('.flex.items-center .text-sm.font-medium');
+
+            if (progressBar) {
+                progressBar.style.width = loadPercent + '%';
+            }
+            if (progressText) {
+                progressText.textContent = loadPercent.toFixed(1) + '%';
+            }
+        }
+
+        // 更新最後心跳時間
+        if (data.timestamp) {
+            const heartbeatElements = document.querySelectorAll('dd.mt-1.text-sm.text-gray-900');
+            heartbeatElements.forEach(function(el) {
+                const dt = el.previousElementSibling;
+                if (dt && dt.textContent.includes('最後心跳')) {
+                    const time = new Date(data.timestamp).toLocaleString('zh-TW', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                    el.textContent = time;
+                }
+            });
+
+            // 更新狀態橫幅中的最後心跳時間
+            const statusBanner = document.querySelector('.bg-green-50 .text-sm.text-green-700');
+            if (statusBanner) {
+                const time = new Date(data.timestamp).toLocaleString('zh-TW', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                statusBanner.textContent = `此節點正在運行中，最後心跳時間: ${time}`;
+            }
+        }
+
+        // 添加閃爍效果
+        const mainCard = document.querySelector('.max-w-4xl');
+        if (mainCard) {
+            mainCard.classList.add('bg-green-50');
+            setTimeout(function() {
+                mainCard.classList.remove('bg-green-50');
+            }, 500);
+        }
+    }
+
+    /**
+     * 數字動畫效果
+     */
+    function animateNumber(element, from, to) {
+        if (from === to) return;
+
+        const duration = 500;
+        const steps = 20;
+        const stepValue = (to - from) / steps;
+        const stepDuration = duration / steps;
+        let currentStep = 0;
+
+        const interval = setInterval(function() {
+            currentStep++;
+            const value = Math.round(from + (stepValue * currentStep));
+            element.textContent = value;
+
+            if (currentStep >= steps) {
+                clearInterval(interval);
+                element.textContent = to;
+            }
+        }, stepDuration);
+    }
+});
+</script>
+{% endblock %}

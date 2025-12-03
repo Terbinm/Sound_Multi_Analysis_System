@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}{% if mode == 'create' %}建立規則{% else %}編輯規則{% endif %}{% endblock %}
+{% block page_title %}{% if mode == 'create' %}建立路由規則{% else %}編輯路由規則{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl space-y-4">
+    <div class="rounded-lg border border-amber-100 bg-amber-50/80 p-4 text-sm text-amber-900">
+        <p class="font-semibold">編寫規則小抄</p>
+        <ul class="mt-2 list-disc space-y-1 pl-5">
+            <li><span class="font-semibold">conditions</span> 可混用單值、陣列或 <code class="bg-white/70 px-1.5 py-0.5 rounded">$gte/$in</code> 等運算子，比對對象為資料紀錄的 <code>info_features</code>。</li>
+            <li>每個 <span class="font-semibold">action</span> 至少要包含 <code class="bg-white/70 px-1.5 py-0.5 rounded">analysis_method_id</code> 與 <code class="bg-white/70 px-1.5 py-0.5 rounded">config_id</code>，可視需要指定 <code class="bg-white/70 px-1.5 py-0.5 rounded">mongodb_instance</code>。</li>
+            <li>儲存後建議用 <code>POST /api/routing/test</code> 搭配範例 <code>info_features</code> 驗證規則是否命中。</li>
+        </ul>
+        <p class="mt-2 text-xs text-amber-800">延伸閱讀：<code>docs/設定規則說明.html</code>。</p>
+    </div>
+    <form method="POST" class="space-y-6">
+        {{ form.hidden_tag() }}
+
+        <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
+            <div class="px-4 py-6 sm:p-8">
+                <div class="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
+                    <!-- 規則名稱 -->
+                    <div class="sm:col-span-4">
+                        <label for="rule_name" class="block text-sm font-medium leading-6 text-gray-900">
+                            規則名稱 <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-2">
+                            {{ form.rule_name(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6") }}
+                            {% if form.rule_name.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.rule_name.errors[0] }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- 優先級 -->
+                    <div class="sm:col-span-2">
+                        <label for="priority" class="block text-sm font-medium leading-6 text-gray-900">
+                            優先級 <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-2">
+                            {{ form.priority(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6") }}
+                            {% if form.priority.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.priority.errors[0] }}</p>
+                            {% endif %}
+                            <p class="mt-2 text-sm text-gray-500">數字越大優先級越高</p>
+                        </div>
+                    </div>
+
+                    <!-- 描述 -->
+                    <div class="col-span-full">
+                        <label for="description" class="block text-sm font-medium leading-6 text-gray-900">
+                            描述
+                        </label>
+                        <div class="mt-2">
+                            {{ form.description(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6", rows=3) }}
+                            {% if form.description.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.description.errors[0] }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- 匹配條件 JSON -->
+                    <div class="col-span-full">
+                        <label for="conditions" class="block text-sm font-medium leading-6 text-gray-900">
+                            匹配條件（JSON 格式）<span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-2">
+                            {{ form.conditions(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 font-mono") }}
+                            {% if form.conditions.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.conditions.errors[0] }}</p>
+                            {% endif %}
+                            <p class="mt-2 text-sm text-gray-500">
+                                範例: {"machine_type": "pump", "location": "factory_A"}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 操作 JSON -->
+                    <div class="col-span-full">
+                        <label for="actions" class="block text-sm font-medium leading-6 text-gray-900">
+                            操作設定（JSON 格式）<span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-2">
+                            {{ form.actions(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 font-mono") }}
+                            {% if form.actions.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.actions.errors[0] }}</p>
+                            {% endif %}
+                            <p class="mt-2 text-sm text-gray-500">
+                                範例: [{"analysis_method_id": "method_001", "config_id": "config_uuid", "mongodb_instance": "instance_uuid"}]
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 啟用狀態 -->
+                    <div class="sm:col-span-4">
+                        <div class="flex items-center">
+                            {{ form.enabled(class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600") }}
+                            <label for="enabled" class="ml-2 block text-sm text-gray-900">
+                                啟用此規則
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作按鈕 -->
+            <div class="flex items-center justify-end gap-x-6 border-t border-gray-900/10 px-4 py-4 sm:px-8">
+                <a href="{{ url_for('views.routing_list') }}" class="text-sm font-semibold leading-6 text-gray-900">
+                    取消
+                </a>
+                <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                    <i class="fas fa-save mr-1"></i> 儲存
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

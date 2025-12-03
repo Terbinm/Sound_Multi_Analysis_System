@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}路由規則{% endblock %}
+{% block page_title %}路由規則管理{% endblock %}
+
+{% block content %}
+<div class="sm:flex sm:items-center parallax-layer parallax-layer2">
+    <div class="sm:flex-auto">
+        <p class="mt-2 text-sm text-gray-600">管理資料路由規則，依條件分派資料到不同分析設定</p>
+    </div>
+    <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none flex gap-3">
+        {% if current_user.is_admin() %}
+        <a href="{{ url_for('views.routing_wizard') }}"
+           class="tech-button inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3.5 text-base font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300">
+            <i class="fas fa-magic"></i>
+            <span>建立規則（嚮導）</span>
+        </a>
+        <a href="{{ url_for('views.routing_create') }}"
+           class="tech-button-outline inline-flex items-center gap-2 px-4 py-2 text-sm">
+            <i class="fas fa-cog"></i>
+            <span>進階模式</span>
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 操作指引 -->
+<div class="mt-6 tech-card-sm parallax-layer parallax-layer2 border-l-4 border-amber-500">
+    <div class="p-5">
+        <div class="flex items-start gap-3">
+            <div class="flex-shrink-0">
+                <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-md">
+                    <i class="fas fa-route text-white"></i>
+                </div>
+            </div>
+            <div class="flex-1">
+                <p class="font-semibold text-gray-900 mb-3">建立路由規則提示</p>
+                <ul class="space-y-2 text-sm text-gray-700">
+                    <li class="flex items-start gap-2">
+                        <i class="fas fa-check-circle text-amber-500 mt-0.5 flex-shrink-0"></i>
+                        <span><span class="font-semibold">優先級</span> 數字愈大愈先匹配，也會影響後續任務處理的優先順序。</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fas fa-check-circle text-amber-500 mt-0.5 flex-shrink-0"></i>
+                        <span><span class="font-semibold">conditions</span> 可以使用 <code class="tech-code">$in</code>、<code class="tech-code">$gte</code> 等運算子比對 <code class="tech-code">info_features</code> 或巢狀欄位（例如 <code class="tech-code">mimii_metadata.machine_type</code>）。</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fas fa-check-circle text-amber-500 mt-0.5 flex-shrink-0"></i>
+                        <span><span class="font-semibold">actions</span> 需要同時指定 <code class="tech-code">analysis_method_id</code> 與 <code class="tech-code">config_id</code>；可額外指定 <code class="tech-code">mongodb_instance</code> 以切換分析節點使用的資料庫。</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fas fa-check-circle text-amber-500 mt-0.5 flex-shrink-0"></i>
+                        <span>建立/修改後建議呼叫 <code class="tech-code">POST /api/routing/test</code> 驗證條件，避免誤派任務。</span>
+                    </li>
+                </ul>
+                <p class="mt-3 text-xs text-gray-500 flex items-center gap-1.5">
+                    <i class="fas fa-book-open"></i>
+                    <span>詳見 <code class="tech-code text-xs">docs/設定規則說明.html</code>「路由規則」章節。</span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 篩選條件 -->
+<div class="mt-6 flex items-center space-x-4 parallax-layer parallax-layer2">
+    <div class="tech-card-sm inline-flex items-center px-4 py-2.5 gap-3">
+        <input type="checkbox" id="enabled_only" {% if enabled_only %}checked{% endif %}
+               onchange="window.location.href='{{ url_for('views.routing_list') }}?enabled_only=' + this.checked"
+               class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 transition-all">
+        <label for="enabled_only" class="text-sm font-medium text-gray-700 cursor-pointer select-none">僅顯示啟用的規則</label>
+    </div>
+</div>
+
+<!-- 規則列表 -->
+<div class="mt-8 parallax-layer parallax-layer2">
+    {% if rules %}
+    <div class="tech-grid tech-grid-responsive">
+        {% for rule in rules %}
+        <div class="tech-card h-full p-6 flex flex-col gap-4">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-lg font-semibold text-gray-900">{{ rule.rule_name }}</p>
+                    <p class="mt-2 text-sm text-gray-500">
+                        {{ rule.description if rule.description else '未提供描述' }}
+                    </p>
+                </div>
+                <div class="flex flex-col items-end gap-2">
+                    <span class="tech-badge tech-badge-info">
+                        <i class="fas fa-star mr-1"></i> 優先級 {{ rule.priority }}
+                    </span>
+                    {% if rule.enabled %}
+                    <span class="tech-badge tech-badge-success">
+                        <i class="fas fa-check-circle mr-1"></i> 啟用
+                    </span>
+                    {% else %}
+                    <span class="tech-badge tech-badge-gray">
+                        <i class="fas fa-times-circle mr-1"></i> 停用
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-600">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-tasks text-gray-400 text-xs"></i>
+                    <span>{{ rule.actions|length if rule.actions else 0 }} 個操作</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-clock text-gray-400 text-xs"></i>
+                    <span>更新於 {{ rule.updated_at.strftime('%Y-%m-%d %H:%M') if rule.updated_at else '未知' }}</span>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-4 border-t border-dashed border-gray-200">
+                <div class="text-xs text-gray-500 flex items-center gap-2">
+                    <i class="fas fa-route text-gray-400"></i>
+                    <span>Rule ID：{{ rule.rule_id }}</span>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <a href="{{ url_for('views.routing_view', rule_id=rule.rule_id) }}"
+                       class="text-indigo-600 hover:text-indigo-900 transition-colors"
+                       title="檢視">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    {% if current_user.is_admin() %}
+                    <a href="{{ url_for('views.routing_edit', rule_id=rule.rule_id) }}"
+                       class="text-blue-600 hover:text-blue-900 transition-colors"
+                       title="編輯">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <form method="POST" action="{{ url_for('views.routing_delete', rule_id=rule.rule_id) }}"
+                          class="inline"
+                          onsubmit="return confirm('確定要刪除此規則嗎？');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="text-red-600 hover:text-red-900 transition-colors" title="刪除">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="tech-card overflow-hidden">
+        <div class="px-6 py-16">
+            <div class="tech-empty-state">
+                <i class="fas fa-route"></i>
+                <p>暫無路由規則</p>
+                {% if current_user.is_admin() %}
+                <a href="{{ url_for('views.routing_wizard') }}" class="tech-button mt-4 inline-flex items-center gap-2">
+                    <i class="fas fa-magic"></i>
+                    <span>使用嚮導建立第一個規則</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

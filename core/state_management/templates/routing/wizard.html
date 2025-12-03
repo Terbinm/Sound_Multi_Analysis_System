@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+{% from "macros/json_display.html" import json_table, status_badge %}
+
+{% block title %}建立路由規則{% endblock %}
+
+{% block page_title %}建立路由規則嚮導{% endblock %}
+
+{% block extra_css %}
+<style>
+    .wizard-step {
+        @apply hidden;
+    }
+
+    .wizard-step.active {
+        @apply block;
+    }
+
+    .step-indicator {
+        @apply flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-white text-gray-500 font-semibold transition-all;
+    }
+
+    .step-indicator.active {
+        @apply border-blue-500 bg-blue-500 text-white;
+    }
+
+    .step-indicator.completed {
+        @apply border-green-500 bg-green-500 text-white;
+    }
+
+    .step-connector {
+        @apply flex-1 h-0.5 bg-gray-300 mx-2;
+    }
+
+    .step-connector.completed {
+        @apply bg-green-500;
+    }
+
+    .json-editor {
+        @apply font-mono text-sm;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto parallax-container" x-data="routingWizard()">
+
+    {# 步驟指示器 #}
+    <div class="tech-card parallax-layer parallax-layer1 mb-6">
+        <div class="px-6 py-6">
+            <div class="flex items-center justify-between">
+                {# 步驟 1 #}
+                <div class="flex flex-col items-center">
+                    <div class="step-indicator" :class="{
+                        'active': currentStep === 1,
+                        'completed': currentStep > 1
+                    }">
+                        <span x-show="currentStep <= 1">1</span>
+                        <i class="fas fa-check" x-show="currentStep > 1"></i>
+                    </div>
+                    <span class="text-sm mt-2 font-medium" :class="currentStep === 1 ? 'text-blue-600' : 'text-gray-600'">
+                        基礎配置
+                    </span>
+                </div>
+
+                <div class="step-connector" :class="{ 'completed': currentStep > 1 }"></div>
+
+                {# 步驟 2 #}
+                <div class="flex flex-col items-center" x-show="formData.backfill_enabled">
+                    <div class="step-indicator" :class="{
+                        'active': currentStep === 2,
+                        'completed': currentStep > 2
+                    }">
+                        <span x-show="currentStep <= 2">2</span>
+                        <i class="fas fa-check" x-show="currentStep > 2"></i>
+                    </div>
+                    <span class="text-sm mt-2 font-medium" :class="currentStep === 2 ? 'text-blue-600' : 'text-gray-600'">
+                        追溯確認
+                    </span>
+                </div>
+
+                <div class="step-connector" :class="{ 'completed': currentStep > 2 }" x-show="formData.backfill_enabled"></div>
+
+                {# 步驟 3 #}
+                <div class="flex flex-col items-center">
+                    <div class="step-indicator" :class="{
+                        'active': currentStep === 3,
+                        'completed': currentStep > 3
+                    }">
+                        <span x-show="currentStep <= 3">3</span>
+                        <i class="fas fa-check" x-show="currentStep > 3"></i>
+                    </div>
+                    <span class="text-sm mt-2 font-medium" :class="currentStep === 3 ? 'text-blue-600' : 'text-gray-600'">
+                        完成
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# 步驟 1: 基礎配置 #}
+    <div class="wizard-step" :class="{ 'active': currentStep === 1 }">
+        <div class="tech-card parallax-layer parallax-layer2">
+            <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                <h3 class="text-lg font-semibold text-gray-900">步驟 1：基礎配置</h3>
+                <p class="text-sm text-gray-600 mt-1">設定規則的基本資訊與匹配條件</p>
+            </div>
+
+            <div class="px-6 py-6 space-y-6">
+                {# 規則名稱 #}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        規則名稱 <span class="text-red-500">*</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mb-2">
+                        為此路由規則設定一個易於識別的名稱，用於在系統中顯示與管理。
+                    </p>
+                    <input type="text"
+                           x-model="formData.rule_name"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="例如：MIMII 風扇異常檢測規則">
+                </div>
+
+                {# 描述 #}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        描述
+                    </label>
+                    <p class="text-xs text-gray-500 mb-2">
+                        選填。詳細說明此規則的用途、應用場景與特殊注意事項。
+                    </p>
+                    <textarea x-model="formData.description"
+                              rows="3"
+                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="簡述此規則的用途"></textarea>
+                </div>
+
+                {# 優先級 #}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        優先級 <span class="text-red-500">*</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mb-2">
+                        當多個規則同時匹配時，數值越高的規則優先執行。建議緊急任務使用高優先級。
+                    </p>
+                    <select x-model="formData.priority"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="90">高 (90)</option>
+                        <option value="60">中 (60)</option>
+                        <option value="30">低 (30)</option>
+                    </select>
+                </div>
+
+                {# 分析方法與配置 #}
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            分析方法 ID <span class="text-red-500">*</span>
+                        </label>
+                        <p class="text-xs text-gray-500 mb-2">
+                            選擇要使用的分析演算法。系統將自動載入該方法的可用配置選項。
+                        </p>
+                        <select x-model="formData.analysis_method_id"
+                                @change="loadConfigs()"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">請選擇分析方法</option>
+                            <template x-for="method in availableMethods" :key="method.analysis_method_id">
+                                <option :value="method.analysis_method_id"
+                                        x-text="`${method.analysis_method_id} (${method.config_count} 個配置)`"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            配置 ID <span class="text-red-500">*</span>
+                        </label>
+                        <p class="text-xs text-gray-500 mb-2">
+                            選擇該分析方法的具體執行參數配置，如模型版本、閾值設定等。
+                        </p>
+                        <select x-model="formData.config_id"
+                                :disabled="!formData.analysis_method_id || availableConfigs.length === 0"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed">
+                            <option value="">請選擇配置</option>
+                            <template x-for="config in availableConfigs" :key="config.config_id">
+                                <option :value="config.config_id" x-text="config.config_name"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+
+                {# MongoDB 實例 #}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        MongoDB 實例
+                    </label>
+                    <p class="text-xs text-gray-500 mb-2">
+                        指定要使用的 MongoDB 資料庫實例名稱。保持預設值 "default" 即可使用主要資料庫。
+                    </p>
+                    <input type="text"
+                           x-model="formData.mongodb_instance"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="預設：default">
+                </div>
+
+                {# JSON 篩選條件 #}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        篩選條件 (JSON) <span class="text-red-500">*</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mb-2">
+                        使用 JSON 格式定義資料匹配條件。系統會將符合這些條件的資料路由到此分析方法。
+                        支援精確匹配、列表匹配 (IN 操作) 和複雜條件 ($eq, $ne, $gt, $gte, $lt, $lte, $in, $nin)。
+                        <br>
+                        <strong>範例：</strong> <code class="text-xs bg-gray-100 px-1 rounded">{"dataset_UUID": "mimii_batch_upload", "label": ["normal", "abnormal"]}</code>
+                    </p>
+                    <textarea x-model="formData.conditions"
+                              @input="debouncePreview()"
+                              rows="8"
+                              class="json-editor w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder='{"dataset_UUID": "mimii_batch_upload", "label": ["normal", "abnormal"]}'></textarea>
+                    <div class="mt-2 flex items-center gap-2">
+                        <button @click="validateJson()"
+                                type="button"
+                                class="tech-button-outline text-sm">
+                            <i class="fas fa-check mr-2"></i>驗證 JSON
+                        </button>
+                        <span x-show="jsonValid" class="text-green-600 text-sm">
+                            <i class="fas fa-check-circle mr-1"></i>格式正確
+                        </span>
+                        <span x-show="jsonError" class="text-red-600 text-sm" x-text="jsonError"></span>
+                    </div>
+                </div>
+
+                {# 即時預覽 #}
+                <div x-show="previewData.total > 0">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        符合條件的資料預覽
+                        <span class="text-blue-600" x-text="`(共 ${previewData.total} 筆)`"></span>
+                    </label>
+                    <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">AnalyzeUUID</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">info_features</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <template x-for="record in previewData.sample" :key="record.AnalyzeUUID">
+                                    <tr x-data="{ expanded: false }">
+                                        <td class="px-4 py-2 text-sm font-mono" x-text="record.AnalyzeUUID.substring(0, 16) + '...'"></td>
+                                        <td class="px-4 py-2 text-sm">
+                                            <button @click="expanded = !expanded" class="text-blue-600 hover:text-blue-800">
+                                                <i class="fas fa-chevron-down transition-transform" :class="{ 'rotate-180': expanded }"></i>
+                                                <span x-show="!expanded">展開</span>
+                                                <span x-show="expanded">收合</span>
+                                            </button>
+                                            <pre x-show="expanded" x-transition class="mt-2 text-xs bg-gray-100 p-2 rounded" x-text="JSON.stringify(record.info_features, null, 2)"></pre>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {# 追溯歷史資料選項 #}
+                <div>
+                    <div class="flex items-center">
+                        <input type="checkbox"
+                               x-model="formData.backfill_enabled"
+                               id="backfill"
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="backfill" class="ml-2 block text-sm text-gray-700 font-medium">
+                            追溯歷史資料（為現有符合條件的資料派送任務）
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1 ml-6">
+                        勾選後，系統將為資料庫中所有符合條件的現有資料建立分析任務。不勾選則僅對新上傳的資料生效。
+                        建議首次建立規則時先不勾選，測試無誤後再手動追溯。
+                    </p>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+                <button @click="nextStep()"
+                        :disabled="!canProceedStep1()"
+                        class="tech-button"
+                        :class="{ 'opacity-50 cursor-not-allowed': !canProceedStep1() }">
+                    下一步
+                    <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# 步驟 2: 追溯確認 #}
+    <div class="wizard-step" :class="{ 'active': currentStep === 2 }" x-show="formData.backfill_enabled">
+        <div class="tech-card parallax-layer parallax-layer2">
+            <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                <h3 class="text-lg font-semibold text-gray-900">步驟 2：追溯確認</h3>
+                <p class="text-sm text-gray-600 mt-1">確認要追溯的歷史資料</p>
+            </div>
+
+            <div class="px-6 py-6 space-y-4">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-info-circle text-blue-600 mt-1 mr-3"></i>
+                        <div>
+                            <p class="text-sm text-blue-800 font-medium">追溯說明</p>
+                            <p class="text-sm text-blue-700 mt-1">
+                                系統將為所有符合條件的歷史資料創建分析任務。請確認以下資訊無誤後繼續。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white border border-gray-200 rounded-lg p-4">
+                        <div class="text-sm text-gray-500">符合條件的資料</div>
+                        <div class="text-3xl font-bold text-gray-900 mt-2" x-text="previewData.total"></div>
+                        <div class="text-sm text-gray-500 mt-1">筆</div>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-lg p-4">
+                        <div class="text-sm text-gray-500">將創建的任務</div>
+                        <div class="text-3xl font-bold text-blue-600 mt-2" x-text="previewData.total"></div>
+                        <div class="text-sm text-gray-500 mt-1">個</div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h4 class="text-sm font-medium text-gray-700 mb-2">規則摘要</h4>
+                    <dl class="space-y-2 text-sm">
+                        <div class="flex">
+                            <dt class="text-gray-600 w-32">規則名稱：</dt>
+                            <dd class="text-gray-900 font-medium" x-text="formData.rule_name"></dd>
+                        </div>
+                        <div class="flex">
+                            <dt class="text-gray-600 w-32">分析方法：</dt>
+                            <dd class="text-gray-900" x-text="formData.analysis_method_id"></dd>
+                        </div>
+                        <div class="flex">
+                            <dt class="text-gray-600 w-32">配置 ID：</dt>
+                            <dd class="text-gray-900" x-text="formData.config_id"></dd>
+                        </div>
+                        <div class="flex">
+                            <dt class="text-gray-600 w-32">優先級：</dt>
+                            <dd class="text-gray-900" x-text="formData.priority"></dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between">
+                <button @click="previousStep()" class="tech-button-outline">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    上一步
+                </button>
+                <button @click="nextStep()" class="tech-button">
+                    確認並繼續
+                    <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# 步驟 3: 完成 #}
+    <div class="wizard-step" :class="{ 'active': currentStep === 3 }">
+        <div class="tech-card parallax-layer parallax-layer2">
+            <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-green-50 to-blue-50">
+                <div class="flex items-center gap-3">
+                    <div class="h-12 w-12 rounded-full bg-green-500 flex items-center justify-center">
+                        <i class="fas fa-check text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">建立規則</h3>
+                        <p class="text-sm text-gray-600 mt-1">準備建立路由規則並開始處理資料</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-6 space-y-4" x-show="!creating && !created">
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <h4 class="text-base font-semibold text-gray-900 mb-4">規則摘要</h4>
+                    <dl class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <dt class="text-gray-600">規則名稱</dt>
+                            <dd class="text-gray-900 font-medium mt-1" x-text="formData.rule_name"></dd>
+                        </div>
+                        <div>
+                            <dt class="text-gray-600">優先級</dt>
+                            <dd class="text-gray-900 font-medium mt-1" x-text="formData.priority"></dd>
+                        </div>
+                        <div>
+                            <dt class="text-gray-600">分析方法</dt>
+                            <dd class="text-gray-900 font-medium mt-1" x-text="formData.analysis_method_id"></dd>
+                        </div>
+                        <div>
+                            <dt class="text-gray-600">配置 ID</dt>
+                            <dd class="text-gray-900 font-medium mt-1" x-text="formData.config_id"></dd>
+                        </div>
+                        <div class="col-span-2">
+                            <dt class="text-gray-600">描述</dt>
+                            <dd class="text-gray-900 mt-1" x-text="formData.description || '-'"></dd>
+                        </div>
+                        <div class="col-span-2">
+                            <dt class="text-gray-600">追溯歷史資料</dt>
+                            <dd class="mt-1">
+                                <span x-show="formData.backfill_enabled" class="tech-badge tech-badge-success">
+                                    是（將處理 <span x-text="previewData.total"></span> 筆資料）
+                                </span>
+                                <span x-show="!formData.backfill_enabled" class="tech-badge tech-badge-gray">否</span>
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-exclamation-triangle text-yellow-600 mt-1 mr-3"></i>
+                        <div>
+                            <p class="text-sm text-yellow-800 font-medium">注意事項</p>
+                            <ul class="text-sm text-yellow-700 mt-2 space-y-1 list-disc list-inside">
+                                <li>規則建立後，系統將為符合條件的新資料自動派送任務</li>
+                                <li x-show="formData.backfill_enabled">歷史資料的追溯處理將在規則建立後立即開始</li>
+                                <li>您可以在規則列表中隨時停用或修改此規則</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# 建立中狀態 #}
+            <div x-show="creating" class="px-6 py-12 text-center">
+                <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
+                <p class="text-gray-700 text-lg">正在建立規則...</p>
+                <p class="text-gray-500 text-sm mt-2">請稍候</p>
+            </div>
+
+            {# 建立成功狀態 #}
+            <div x-show="created" class="px-6 py-6 space-y-4">
+                <div class="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                    <i class="fas fa-check-circle text-green-600 text-5xl mb-4"></i>
+                    <h4 class="text-xl font-semibold text-gray-900 mb-2">規則建立成功！</h4>
+                    <p class="text-gray-600">Router ID: <code class="tech-code" x-text="createdRouterId"></code></p>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <a :href="`/routing/${createdRuleId}/view`" class="tech-button text-center block">
+                        <i class="fas fa-eye mr-2"></i>查看規則
+                    </a>
+                    <a :href="`/routing/${createdRouterId}/monitor`" class="tech-button text-center block">
+                        <i class="fas fa-chart-line mr-2"></i>監控儀表板
+                    </a>
+                    <a href="/routing" class="tech-button-outline text-center block">
+                        <i class="fas fa-list mr-2"></i>返回列表
+                    </a>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between" x-show="!creating && !created">
+                <button @click="previousStep()" class="tech-button-outline" x-show="formData.backfill_enabled">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    上一步
+                </button>
+                <button @click="createRule()" class="tech-button ml-auto">
+                    <i class="fas fa-save mr-2"></i>
+                    建立規則
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/routing_wizard.js') }}"></script>
+{% endblock %}

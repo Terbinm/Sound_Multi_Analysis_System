@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}節點監控{% endblock %}
+{% block page_title %}節點監控{% endblock %}
+
+{% block content %}
+<div class="sm:flex sm:items-center parallax-layer parallax-layer2">
+    <div class="sm:flex-auto">
+        <p class="mt-2 text-sm text-gray-600">監控所有註冊分析節點的狀態與任務負載</p>
+    </div>
+</div>
+
+<!-- 統計資訊 -->
+<div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
+    <!-- 總節點數 -->
+    <div class="tech-card-sm parallax-layer parallax-layer2 overflow-hidden group">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="rounded-xl bg-gradient-to-br from-gray-500 to-gray-600 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
+                    <i class="fas fa-server text-white text-2xl tech-icon-float"></i>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm font-medium text-gray-600 mb-1">總節點數</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ stats.total }}</p>
+                </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <div class="flex items-center gap-2 text-xs text-gray-500">
+                    <i class="fas fa-info-circle"></i>
+                    <span>已註冊的分析節點總數</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 在線節點 -->
+    <div class="tech-card-sm parallax-layer parallax-layer2 overflow-hidden group">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="rounded-xl bg-gradient-to-br from-green-500 to-green-600 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
+                    <i class="fas fa-circle text-white text-2xl tech-icon-float"></i>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm font-medium text-gray-600 mb-1">在線節點</p>
+                    <p class="text-3xl font-bold text-green-600">{{ stats.online }}</p>
+                </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <div class="flex items-center gap-2 text-xs text-gray-500">
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-1">
+                            <span>線上比例</span>
+                            <span class="font-semibold">{{ ((stats.online / stats.total * 100) if stats.total > 0 else 0)|round(1) }}%</span>
+                        </div>
+                        <div class="tech-progress">
+                            <div class="tech-progress-bar tech-progress-success" style="width: {{ ((stats.online / stats.total * 100) if stats.total > 0 else 0) }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 離線節點 -->
+    <div class="tech-card-sm parallax-layer parallax-layer2 overflow-hidden group">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="rounded-xl bg-gradient-to-br from-red-500 to-red-600 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
+                    <i class="fas fa-circle text-white text-2xl tech-icon-float"></i>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm font-medium text-gray-600 mb-1">離線節點</p>
+                    <p class="text-3xl font-bold text-red-600">{{ stats.offline }}</p>
+                </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <div class="flex items-center gap-2 text-xs text-gray-500">
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-1">
+                            <span>離線比例</span>
+                            <span class="font-semibold">{{ ((stats.offline / stats.total * 100) if stats.total > 0 else 0)|round(1) }}%</span>
+                        </div>
+                        <div class="tech-progress">
+                            <div class="tech-progress-bar tech-progress-danger" style="width: {{ ((stats.offline / stats.total * 100) if stats.total > 0 else 0) }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 節點列表區 -->
+<div class="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+    <!-- 在線節點 -->
+    {% if online_nodes %}
+    <div class="parallax-layer parallax-layer2">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-md">
+                <i class="fas fa-circle text-white"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900">在線節點</h3>
+            <span class="tech-badge tech-badge-success">{{ online_nodes|length }}</span>
+        </div>
+
+        <div class="tech-card overflow-hidden">
+            <ul role="list" class="divide-y divide-gray-100">
+            {% for node in online_nodes %}
+            <li class="px-6 py-5 hover:bg-gray-50/50 transition-all duration-200">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="relative">
+                                <div class="h-3 w-3 rounded-full bg-green-500"></div>
+                                <div class="absolute inset-0 h-3 w-3 rounded-full bg-green-500 animate-ping opacity-75"></div>
+                            </div>
+                            <p class="text-sm font-semibold text-gray-900">{{ node.node_id }}</p>
+                        </div>
+                        <div class="flex items-center gap-4 text-sm text-gray-600">
+                            <span class="flex items-center gap-1.5">
+                                <i class="fas fa-code-branch text-gray-400 text-xs"></i>
+                                <span>版本: {{ node.version if node.version else 'N/A' }}</span>
+                            </span>
+                            <span class="flex items-center gap-1.5">
+                                <i class="fas fa-heartbeat text-gray-400 text-xs"></i>
+                                <span>最後心跳: {{ node.last_heartbeat.strftime('%H:%M:%S') if node.last_heartbeat else 'N/A' }}</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="ml-6 flex items-center gap-6">
+                        <div class="text-center px-4 py-2 bg-gray-50 rounded-lg">
+                            <p class="text-xs text-gray-500 mb-1">目前任務</p>
+                            <p class="text-lg font-bold text-gray-900">
+                                {{ node.current_tasks }} <span class="text-sm text-gray-400">/ {{ node.max_concurrent_tasks }}</span>
+                            </p>
+                            <div class="tech-progress mt-2">
+                                <div class="tech-progress-bar tech-progress-info" style="width: {{ ((node.current_tasks / node.max_concurrent_tasks * 100) if node.max_concurrent_tasks > 0 else 0) }}%"></div>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <a href="{{ url_for('views.node_detail', node_id=node.node_id) }}"
+                               class="text-indigo-600 hover:text-indigo-900 transition-colors"
+                               title="檢視">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            {% if current_user.is_admin() %}
+                            <form method="POST" action="{{ url_for('views.node_delete', node_id=node.node_id) }}"
+                                  class="inline"
+                                  onsubmit="return confirm('確定要註銷此節點嗎？');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="text-red-600 hover:text-red-900 transition-colors" title="註銷">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <!-- 能力標籤 -->
+                {% if node.capabilities %}
+                <div class="mt-3 flex flex-wrap gap-2">
+                    {% for capability in node.capabilities %}
+                    <span class="tech-badge tech-badge-info text-xs">
+                        <i class="fas fa-puzzle-piece mr-1"></i>
+                        {{ capability }}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    </div>
+    {% endif %}
+
+    <!-- 離線節點 -->
+    {% if offline_nodes %}
+    <div class="parallax-layer parallax-layer2">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-md">
+                <i class="fas fa-circle text-white"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900">離線節點</h3>
+            <span class="tech-badge tech-badge-danger">{{ offline_nodes|length }}</span>
+        </div>
+
+        <div class="tech-card overflow-hidden opacity-75">
+            <ul role="list" class="divide-y divide-gray-100">
+            {% for node in offline_nodes %}
+            <li class="px-6 py-5 hover:bg-gray-50/50 transition-all duration-200">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="h-3 w-3 rounded-full bg-red-500"></div>
+                            <p class="text-sm font-semibold text-gray-900">{{ node.node_id }}</p>
+                        </div>
+                        <div class="flex items-center gap-4 text-sm text-gray-600">
+                            <span class="flex items-center gap-1.5">
+                                <i class="fas fa-code-branch text-gray-400 text-xs"></i>
+                                <span>版本: {{ node.version if node.version else 'N/A' }}</span>
+                            </span>
+                            <span class="flex items-center gap-1.5">
+                                <i class="fas fa-heartbeat text-gray-400 text-xs"></i>
+                                <span>最後心跳: {{ node.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S') if node.last_heartbeat else 'N/A' }}</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="ml-6 flex gap-3">
+                        <a href="{{ url_for('views.node_detail', node_id=node.node_id) }}"
+                           class="text-indigo-600 hover:text-indigo-900 transition-colors"
+                           title="檢視">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        {% if current_user.is_admin() %}
+                        <form method="POST" action="{{ url_for('views.node_delete', node_id=node.node_id) }}"
+                              class="inline"
+                              onsubmit="return confirm('確定要刪除此節點嗎？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-red-600 hover:text-red-900 transition-colors" title="刪除">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if not online_nodes and not offline_nodes %}
+<div class="mt-12 parallax-layer parallax-layer2">
+    <div class="tech-empty-state py-16">
+        <i class="fas fa-server"></i>
+        <p>暫無註冊節點</p>
+        <p class="text-sm text-gray-500 mt-2">分析節點啟動後會自動註冊到系統</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 節點列表實時更新
+document.addEventListener('DOMContentLoaded', function() {
+    // 訂閱節點房間
+    wsClient.subscribe('nodes');
+
+    // 監聽節點註冊事件
+    wsClient.on('node.registered', function(data) {
+        console.log('[節點列表] 節點註冊:', data);
+        // 延遲重新載入以確保資料同步
+        setTimeout(function() {
+            location.reload();
+        }, 500);
+    });
+
+    // 監聽節點心跳事件
+    wsClient.on('node.heartbeat', function(data) {
+        console.log('[節點列表] 節點心跳:', data);
+        updateNodeInfo(data);
+    });
+
+    // 監聽節點上線事件
+    wsClient.on('node.online', function(data) {
+        console.log('[節點列表] 節點上線:', data);
+        // 延遲重新載入以確保資料同步
+        setTimeout(function() {
+            location.reload();
+        }, 500);
+    });
+
+    // 監聽節點離線事件
+    wsClient.on('node.offline', function(data) {
+        console.log('[節點列表] 節點離線:', data);
+        // 延遲重新載入以確保資料同步
+        setTimeout(function() {
+            location.reload();
+        }, 500);
+    });
+
+    // 監聽統計數據更新事件
+    wsClient.on('stats.updated', function(data) {
+        console.log('[節點列表] 統計更新:', data);
+        updateStats(data);
+    });
+
+    /**
+     * 更新節點信息（心跳數據）
+     */
+    function updateNodeInfo(data) {
+        const nodeId = data.node_id;
+        const nodeElements = document.querySelectorAll(`li`);
+
+        nodeElements.forEach(function(nodeEl) {
+            const nodeIdEl = nodeEl.querySelector('.text-sm.font-semibold.text-gray-900');
+            if (nodeIdEl && nodeIdEl.textContent.trim() === nodeId) {
+                // 更新當前任務數
+                const tasksEl = nodeEl.querySelector('.text-lg.font-bold.text-gray-900');
+                if (tasksEl && data.current_tasks !== undefined) {
+                    const parts = tasksEl.innerHTML.split('<span');
+                    tasksEl.innerHTML = `${data.current_tasks} <span${parts[1]}`;
+
+                    // 更新進度條
+                    const progressBar = nodeEl.querySelector('.tech-progress-bar');
+                    if (progressBar && data.max_concurrent_tasks) {
+                        const percentage = (data.current_tasks / data.max_concurrent_tasks * 100);
+                        progressBar.style.width = percentage + '%';
+                    }
+                }
+
+                // 更新最後心跳時間
+                const heartbeatSpans = nodeEl.querySelectorAll('.text-sm.text-gray-600 span span');
+                heartbeatSpans.forEach(function(span) {
+                    if (span.textContent.includes('最後心跳:') && data.timestamp) {
+                        const time = new Date(data.timestamp).toLocaleTimeString('zh-TW', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        });
+                        span.textContent = `最後心跳: ${time}`;
+                    }
+                });
+
+                // 添加閃爍動畫效果
+                nodeEl.classList.add('bg-green-50');
+                setTimeout(function() {
+                    nodeEl.classList.remove('bg-green-50');
+                }, 1000);
+            }
+        });
+    }
+
+    /**
+     * 更新統計數據
+     */
+    function updateStats(data) {
+        // 更新總節點數
+        const totalEl = document.querySelectorAll('.text-3xl.font-bold')[0];
+        if (totalEl && data.total_nodes !== undefined) {
+            animateNumber(totalEl, parseInt(totalEl.textContent) || 0, data.total_nodes);
+        }
+
+        // 更新在線節點數
+        const onlineEl = document.querySelector('.text-3xl.font-bold.text-green-600');
+        if (onlineEl && data.online_nodes !== undefined) {
+            animateNumber(onlineEl, parseInt(onlineEl.textContent) || 0, data.online_nodes);
+        }
+
+        // 更新離線節點數
+        const offlineEl = document.querySelector('.text-3xl.font-bold.text-red-600');
+        if (offlineEl && data.offline_nodes !== undefined) {
+            animateNumber(offlineEl, parseInt(offlineEl.textContent) || 0, data.offline_nodes);
+        }
+    }
+
+    /**
+     * 數字動畫效果
+     */
+    function animateNumber(element, from, to) {
+        if (from === to) return;
+
+        const duration = 500; // 動畫持續時間（毫秒）
+        const steps = 20;
+        const stepValue = (to - from) / steps;
+        const stepDuration = duration / steps;
+        let currentStep = 0;
+
+        const interval = setInterval(function() {
+            currentStep++;
+            const value = Math.round(from + (stepValue * currentStep));
+            element.textContent = value;
+
+            if (currentStep >= steps) {
+                clearInterval(interval);
+                element.textContent = to;
+            }
+        }, stepDuration);
+    }
+});
+</script>
+{% endblock %}
