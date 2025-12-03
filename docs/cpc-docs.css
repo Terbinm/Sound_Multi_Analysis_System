@@ -1,0 +1,210 @@
+:root {
+      color-scheme: light;
+    }
+    body {
+      font-family: "Segoe UI", "Noto Sans TC", "PingFang TC", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f4f6fb;
+      color: #0f172a;
+      line-height: 1.7;
+    }
+    header {
+      background: linear-gradient(135deg, #312e81, #4338ca, #2563eb);
+      color: #fff;
+      padding: 48px 24px 32px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2.4rem;
+    }
+    header p {
+      margin: 8px 0 0;
+      max-width: 960px;
+    }
+    main {
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+    nav {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 15px 40px rgba(15,23,42,0.08);
+      padding: 24px;
+      margin-top: -48px;
+      margin-bottom: 32px;
+    }
+    nav ol {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px 24px;
+      padding-left: 18px;
+      margin: 0;
+    }
+    nav a {
+      text-decoration: none;
+      color: #4338ca;
+      font-weight: 600;
+    }
+    section {
+      background: #fff;
+      border-radius: 20px;
+      padding: 32px;
+      margin-bottom: 28px;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.06);
+    }
+    section h2 {
+      margin-top: 0;
+      border-bottom: 2px solid #e0e7ff;
+      padding-bottom: 10px;
+    }
+    h3 {
+      margin-top: 28px;
+      margin-bottom: 12px;
+      color: #1e1b4b;
+    }
+    h4 {
+      margin-top: 18px;
+      margin-bottom: 8px;
+      color: #4c1d95;
+    }
+    p {
+      margin: 8px 0;
+    }
+    code {
+      background: #eef2ff;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 0.95em;
+    }
+    pre {
+      background: #0f172a;
+      color: #e0e7ff;
+      padding: 16px;
+      border-radius: 12px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      overflow-x: auto;
+      font-size: 0.95em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0;
+      font-size: 0.95em;
+    }
+    th, td {
+      border: 1px solid #e2e8f0;
+      padding: 10px 12px;
+      text-align: left;
+    }
+    th {
+      background: #eef2ff;
+    }
+    ul, ol {
+      padding-left: 20px;
+    }
+    .tag {
+      display: inline-block;
+      background: #e0e7ff;
+      color: #312e81;
+      font-size: 0.85em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-right: 6px;
+    }
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+    .cols-2 {
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    /* 超寬螢幕多欄佈局 (32:9 等超寬螢幕) */
+    @media (min-width: 2560px) {
+      /* 左右兩欄佈局 4:8 */
+      .layout-4-8 {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 32px;
+        align-items: start;
+      }
+
+      /* 三欄佈局 4:4:4 */
+      .layout-3col {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        align-items: start;
+      }
+
+      /* 左側欄位樣式 (用於 4:8 佈局) */
+      .col-left {
+        position: sticky;
+        top: 24px;
+      }
+
+      /* 右側欄位樣式 (用於 4:8 佈局) */
+      .col-right {
+        /* 右側主要內容區 */
+      }
+
+      /* section 內的內容區塊 */
+      .content-block {
+        background: #f8fafc;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+      }
+
+      /* 加大 section 的寬度以充分利用超寬螢幕 */
+      main {
+        max-width: 95%;
+        margin: 0 auto;
+      }
+
+      section {
+        max-width: none;
+      }
+    }
+
+    /* 中等寬度超寬螢幕 (2000px-2559px) */
+    @media (min-width: 2000px) and (max-width: 2559px) {
+      .layout-4-8 {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 24px;
+        align-items: start;
+      }
+
+      .layout-3col {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        align-items: start;
+      }
+
+      main {
+        max-width: 90%;
+      }
+    }
+    .note {
+      background: #eef2ff;
+      border-left: 4px solid #6366f1;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin: 16px 0;
+    }
+    .warn {
+      background: #fff7ed;
+      border-left: 4px solid #ea580c;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin: 16px 0;
+    }
+    footer {
+      text-align: center;
+      padding: 32px 12px;
+      color: #94a3b8;
+    }

@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <title>CPC 分析平台統合指南 (2025Q4 版)</title>
+    <link rel="stylesheet" href="cpc-docs.css">
+</head>
+<body>
+  <header>
+    <h1>CPC 分析平台統合指南(RabbitMQ + WebSocket 新版)</h1>
+  </header>
+
+  <main>
+    <nav>
+      <ol>
+        <li><a href="#overview">1. 系統概覽與資料流</a></li>
+        <li><a href="#components">2. 核心元件與職責</a></li>
+        <li><a href="#deployment">3. 部署與設定</a></li>
+        <li><a href="#web-ui">4. Web UI 操作指南</a></li>
+        <li><a href="#configs-routing">5. 設定與路由規則參考</a></li>
+        <li><a href="#debug-tools">6. Debug Tools</a></li>
+        <li><a href="#websocket">7. WebSocket 遷移與測試</a></li>
+        <li><a href="#analysis-data">8. 分析節點與資料結構</a></li>
+        <li><a href="#operations">9. 營運監控與疑難排解</a></li>
+        <li><a href="#doc-mapping">10. 文檔對應表</a></li>
+      </ol>
+    </nav>
+
+    <section id="overview">
+      <h2>1. 系統概覽與資料流</h2>
+
+      <div class="layout-4-8">
+        <div class="col-left">
+          <div class="content-block">
+            <h3>系統簡介</h3>
+            <p>CPC Server Collector System 由「狀態管理系統 + Web UI」、「RabbitMQ 任務匯流排」與「Analysis Service V2」三大部分組成。資料從 batch_upload 寫入 MongoDB 後,透過路由規則匹配並建立任務,再由分析節點消費並回寫結果,同時透過 WebSocket 對 Web UI 推播最新狀態。</p>
+
+            <div class="note">
+              <strong>對應檔案:</strong> <code>docs/路由規則管理指南.md</code>、<code>core/state_management/WEBSOCKET_MIGRATION_SUMMARY.md</code>、<code>a_sub_system/analysis_service_v2/README_V2.md</code>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-right">
+          <h3>核心資料流</h3>
+          <ol>
+            <li><strong>批量寫入</strong>:<code>debug_tools/batch_upload</code> 依資料集格式寫入 <code>recordings</code> 與 <code>info_features</code>。</li>
+            <li><strong>任務調度</strong>:<code>core/state_management/services/task_scheduler.py</code> 針對啟用中的 MongoDB 實例輪詢 <code>info_features.upload_time</code>,呼叫 <code>RoutingRule.find_matching_rules()</code> 取得命中的規則。</li>
+            <li><strong>任務建立</strong>:對每個 action 建立 payload(含 <code>analysis_method_id</code>、<code>config_id</code>、目標實例與 metadata),以 <code>analysis.&lt;analysis_method_id&gt;</code> Routing Key 發送到 RabbitMQ <code>analysis_tasks_queue</code>。</li>
+            <li><strong>分析節點</strong>:<code>a_sub_system/analysis_service_v2</code> 下的節點訂閱 <code>analysis.#</code>,連線對應 MongoDB 實例取得記錄,執行步驟 0~3 的音訊分析,將結果寫回並回報狀態。</li>
+            <li><strong>心跳與監控</strong>:節點以 <code>/api/nodes/register</code> & <code>/api/nodes/heartbeat</code> 回報狀態,<code>node_monitor.py</code> 檢測離線並推播事件。</li>
+            <li><strong>前端同步</strong>:Web UI 使用 Socket.IO (<code>static/js/websocket_client.js</code>)訂閱 <code>dashboard</code>、<code>nodes</code> 等房間,接收節點事件、統計更新與任務建立通知。</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>整體系統架構圖(三層架構 - 橫向展開)</h3>
+<pre>
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                         使用者層 (Presentation Layer)                                                                          │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                                                                                │
+│  ┌─────────────────────────────────────────────────────────────────┐              ┌─────────────────────────────────────────────────────────────────────────────────┐        │
+│  │  Web 瀏覽器 (管理介面)                                            │              │  批次工具 (debug_tools/)                                                        │        │
+│  ├─────────────────────────────────────────────────────────────────┤              ├─────────────────────────────────────────────────────────────────────────────────┤        │
+│  │  • Dashboard (統計儀表板)                                         │              │  • batch_upload/ (CPC/MIMII/MAFAULDA 資料上傳)                               │        │
+│  │  • 分析設定管理 (AnalysisConfig CRUD)                             │              │  • batch_delete/ (條件式批量刪除 + 備份)                                       │        │
+│  │  • 路由規則管理 (RoutingRule 編輯與測試)                           │              │  • download_all_file/ (斷點續傳下載)                                          │        │
+│  │  • MongoDB 實例管理 (多實例連線設定)                               │              │  • simplify_mongodb_record/ (輕量 JSON 匯出)                                  │        │
+│  │  • 節點監控 (即時狀態、負載、心跳)                                  │              │  • delete_all_data.py (測試環境全刪除)                                        │        │
+│  │  • 使用者管理 (角色權限、密碼重設)                                  │              │                                                                               │        │
+│  └──────────────────────┬──────────────────────────────────────────┘              └───────────────────────────────┬─────────────────────────────────────────────┘        │
+│                         │                                                                                         │                                                        │
+│                         │ HTTP/WebSocket (Socket.IO)                                                              │ MongoDB Driver (直接連線)                              │
+│                         │ - REST API (/api/configs, /api/routing, /api/nodes, etc.)                              │ - PyMongo 批次操作                                     │
+│                         │ - WebSocket 房間 (dashboard, nodes, node_{id})                                         │ - GridFS 檔案讀寫                                      │
+│                         │                                                                                         │                                                        │
+└─────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────┘
+                          │                                                                                         │
+                          ▼                                                                                         ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                          應用層 (Application Layer)                                                                            │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                                                                                │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────┐         ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  State Management System (Flask + SocketIO)                                           │         │  Analysis Service V2 (多節點 RabbitMQ 消費者)                        │  │
+│  ├───────────────────────────────────────────────────────────────────────────────────────┤         ├──────────────────────────────────────────────────────────────────────┤  │
+│  │  【前端服務】                                                                          │         │  【分析節點】                                                        │  │
+│  │  • Flask Routes (HTTP API)                                                            │         │  • analysis_main.py (主程式)                                         │  │
+│  │  • Flask-SocketIO (WebSocket 事件推播)                                                │         │  • rabbitmq_consumer.py (訂閱 analysis.#)                            │  │
+│  │  • Flask-Login (身分驗證與權限管理)                                                    │         │  • analysis_pipeline.py (Step 0~3 處理流程)                          │  │
+│  │                                                                                       │         │  • heartbeat_sender.py (每30秒回報)                                  │  │
+│  │  【後台服務】                                                                          │         │  • state_client.py (HTTP API 通訊)                                   │  │
+│  │  • TaskScheduler (輪詢 MongoDB, 匹配路由規則, 發送任務到 RabbitMQ)                      │         │                                                                      │  │
+│  │  • NodeMonitor (心跳檢測, 離線通知, 統計推播 via WebSocket)                             │         │  【音訊處理】                                                        │  │
+│  │  • ConfigManager (設定版本管理, Redis 快取)                                            │         │  • Step 0: Audio Conversion (格式轉換檢查)                           │  │
+│  │                                                                                       │         │  • Step 1: Audio Slicing (滑動視窗切割)                              │  │
+│  │  【資料模型】                                                                          │         │  • Step 2: LEAF Feature Extraction (SpeechBrain)                    │  │
+│  │  • AnalysisConfig, RoutingRule, MongoDBInstance, Node, User                          │         │  • Step 3: Classification (Random Forest)                           │  │
+│  └─────────────┬──────────────────────────────┬──────────────────────────────────────────┘         └────────────┬──────────────────────┬──────────────────────────────────┘  │
+│                │                              │                                                                 │                      │                                     │
+│                │ publish tasks                │ read/write                                                      │ consume tasks        │ read/write                          │
+│                │                              │                                                                 │                      │                                     │
+└────────────────┼──────────────────────────────┼─────────────────────────────────────────────────────────────────┼──────────────────────┼─────────────────────────────────────┘
+                 │                              │                                                                 │                      │
+                 ▼                              ▼                                                                 ▼                      ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                        資料與訊息層 (Data & Message Layer)                                                                     │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                                                                                │
+│  ┌─────────────────────────────────────────────────┐       ┌───────────────────────────────────────────────┐       ┌──────────────────────────────────────────────────┐      │
+│  │  MongoDB (多實例支援)                            │       │  RabbitMQ (任務佇列)                           │       │  Redis (快取與心跳)                              │      │
+│  ├─────────────────────────────────────────────────┤       ├───────────────────────────────────────────────┤       ├──────────────────────────────────────────────────┤      │
+│  │  【Collections】                                │       │  【Queue】                                    │       │  【Keys】                                        │      │
+│  │  • recordings (錄音元資料)                       │       │  • analysis_tasks_queue                       │       │  • nodes:{node_id} (心跳 TTL 60秒)               │      │
+│  │  • info_features (資料集資訊)                    │       │                                               │       │  • config:version:{config_id}                   │      │
+│  │  • analyze_features (分析結果容器)               │       │  【Routing Key Pattern】                      │       │  • stats:summary (統計快取)                      │      │
+│  │  • analysis_configs (分析設定)                   │       │  analysis.{method_id}                         │       │  • lock:task:{task_id} (分散式鎖)                │      │
+│  │  • routing_rules (路由規則)                      │       │  例: analysis.fan_autoencoder_v2              │       │                                                  │      │
+│  │  • mongodb_instances (實例配置)                  │       │                                               │       │  【Pub/Sub】                                     │      │
+│  │  • nodes (節點註冊資訊)                          │       │  【Features】                                 │       │  • 事件廣播頻道 (預留)                            │      │
+│  │  • users (使用者帳號)                            │       │  • Dead Letter Queue (失敗重試)                │       │                                                  │      │
+│  │                                                 │       │  • Message TTL (24小時)                       │       │                                                  │      │
+│  │  【GridFS】                                     │       │  • Prefetch Count = 1 (公平分配)              │       │                                                  │      │
+│  │  • fs.files (檔案元資料)                        │       │                                               │       │                                                  │      │
+│  │  • fs.chunks (檔案分塊, 255KB/chunk)             │       │                                               │       │                                                  │      │
+│  └─────────────────────────────────────────────────┘       └───────────────────────────────────────────────┘       └──────────────────────────────────────────────────┘      │
+│                                                                                                                                                                                │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+</pre>
+
+      <h3>任務建立與分析流程圖(左:任務建立 | 右:分析執行與監控)</h3>
+<pre>
+┌──────────────────────────────────────────────────────────────────────────────┐       ┌──────────────────────────────────────────────────────────────────────────────┐
+│                    【任務建立流程】                                            │       │                    【分析執行與監控流程】                                      │
+│                    State Management Side                                     │       │                    Analysis Service Side                                    │
+├──────────────────────────────────────────────────────────────────────────────┤       ├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │       │                                                                              │
+│  ┌────────────────────────────────────────┐                                 │       │  ┌────────────────────────────────────────┐                                 │
+│  │  1. 資料寫入                            │                                 │       │  │  1. 任務消費                            │                                 │
+│  ├────────────────────────────────────────┤                                 │       │  ├────────────────────────────────────────┤                                 │
+│  │  batch_upload 工具                      │                                 │       │  │  RabbitMQ Consumer                     │                                 │
+│  │  - 讀取音訊檔案 (WAV/MP3/FLAC)          │                                 │       │  │  - 訂閱: analysis.#                     │                                 │
+│  │  - 解析資料集 metadata                  │                                 │       │  │  - Prefetch: 1 (逐一處理)               │                                 │
+│  │  - 寫入 recordings + info_features      │                                 │       │  │  - 接收 task payload                    │                                 │
+│  │  - 上傳到 GridFS                        │                                 │       │  │  - 解析 analysis_method_id              │                                 │
+│  └──────────────────┬─────────────────────┘                                 │       │  └──────────────────┬─────────────────────┘                                 │
+│                     │                                                        │       │                     │                                                        │
+│                     ▼                                                        │       │                     ▼                                                        │
+│  ┌────────────────────────────────────────┐                                 │       │  ┌────────────────────────────────────────┐                                 │
+│  │  2. 任務調度                            │                                 │       │  │  2. 分析處理                            │                                 │
+│  ├────────────────────────────────────────┤                                 │       │  ├────────────────────────────────────────┤                                 │
+│  │  TaskScheduler (背景服務)               │                                 │       │  │  Analysis Pipeline                     │                                 │
+│  │  - 每 N 秒輪詢啟用中的 MongoDB 實例      │                                 │       │  │  - 連線目標 MongoDB 實例                │                                 │
+│  │  - 檢查 info_features.upload_time       │                                 │       │  │  - 讀取 recording 記錄                  │                                 │
+│  │  - 篩選尚未處理的記錄                    │                                 │       │  │  - 下載 GridFS 音訊檔案                 │                                 │
+│  └──────────────────┬─────────────────────┘                                 │       │  │                                        │                                 │
+│                     │                                                        │       │  │  【Step 0】音訊轉檔檢查                  │                                 │
+│                     ▼                                                        │       │  │  - 檢測格式是否需要轉換                  │                                 │
+│  ┌────────────────────────────────────────┐                                 │       │  │  - 寫入 features_state: pass/completed  │                                 │
+│  │  3. 規則匹配                            │                                 │       │  │                                        │                                 │
+│  ├────────────────────────────────────────┤                                 │       │  │  【Step 1】音訊切割                      │                                 │
+│  │  RoutingRule.find_matching_rules()     │                                 │       │  │  - 滑動視窗切割 (0.16s/0.20s interval)   │                                 │
+│  │  - 讀取 enabled=True 的規則              │                                 │       │  │  - 輸出切片時間資訊 (start/end/freq)     │                                 │
+│  │  - 依 priority DESC 排序                │                                 │       │  │                                        │                                 │
+│  │  - 匹配 conditions (支援 $in, $gte等)   │                                 │       │  │  【Step 2】LEAF 特徵提取                 │                                 │
+│  │  - 回傳所有符合的 actions                │                                 │       │  │  - 載入 SpeechBrain LEAF 模型           │                                 │
+│  └──────────────────┬─────────────────────┘                                 │       │  │  - 批次處理切片 (batch_size=32)          │                                 │
+│                     │                                                        │       │  │  - 輸出 40維特徵向量 x N個切片            │                                 │
+│                     ▼                                                        │       │  │                                        │                                 │
+│  ┌────────────────────────────────────────┐                                 │       │  │  【Step 3】分類預測                      │                                 │
+│  │  4. 任務建立                            │                                 │       │  │  - 載入 Random Forest 模型              │                                 │
+│  ├────────────────────────────────────────┤                                 │       │  │  - 預測 normal/abnormal + confidence    │                                 │
+│  │  for each action in matched_rules:     │                                 │       │  │  - 計算 final_prediction (多數決)        │                                 │
+│  │    - 建立 task_id (UUID)                │                                 │       │  └──────────────────┬─────────────────────┘                                 │
+│  │    - 封裝 payload:                      │                                 │       │                     │                                                        │
+│  │      * mongodb_instance                │                                 │       │                     ▼                                                        │
+│  │      * analyze_uuid                    │                                 │       │  ┌────────────────────────────────────────┐                                 │
+│  │      * analysis_method_id              │                                 │       │  │  3. 結果寫回                            │                                 │
+│  │      * config_id                       │                                 │       │  ├────────────────────────────────────────┤                                 │
+│  │      * priority                        │                                 │       │  │  - 更新 analyze_features 容器           │                                 │
+│  │      * metadata (rule_id, rule_name)   │                                 │       │  │  - 寫入 runs[].steps[0-3]               │                                 │
+│  │    - 發送到 RabbitMQ                    │                                 │       │  │  - 更新 latest_analysis_id              │                                 │
+│  └──────────────────┬─────────────────────┘                                 │       │  │  - ACK RabbitMQ 任務                    │                                 │
+│                     │                                                        │       │  └──────────────────┬─────────────────────┘                                 │
+│                     ▼                                                        │       │                     │                                                        │
+│  ┌────────────────────────────────────────┐                                 │       │                     ▼                                                        │
+│  │  5. 訊息發送                            │                                 │       │  ┌────────────────────────────────────────┐                                 │
+│  ├────────────────────────────────────────┤                                 │       │  │  4. 心跳與監控                          │                                 │
+│  │  RabbitMQ Publish                      │◄─────────────────────────────────┼───────┼──┤  Heartbeat Sender                      │                                 │
+│  │  - Exchange: (default)                 │       消費任務                    │       │  │  - 每 30 秒發送心跳                     │                                 │
+│  │  - Queue: analysis_tasks_queue         │                                 │       │  │  - POST /api/nodes/heartbeat           │                                 │
+│  │  - Routing Key:                        │                                 │       │  │  - 回報 node_id, load_percentage        │                                 │
+│  │    analysis.{method_id}                │                                 │       │  │  - 回報 current_task_info               │                                 │
+│  │  - Message Properties:                 │                                 │       │  └──────────────────┬─────────────────────┘                                 │
+│  │    * delivery_mode: persistent         │                                 │       │                     │                                                        │
+│  └──────────────────┬─────────────────────┘                                 │       │  ┌────────────────────────────────────────┐                                 │
+│                     │                                                        │       │  │  5. 狀態推播                            │                                 │
+│                     ▼                                                        │       │  ├────────────────────────────────────────┤                                 │
+│  ┌────────────────────────────────────────┐                                 │       │  │  NodeMonitor 檢測心跳                   │                                 │
+│  │  6. WebSocket 通知                      │◄─────────────────────────────────┼───────┼──┤  - 心跳超過 60 秒 → node.offline        │                                 │
+│  ├────────────────────────────────────────┤       心跳與狀態                  │       │  │  - 離線節點重新上線 → node.online       │                                 │
+│  │  WebSocket Manager                     │                                 │       │  │  - 每 30 秒推播 stats.updated           │                                 │
+│  │  - emit('task.created')                │                                 │       │  │  - WebSocket broadcast to rooms         │                                 │
+│  │  - broadcast to 'dashboard' room       │                                 │       │  └─────────────────────────────────────────┘                                 │
+│  │  - 更新前端統計卡片                      │                                 │       │                                                                              │
+│  └────────────────────────────────────────┘                                 │       └──────────────────────────────────────────────────────────────────────────────┘
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+</pre>
+    </section>
+
+    <section id="components">
+      <h2>2. 核心元件與職責</h2>
+
+      <div class="layout-4-8">
+        <div class="col-left">
+          <h3>元件交互圖</h3>
+<pre>
+┌────────────────────────────────────┐
+│  State Management System           │
+├────────────────────────────────────┤
+│                                    │
+│  ┌───────────┐  ┌───────────────┐ │
+│  │ Flask     │  │ SocketIO      │ │
+│  │ Routes    │◄─┤ Events        │ │
+│  │ /api/*    │  │ - node events │ │
+│  └─────┬─────┘  └───────┬───────┘ │
+│        │                │         │
+│        │ call           │ emit    │
+│  ┌─────▼────────────────▼───────┐ │
+│  │  Background Services         │ │
+│  ├──────────────────────────────┤ │
+│  │ ┌──────────┐ ┌────────────┐ │ │
+│  │ │TaskSched │ │NodeMonitor │ │ │
+│  │ │- 輪詢     │ │- 心跳檢測   │ │ │
+│  │ │- 匹配規則 │ │- 離線通知   │ │ │
+│  │ │- 建立任務 │ │- 統計推播   │ │ │
+│  │ └────┬─────┘ └─────┬──────┘ │ │
+│  │      │             │        │ │
+│  └──────┼─────────────┼────────┘ │
+│         │             │          │
+└─────────┼─────────────┼──────────┘
+          │             │
+          │ publish     │ Redis TTL
+          ▼             ▼
+   ┌──────────┐  ┌──────────┐
+   │ RabbitMQ │  │  Redis   │
+   └─────┬────┘  └──────────┘
+         │ consume
+         ▼
+┌────────────────────────────────────┐
+│  Analysis Service V2 Node          │
+├────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐        │
+│  │RabbitMQ  │  │Heartbeat │        │
+│  │Consumer  │  │Sender    │        │
+│  └────┬─────┘  └────┬─────┘        │
+│       │             │              │
+│       │ trigger     │ HTTP POST    │
+│       ▼             │              │
+│  ┌──────────────────▼───────┐     │
+│  │  Analysis Pipeline       │     │
+│  ├──────────────────────────┤     │
+│  │ Step 0: Audio Conversion │     │
+│  │ Step 1: Audio Slicing    │     │
+│  │ Step 2: LEAF Features    │     │
+│  │ Step 3: Classification   │     │
+│  └──────────────────────────┘     │
+└────────────────────────────────────┘
+</pre>
+        </div>
+
+        <div class="col-right">
+          <h3>2.1 狀態管理系統(State Management + Web UI)</h3>
+          <ul>
+            <li>框架:Flask 3.0、Flask-Login、Flask-WTF、Tailwind CSS、Alpine.js、Flask-SocketIO。</li>
+            <li>功能:使用者身分驗證、分析設定/路由規則/MongoDB 實例/節點/使用者管理、Dashboard 指標、即時節點監控。</li>
+            <li>後台服務:<code>task_scheduler.py</code>(任務建立)、<code>node_monitor.py</code>(心跳與統計)、<code>config_manager.py</code>(設定版本化)。</li>
+            <li>存取控制:管理員擁有 CRUD、檔案上傳與使用者管理;一般使用者僅能瀏覽。</li>
+          </ul>
+
+          <h3>2.2 Analysis Service V2</h3>
+          <ul>
+            <li>採用 RabbitMQ 消費者模型,移除舊版 MongoDB Watcher,支援多 MongoDB 實例。</li>
+            <li>主要模組:<code>analysis_main.py</code>(入口)、<code>rabbitmq_consumer.py</code>、<code>heartbeat_sender.py</code>、<code>state_client.py</code>、<code>analysis_pipeline.py</code>。</li>
+            <li>每個任務內含 <code>analyze_uuid</code>、<code>analysis_method_id</code>、<code>config_id</code>、目標 MongoDB 實例與規則 metadata。</li>
+            <li>支援 Step 0~3 的音訊處理流程(轉檔 → 切割 → LEAF 特徵 → 分類),並將結果寫回 <code>analyze_features</code> 容器。</li>
+          </ul>
+
+          <h3>2.3 支援服務一覽</h3>
+          <table>
+            <thead>
+              <tr><th>服務</th><th>用途</th><th>預設連線</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>MongoDB</td><td>儲存錄音、分析設定、路由規則、節點狀態</td><td>Host <code>localhost / mongodb</code>,Port <code>27021 / 27017</code></td></tr>
+              <tr><td>RabbitMQ</td><td>分析任務訊息匯流排</td><td>Host <code>localhost / rabbitmq</code>,Queue <code>analysis_tasks_queue</code></td></tr>
+              <tr><td>Redis</td><td>節點心跳與配置版本快取</td><td>Host <code>redis</code>,Port <code>6379</code></td></tr>
+              <tr><td>Debug Tools</td><td>批次上傳、刪除、下載與資料壓縮工具</td><td><code>debug_tools/*</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="deployment">
+      <h2>3. 部署與設定</h2>
+
+      <h3>Docker Compose 部署架構圖(左:基礎服務 | 右:應用服務與外部訪問)</h3>
+<pre>
+┌──────────────────────────────────────────────────────────────────────────────┐       ┌──────────────────────────────────────────────────────────────────────────────┐
+│               【基礎服務層 - Infrastructure Services】                        │       │               【應用服務層 - Application Services】                           │
+│                  Docker Network: app_network                                 │       │                  Docker Network: app_network                                 │
+├──────────────────────────────────────────────────────────────────────────────┤       ├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │       │                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────┐     │       │  ┌────────────────────────────────────────────────────────────────────┐     │
+│  │  MongoDB Container                                                 │     │       │  │  State Management Container                                        │     │
+│  ├────────────────────────────────────────────────────────────────────┤     │       │  ├────────────────────────────────────────────────────────────────────┤     │
+│  │  Image: mongo:6.0                                                  │     │       │  │  Build Context: core/state_management/                             │     │
+│  │  Container Name: mongodb_web_ui                                    │     │       │  │  Container Name: state_management                                  │     │
+│  │                                                                    │     │       │  │                                                                    │     │
+│  │  Ports:                                                            │     │       │  │  Ports:                                                            │     │
+│  │  • 27017 (內部) → 27021 (外部)                                     │     │       │  │  • 8000:8000 (HTTP + WebSocket)                                    │     │
+│  │                                                                    │     │       │  │                                                                    │     │
+│  │  Volumes:                                                          │     │       │  │  Depends On:                                                       │     │
+│  │  • mongodb_data:/data/db (持久化儲存)                              │     │       │  │  • mongodb (condition: service_healthy)                            │     │
+│  │                                                                    │     │       │  │  • rabbitmq (condition: service_healthy)                           │     │
+│  │  Environment:                                                      │     │       │  │  • redis                                                           │     │
+│  │  • MONGO_INITDB_ROOT_USERNAME: web_ui                             │     │       │  │                                                                    │     │
+│  │  • MONGO_INITDB_ROOT_PASSWORD: hod2iddfsgsrl                      │     │       │  │  Environment:                                                      │     │
+│  │  • MONGO_INITDB_DATABASE: web_db                                  │     │       │  │  • FLASK_ENV: production                                           │     │
+│  │                                                                    │     │       │  │  • MONGODB_HOST: mongodb                                           │     │
+│  │  Health Check:                                                     │     │       │  │  • MONGODB_PORT: 27017                                             │     │
+│  │  • Test: mongosh --eval "db.adminCommand('ping')"                 │     │       │  │  • RABBITMQ_HOST: rabbitmq                                         │     │
+│  │  • Interval: 10s, Timeout: 5s, Retries: 5                         │     │       │  │  • RABBITMQ_PORT: 5672                                             │     │
+│  └────────────────────────────────────────────────────────────────────┘     │       │  │  • REDIS_HOST: redis                                               │     │
+│                                                                              │       │  │  • REDIS_PORT: 6379                                                │     │
+│  ┌────────────────────────────────────────────────────────────────────┐     │       │  │                                                                    │     │
+│  │  RabbitMQ Container                                                │     │       │  │  Command:                                                          │     │
+│  ├────────────────────────────────────────────────────────────────────┤     │       │  │  gunicorn -k eventlet -w 1 -b 0.0.0.0:8000 app:app                │     │
+│  │  Image: rabbitmq:3-management                                      │     │       │  └────────────────────────────────────────────────────────────────────┘     │
+│  │  Container Name: rabbitmq                                          │     │       │                                                                              │
+│  │                                                                    │     │       │  ┌────────────────────────────────────────────────────────────────────┐     │
+│  │  Ports:                                                            │     │       │  │  Analysis Service V2 Container (可水平擴展)                         │     │
+│  │  • 5672:5672 (AMQP Protocol)                                       │     │       │  ├────────────────────────────────────────────────────────────────────┤     │
+│  │  • 15672:15672 (Management UI)                                     │     │       │  │  Build Context: a_sub_system/analysis_service_v2/                  │     │
+│  │                                                                    │     │       │  │  Container Name: analysis_node_1 (可啟動 node_2, node_3...)         │     │
+│  │  Environment:                                                      │     │       │  │                                                                    │     │
+│  │  • RABBITMQ_DEFAULT_USER: admin                                    │     │       │  │  Depends On:                                                       │     │
+│  │  • RABBITMQ_DEFAULT_PASS: rabbitmq_admin_pass                      │     │       │  │  • mongodb (condition: service_healthy)                            │     │
+│  │                                                                    │     │       │  │  • rabbitmq (condition: service_healthy)                           │     │
+│  │  Queue Configuration:                                              │     │       │  │                                                                    │     │
+│  │  • analysis_tasks_queue (durable)                                  │     │       │  │  Environment:                                                      │     │
+│  │  • Dead Letter Exchange (DLX) for failed messages                 │     │       │  │  • MONGODB_HOST: mongodb                                           │     │
+│  └────────────────────────────────────────────────────────────────────┘     │       │  │  • MONGODB_PORT: 27017                                             │     │
+│                                                                              │       │  │  • RABBITMQ_HOST: rabbitmq                                         │     │
+│  ┌────────────────────────────────────────────────────────────────────┐     │       │  │  • RABBITMQ_PORT: 5672                                             │     │
+│  │  Redis Container                                                   │     │       │  │  • STATE_MANAGEMENT_URL: http://state_management:8000              │     │
+│  ├────────────────────────────────────────────────────────────────────┤     │       │  │                                                                    │     │
+│  │  Image: redis:7-alpine                                             │     │       │  │  Command:                                                          │     │
+│  │  Container Name: redis                                             │     │       │  │  python analysis_main.py                                           │     │
+│  │                                                                    │     │       │  │                                                                    │     │
+│  │  Ports:                                                            │     │       │  │  Restart Policy: unless-stopped                                    │     │
+│  │  • 6379:6379                                                       │     │       │  └────────────────────────────────────────────────────────────────────┘     │
+│  │                                                                    │     │       │                                                                              │
+│  │  Environment:                                                      │     │       │                                                                              │
+│  │  • REDIS_PASSWORD: redis_password                                 │     │       │  【外部訪問】                                                                 │
+│  │                                                                    │     │       │                                                                              │
+│  │  Command:                                                          │     │       │  ┌────────────────────────────────────────────────────────────────────┐     │
+│  │  redis-server --requirepass redis_password                        │     │       │  │  External Access Points                                            │     │
+│  │                                                                    │     │       │  ├────────────────────────────────────────────────────────────────────┤     │
+│  │  Features:                                                         │     │       │  │                                                                    │     │
+│  │  • TTL Keys for heartbeat (60s expiration)                         │     │       │  │  Web Browser → http://localhost:8000                               │     │
+│  │  • Config version cache                                            │     │       │  │  • Dashboard, Config Management, Node Monitoring                   │     │
+│  │  • Stats summary cache                                             │     │       │  │  • WebSocket: ws://localhost:8000/socket.io/                       │     │
+│  │  • Distributed lock for tasks                                      │     │       │  │                                                                    │     │
+│  └────────────────────────────────────────────────────────────────────┘     │       │  │  RabbitMQ Management UI → http://localhost:15672                   │     │
+│                                                                              │       │  │  • Queue monitoring, Message inspection                            │     │
+│                                                                              │       │  │  • Username: admin, Password: rabbitmq_admin_pass                  │     │
+│  【Volume 定義】                                                              │       │  │                                                                    │     │
+│  • mongodb_data (MongoDB 資料持久化)                                          │       │  │  MongoDB → localhost:27021                                         │     │
+│  • uploads (檔案上傳暫存)                                                     │       │  │  • For batch_upload tools & direct access                          │     │
+│  • logs (應用日誌)                                                            │       │  │  • Connection String:                                              │     │
+│                                                                              │       │  │    mongodb://web_ui:hod2iddfsgsrl@localhost:27021/web_db           │     │
+│  【Network 定義】                                                             │       │  │                                                                    │     │
+│  • app_network (bridge driver)                                              │       │  │  Redis → localhost:6379                                            │     │
+│  • 內部 DNS: 容器名稱可互相解析                                               │       │  │  • AUTH: redis_password                                            │     │
+│                                                                              │       │  └────────────────────────────────────────────────────────────────────┘     │
+└──────────────────────────────────────────────────────────────────────────────┘       └──────────────────────────────────────────────────────────────────────────────┘
+
+【啟動指令】                                                                                       【擴展策略】
+$ docker-compose up -d                    # 啟動所有服務                                          • State Management: 單一實例 (Sticky Session via Redis)
+$ docker-compose ps                       # 查看服務狀態                                          • Analysis Service: 水平擴展 (docker-compose scale analysis=3)
+$ docker-compose logs -f state_management # 查看即時日誌                                          • MongoDB: Replica Set (生產環境建議)
+$ docker-compose down -v                  # 停止並刪除 volumes                                    • RabbitMQ: Cluster (高可用性配置)
+</pre>
+
+      <div class="layout-3col">
+        <div>
+          <h3>3.1 狀態管理系統快速啟動</h3>
+<pre>cd core/state_management
+pip install -r requirements.txt
+python init_admin.py  # 建立管理員帳號
+python app.py         # 開發模式啟動
+# 或:gunicorn -w 4 -b 0.0.0.0:8000 app:app</pre>
+          <p>依 <code>WEB_UI_README.md</code> 與 <code>QUICK_START.md</code> 建議,首次部署時請建立管理員帳號並設定 <code>SECRET_KEY</code>、MongoDB 與 RabbitMQ 連線。</p>
+        </div>
+
+        <div>
+          <h3>3.2 Docker / 背景服務</h3>
+<pre>cd core
+# 啟動 MongoDB、RabbitMQ、Redis、
+# State Management 等核心服務
+docker-compose up -d</pre>
+          <p>RabbitMQ 管理介面位於 <code>http://localhost:15672</code>(帳密 <code>admin / rabbitmq_admin_pass</code>),可用以監看佇列。</p>
+        </div>
+
+        <div>
+          <h3>3.3 Analysis Service V2 啟動</h3>
+<pre>cd a_sub_system/analysis_service_v2
+python analysis_main.py
+# 會啟動 RabbitMQ 消費者與心跳</pre>
+          <p>請確認 <code>config.py</code> 內的 <code>RABBITMQ_CONFIG</code> 與 <code>STATE_MANAGEMENT_CONFIG</code> 指向正確的伺服器。</p>
+        </div>
+      </div>
+
+      <h3>3.4 關鍵設定片段</h3>
+<pre># core/state_management/config.py
+WEBSOCKET_ENABLED = True
+WEBSOCKET_PING_TIMEOUT = 60
+WEBSOCKET_PING_INTERVAL = 25
+WEBSOCKET_ASYNC_MODE = 'eventlet'
+
+# a_sub_system/analysis_service_v2/config.py
+RABBITMQ_CONFIG = {
+    'host': 'localhost', 'port': 5672,
+    'username': 'admin', 'password': 'rabbitmq_admin_pass',
+    'queue': 'analysis_tasks_queue', 'prefetch_count': 1,
+    'max_retries': 3
+}
+STATE_MANAGEMENT_CONFIG = {
+    'url': 'http://localhost:8000',
+    'timeout': 10
+}</pre>
+
+      <h3>3.5 建議的環境變數</h3>
+      <div class="grid cols-2">
+        <div>
+          <h4>State Management</h4>
+<pre>export FLASK_ENV=production
+export SECRET_KEY=&lt;強密鑰&gt;
+export MONGODB_HOST=mongodb
+export MONGODB_PORT=27017
+export MONGODB_USERNAME=web_ui
+export MONGODB_PASSWORD=hod2iddfsgsrl
+export RABBITMQ_HOST=rabbitmq
+export RABBITMQ_PORT=5672
+export RABBITMQ_USERNAME=admin
+export RABBITMQ_PASSWORD=rabbitmq_admin_pass
+export REDIS_HOST=redis
+export REDIS_PORT=6379
+export REDIS_PASSWORD=redis_password</pre>
+        </div>
+        <div>
+          <h4>Analysis Service V2</h4>
+<pre>MONGODB_HOST=localhost
+MONGODB_PORT=27021
+MONGODB_USERNAME=web_ui
+MONGODB_PASSWORD=hod2iddfsgsrl
+RABBITMQ_HOST=localhost
+RABBITMQ_PORT=5672
+RABBITMQ_USERNAME=admin
+RABBITMQ_PASSWORD=rabbitmq_admin_pass
+STATE_MANAGEMENT_URL=http://localhost:8000</pre>
+        </div>
+      </div>
+
+      <div class="warn">
+        <strong>部署提醒:</strong> 啟動 Socket.IO 時須使用 <code>socketio.run(app)</code> 或 eventlet 伺服器;若仍使用 <code>app.run()</code> 則 WebSocket 功能將無法生效。
+      </div>
+    </section>
+
+    <section id="web-ui">
+      <h2>4. Web UI 操作指南</h2>
+
+      <div class="layout-3col">
+        <div class="content-block">
+          <h3>4.1 登入與儀表板</h3>
+          <ul>
+            <li>網址:<code>http://localhost:8000</code>,支援「記住我」與角色基於權限控制。</li>
+            <li>儀表板顯示分析設定/路由規則/MongoDB 實例/節點的啟用與總數、最近更新的分析設定、在線節點清單。</li>
+            <li>若登入失敗請確認帳號是否啟用、密碼是否正確,必要時透過使用者管理重設。</li>
+          </ul>
+        </div>
+
+        <div class="content-block">
+          <h3>4.2 側邊欄功能</h3>
+          <ol>
+            <li><strong>分析設定</strong>:建立/編輯 <code>AnalysisConfig</code>,上傳模型檔案、切換啟用狀態。</li>
+            <li><strong>路由規則</strong>:以 JSON 定義 <code>conditions</code> 與 <code>actions</code>,可測試匹配結果。</li>
+            <li><strong>MongoDB 實例</strong>:維護連線資訊、測試連線、控制啟用。</li>
+            <li><strong>節點監控</strong>:瀏覽在線/離線節點、任務負載與最後心跳時間,可註銷節點。</li>
+            <li><strong>使用者管理</strong>(管理員):建立/停用/重設密碼。</li>
+            <li><strong>個人設定</strong>:查看個人資料、修改密碼。</li>
+          </ol>
+        </div>
+
+        <div class="content-block">
+          <h3>4.3 常見作業流程</h3>
+          <ul>
+            <li><strong>建立分析設定</strong>:填寫 <code>analysis_method_id</code>、名稱、描述,貼上 JSON 參數,儲存後於列表啟用或上傳模型。</li>
+            <li><strong>新增 MongoDB 實例</strong>:輸入主機、port、auth、資料庫與帳密,儲存後可測試連線。</li>
+            <li><strong>調整路由規則</strong>:建立規則、定義 <code>conditions</code>/<code>actions</code>、設定 <code>priority</code>,可用 <code>/api/routing/test</code> 驗證。</li>
+            <li><strong>使用者管理</strong>:建立/編輯角色、啟用狀態,於列表透過鑰匙圖示重設密碼。</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>4.4 系統提醒</h3>
+      <ul>
+        <li>所有成功/警告/錯誤訊息以繁體中文顯示於頁面頂端。</li>
+        <li>表單驗證失敗時欄位下方會顯示錯誤原因,JSON 欄位請先用外部工具驗證。</li>
+        <li>節點、實例與設定的狀態切換皆有確認對話框或即時提醒,避免誤操作。</li>
+      </ul>
+    </section>
+
+    <section id="configs-routing">
+      <h2>5. 設定與路由規則參考</h2>
+
+      <div class="layout-4-8">
+        <div class="col-left">
+          <h3>路由規則匹配與任務建立流程圖</h3>
+<pre>
+┌─────────────────────────────────┐
+│   新資料寫入 MongoDB             │
+│  info_features: {               │
+│    dataset_UUID: "mimii_...",   │
+│    mimii_metadata: {            │
+│      machine_type: "fan",       │
+│      machine_id: "00"           │
+│    },                           │
+│    label: "normal",             │
+│    upload_time: "2025-01-18..." │
+│  }                              │
+└──────┬──────────────────────────┘
+       │
+       │ TaskScheduler 輪詢
+       ▼
+┌─────────────────────────────────┐
+│  RoutingRule.find_matching_     │
+│  rules()                        │
+├─────────────────────────────────┤
+│  查詢: enabled = True           │
+│  排序: priority DESC            │
+│                                 │
+│  ┌───────────────────────────┐  │
+│  │ Rule 1 (priority: 100)    │  │
+│  │ conditions: {             │  │
+│  │   dataset_UUID:           │  │
+│  │     "cpc_upload",         │  │
+│  │   label: "normal"         │  │
+│  │ }                         │  │
+│  │ ❌ 不符合                  │  │
+│  └───────────────────────────┘  │
+│                                 │
+│  ┌───────────────────────────┐  │
+│  │ Rule 2 (priority: 90)     │  │
+│  │ conditions: {             │  │
+│  │   dataset_UUID:           │  │
+│  │     "mimii_batch_upload", │  │
+│  │   mimii_metadata.         │  │
+│  │     machine_type:         │  │
+│  │       ["fan", "pump"],    │  │
+│  │   label: {$in:            │  │
+│  │     ["normal","abnormal"]}│  │
+│  │ }                         │  │
+│  │ ✅ 符合!                   │  │
+│  │ actions: [{               │  │
+│  │   analysis_method_id:     │  │
+│  │     "fan_autoencoder_v2", │  │
+│  │   config_id:              │  │
+│  │     "fan_ae_v2_config",   │  │
+│  │   mongodb_instance:       │  │
+│  │     "default"             │  │
+│  │ }]                        │  │
+│  └───────────────────────────┘  │
+└──────┬──────────────────────────┘
+       │
+       │ 建立任務
+       ▼
+┌─────────────────────────────────┐
+│  建立任務 Payload               │
+├─────────────────────────────────┤
+│  {                              │
+│    task_id: "uuid-xxxxx",       │
+│    mongodb_instance: "default", │
+│    analyze_uuid: "record-uuid", │
+│    analysis_method_id:          │
+│      "fan_autoencoder_v2",      │
+│    config_id:                   │
+│      "fan_ae_v2_config",        │
+│    priority: 90,                │
+│    created_at: "2025-01-18...", │
+│    retry_count: 0,              │
+│    metadata: {                  │
+│      rule_id: "rule_002",       │
+│      rule_name:                 │
+│        "MIMII Fan 自動分析",     │
+│      source_instance:           │
+│        "default"                │
+│    }                            │
+│  }                              │
+└──────┬──────────────────────────┘
+       │
+       │ publish 到 RabbitMQ
+       ▼
+┌─────────────────────────────────┐
+│  RabbitMQ                       │
+├─────────────────────────────────┤
+│  Exchange: (default)            │
+│  Queue: analysis_tasks_queue    │
+│  Routing Key:                   │
+│    analysis.fan_autoencoder_    │
+│    v2                           │
+│    ↑                            │
+│  method_id                      │
+└──────┬──────────────────────────┘
+       │
+       │ subscribe: analysis.#
+       ▼
+┌─────────────────────────────────┐
+│  Analysis Service V2 Node       │
+│  - 訂閱 analysis.fan_auto       │
+│    encoder_v2.# 或 analysis.#   │
+│  - 處理符合的任務                │
+└─────────────────────────────────┘
+</pre>
+        </div>
+
+        <div class="col-right">
+          <h3>5.1 分析設定(AnalysisConfig)欄位</h3>
+          <table>
+            <thead><tr><th>欄位</th><th>說明</th><th>備註</th></tr></thead>
+            <tbody>
+              <tr><td><code>analysis_method_id</code></td><td>分析流程識別(例:<code>fan_autoencoder_v2</code>)</td><td>需與分析節點訂閱的 Routing Key 一致</td></tr>
+              <tr><td><code>config_id</code></td><td>設定 ID(可自動產生)</td><td>路由規則 <code>actions</code> 需引用</td></tr>
+              <tr><td><code>config_name</code></td><td>顯示用名稱</td><td>建議含模型版本或適用資料集</td></tr>
+              <tr><td><code>description</code></td><td>文字描述</td><td>可記錄模型來源、評估結果</td></tr>
+              <tr><td><code>parameters</code></td><td>核心 JSON 參數</td><td>支援 GridFS 路徑、後處理設定等</td></tr>
+              <tr><td><code>model_files</code></td><td>(可選)上傳檔案清單</td><td>Web UI 會自動寫入路徑與雜湊</td></tr>
+              <tr><td><code>enabled</code></td><td>是否可被任務引用</td><td>停用時即使被規則引用也不會派送</td></tr>
+            </tbody>
+          </table>
+
+          <h3>5.2 路由規則(RoutingRule)</h3>
+          <table>
+            <thead><tr><th>欄位</th><th>說明</th><th>注意事項</th></tr></thead>
+            <tbody>
+              <tr><td><code>rule_name</code></td><td>規則名稱</td><td>建議描述資料來源與分析法</td></tr>
+              <tr><td><code>priority</code></td><td>整數,值越大越先匹配</td><td>僅用於規則排序，不再寫入 RabbitMQ Routing Key</td></tr>
+              <tr><td><code>conditions</code></td><td>JSON 物件,對 <code>info_features</code> 匹配</td><td>支持單值、陣列、<code>$eq/$gte/$in</code> 等</td></tr>
+              <tr><td><code>actions</code></td><td>陣列;每個 action 建立一筆分析任務</td><td>需含 <code>analysis_method_id</code> 與 <code>config_id</code>,可選 <code>mongodb_instance</code></td></tr>
+              <tr><td><code>enabled</code></td><td>是否生效</td><td>停用則不會被讀取</td></tr>
+            </tbody>
+          </table>
+
+          <p><strong>conditions 語法:</strong>支援巢狀欄位如 <code>mimii_metadata.machine_type</code>,以及 <code>$gte</code>、<code>$lte</code>、<code>$in</code>、<code>$nin</code> 等運算子。複合條件需全部滿足。</p>
+          <p><strong>actions 欄位:</strong>建議保留新增欄位的彈性(如 <code>notes</code>),分析節點會完整收到 JSON。</p>
+
+          <h4>範例</h4>
+<pre>{
+  "rule_name": "MIMII Fan 自動分析",
+  "priority": 90,
+  "conditions": {
+    "dataset_UUID": "mimii_batch_upload",
+    "mimii_metadata.machine_type": ["fan"],
+    "label": {"$in": ["normal", "abnormal"]}
+  },
+  "actions": [
+    {
+      "analysis_method_id": "fan_autoencoder_v2",
+      "config_id": "fan_ae_v2_config",
+      "mongodb_instance": "default"
+    }
+  ],
+  "enabled": true
+}</pre>
+
+          <h3>5.3 MongoDB 實例管理</h3>
+          <table>
+            <thead><tr><th>欄位</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>name</code></td><td>顯示用名稱</td></tr>
+              <tr><td><code>host / port</code></td><td>MongoDB 連線資訊</td></tr>
+              <tr><td><code>database</code></td><td>預設資料庫</td></tr>
+              <tr><td><code>username/password</code></td><td>認證資訊,密碼僅於編輯頁顯示</td></tr>
+              <tr><td><code>auth_source</code></td><td>認證資料庫(缺省為 <code>admin</code>)</td></tr>
+              <tr><td><code>use_srv</code></td><td>是否使用 SRV 連線</td></tr>
+              <tr><td><code>enabled</code></td><td>TaskScheduler 僅監看啟用中的實例</td></tr>
+            </tbody>
+          </table>
+
+          <h3>5.4 API 重點</h3>
+          <ul>
+            <li><code>GET/POST /api/configs</code>、<code>PUT /api/configs/&lt;config_id&gt;</code>, <code>POST /api/configs/upload_model</code></li>
+            <li><code>GET/POST /api/routing</code>、<code>PUT /api/routing/&lt;rule_id&gt;</code>、<code>POST /api/routing/test</code></li>
+            <li><code>GET/POST /api/instances</code>、<code>PUT /api/instances/&lt;instance_id&gt;</code>、<code>POST /api/instances/&lt;id&gt;/test</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="debug-tools">
+      <h2>6. Debug Tools</h2>
+      <p>位於 <code>debug_tools/</code> 目錄,提供資料維運所需的批次操作。以下內容整合自 <code>docs/debug_tools.html</code>。</p>
+
+      <div class="layout-4-8">
+        <div class="col-left">
+          <h3>Debug Tools 架構圖</h3>
+<pre>
+┌───────────────────────────────┐
+│  debug_tools/ 工具集           │
+├───────────────────────────────┤
+│                               │
+│  ┌─────────────────────────┐  │
+│  │ batch_upload/           │  │
+│  ├─────────────────────────┤  │
+│  │ ┌────┐ ┌────┐ ┌────┐   │  │
+│  │ │cpc │ │mimi│ │mafa│   │  │
+│  │ │    │ │i   │ │ulda│   │  │
+│  │ │讀音│ │解析│ │批次│   │  │
+│  │ │訊  │ │data│ │處理│   │  │
+│  │ │寫DB│ │set │ │上傳│   │  │
+│  │ └────┘ └────┘ └────┘   │  │
+│  └──────┬──────────────────┘  │
+│         │                     │
+│  ┌──────▼──────────────────┐  │
+│  │ batch_delete/           │  │
+│  ├─────────────────────────┤  │
+│  │ - 依條件刪除            │  │
+│  │ - GridFS 檔案刪除       │  │
+│  │ - 可選備份              │  │
+│  │ - 安全確認機制          │  │
+│  └──────┬──────────────────┘  │
+│         │                     │
+│  ┌──────▼──────────────────┐  │
+│  │ download_all_file/      │  │
+│  ├─────────────────────────┤  │
+│  │ - 下載所有錄音檔案       │  │
+│  │ - 斷點續傳支援          │  │
+│  │ - 自動重試機制          │  │
+│  │ - 進度顯示與 manifest   │  │
+│  └──────┬──────────────────┘  │
+│         │                     │
+│  ┌──────▼──────────────────┐  │
+│  │ simplify_mongodb_       │  │
+│  │ record/                 │  │
+│  ├─────────────────────────┤  │
+│  │ - 匯出輕量 JSON         │  │
+│  │ - 自動轉換 ObjectId/    │  │
+│  │   datetime              │  │
+│  │ - 可設定 FIELD_         │  │
+│  │   WHITELIST             │  │
+│  └──────┬──────────────────┘  │
+│         │                     │
+│  ┌──────▼──────────────────┐  │
+│  │ delete_all_data.py      │  │
+│  ├─────────────────────────┤  │
+│  │ - 透過 HTTP API 刪除    │  │
+│  │   所有錄音              │  │
+│  │ - 僅限測試環境使用       │  │
+│  │ - 需手動確認            │  │
+│  └─────────────────────────┘  │
+│                               │
+└───────┬───────────────────────┘
+        │
+        │ MongoDB Driver /
+        │ HTTP API
+        ▼
+┌───────────────────────────────┐
+│ MongoDB Instance(s)           │
+│ - recordings Collection       │
+│ - info_features               │
+│ - analyze_features            │
+│ - GridFS (fs.files/fs.chunks) │
+└───────────────────────────────┘
+</pre>
+        </div>
+
+        <div class="col-right">
+          <h3>6.1 batch_delete(批量刪除)</h3>
+          <ul>
+            <li><strong>路徑:</strong><code>debug_tools/batch_delete/</code></li>
+            <li><strong>使用:</strong>
+<pre>cd debug_tools/batch_delete
+python batch_delete.py  # 先預覽再執行刪除</pre>
+            </li>
+            <li><strong>重點設定(<code>batch_delete_config.py</code>):</strong>
+              <ul>
+                <li><code>MONGODB_CONFIG</code>:host/port/帳密/collection。</li>
+                <li><code>DELETE_CONDITIONS</code>:可依 <code>label</code>、<code>dataset_UUID</code>、<code>obj_ID</code>、日期區間等組合條件。</li>
+                <li><code>DELETE_BEHAVIOR</code>:設定是否刪除 GridFS、是否備份、是否軟刪除。</li>
+                <li><code>SAFETY_CONFIG</code>:二次確認、單次刪除上限、預覽筆數。</li>
+              </ul>
+            </li>
+          </ul>
+          <div class="warn"><strong>注意:</strong>硬刪除不可復原,務必啟用備份並在測試環境驗證。</div>
+
+          <h3>6.2 batch_upload(批量上傳)</h3>
+          <ul>
+            <li><strong>路徑:</strong><code>debug_tools/batch_upload/</code>(子資料夾 <code>cpc_upload</code>、<code>mimii_upload</code>、<code>mafaulda_upload</code>)。</li>
+            <li><strong>使用:</strong>
+<pre>cd debug_tools/batch_upload/cpc_upload
+python cpc_batch_upload.py</pre>
+            </li>
+            <li><strong>重點設定(各 <code>config.py</code>):</strong>
+              <ul>
+                <li><code>MONGODB_CONFIG</code>:與 batch_delete 相同。</li>
+                <li><code>UPLOAD_DIRECTORY</code>:來源音訊路徑。</li>
+                <li><code>DATASET_CONFIG</code>:固定欄位(例:<code>dataset_UUID</code>、<code>obj_ID</code>)。</li>
+                <li><code>AUDIO_CONFIG</code>:取樣率、是否僅限單聲道。</li>
+                <li><code>UPLOAD_BEHAVIOR</code>:檔案並行數、速度節流、錯誤處理策略。</li>
+              </ul>
+            </li>
+          </ul>
+
+          <h3>6.3 delete_all_data.py(全部刪除)</h3>
+          <ul>
+            <li><strong>路徑:</strong><code>debug_tools/delete_all_data.py</code></li>
+            <li><strong>用途:</strong>透過 HTTP API 刪除伺服器所有錄音記錄。</li>
+            <li><strong>使用:</strong>
+<pre>cd debug_tools
+python delete_all_data.py  # 執行前需修改 SERVER_URL</pre>
+            </li>
+          </ul>
+          <div class="warn">僅可用於測試環境,輸入 'y' 後才會執行不可逆的刪除。</div>
+
+          <h3>6.4 download_all_file(全部下載)</h3>
+          <ul>
+            <li><strong>路徑:</strong><code>debug_tools/download_all_file/download_all_file.py</code></li>
+            <li><strong>能力:</strong>支援斷點續傳、自動重試、進度顯示、manifest 記錄。</li>
+            <li><strong>使用:</strong>
+<pre>cd debug_tools/download_all_file
+python download_all_file.py  # 下載至 DOWNLOAD_DIR</pre>
+            </li>
+            <li><strong>設定:</strong>調整 <code>SERVER_URL</code>、<code>DOWNLOAD_DIR</code>、<code>overall_timeout</code>、<code>stall_timeout</code>、<code>chunk_size</code> 等參數。</li>
+          </ul>
+
+          <h3>6.5 simplify_mongodb_record(紀錄簡化)</h3>
+          <ul>
+            <li><strong>路徑:</strong><code>debug_tools/simplify_mongodb_record/export_record_summary.py</code></li>
+            <li><strong>功能:</strong>輸出輕量 JSON(僅保留必要欄位),自動轉換 <code>ObjectId</code>/<code>datetime</code>。</li>
+            <li><strong>設定:</strong>
+              <ul>
+                <li><code>FIELD_WHITELIST</code>:保留欄位。</li>
+                <li><code>MAX_RECORDS</code>:單次輸出筆數。</li>
+                <li>MongoDB 連線設定與其他工具相同。</li>
+              </ul>
+            </li>
+          </ul>
+
+          <div class="note">所有工具皆以 Python 檔案內部的設定字典為準,修改後可立即生效。</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="websocket">
+      <h2>7. WebSocket 遷移與測試</h2>
+      <p>2025-01-11 起,系統正式從輪詢改為 WebSocket 推播。以下內容彙整 <code>WEBSOCKET_MIGRATION_SUMMARY.md</code> 與 <code>WEBSOCKET_TEST_GUIDE.md</code>。</p>
+
+      <div class="layout-4-8">
+        <div class="col-left">
+          <h3>WebSocket 推播架構圖</h3>
+<pre>
+┌───────────────────────────────┐
+│      Web Browser              │
+│  ┌──────┐ ┌──────┐ ┌──────┐  │
+│  │Dash  │ │Nodes │ │Node  │  │
+│  │board │ │List  │ │Detail│  │
+│  └──┬───┘ └──┬───┘ └──┬───┘  │
+│     │        │        │       │
+│     │ Socket.IO Client        │
+│     │ (websocket_client.js)   │
+│     └────────┴────────┘       │
+│              │                │
+└──────────────┼────────────────┘
+               │ WebSocket
+               │ /socket.io/
+               ▼
+┌───────────────────────────────┐
+│  State Management             │
+│  (Flask-SocketIO)             │
+├───────────────────────────────┤
+│  ┌─────────────────────────┐  │
+│  │ WebSocket Manager       │  │
+│  ├─────────────────────────┤  │
+│  │ 房間管理:               │  │
+│  │ - dashboard (儀表板)    │  │
+│  │ - nodes (節點列表)      │  │
+│  │ - node_{node_id}        │  │
+│  │   (特定節點)            │  │
+│  └─────────────────────────┘  │
+│         │     │     │         │
+│         ▼     ▼     ▼         │
+│  ┌────────┐ ┌────┐ ┌────┐    │
+│  │TaskSch │ │Node│ │API │    │
+│  │eduler  │ │Mon │ │Rou │    │
+│  │        │ │itor│ │tes │    │
+│  │發出:   │ │    │ │    │    │
+│  │task.   │ │發出│ │發出│    │
+│  │created │ │:   │ │:   │    │
+│  │        │ │stat│ │node│    │
+│  │        │ │s.  │ │.reg│    │
+│  │        │ │upd │ │iste│    │
+│  │        │ │ated│ │red │    │
+│  │        │ │node│ │node│    │
+│  │        │ │.off│ │.hea│    │
+│  │        │ │line│ │rtbe│    │
+│  │        │ │node│ │at  │    │
+│  │        │ │.onl│ │    │    │
+│  │        │ │ine │ │    │    │
+│  └────────┘ └────┘ └────┘    │
+└───────────────────────────────┘
+        │
+        │ emit events
+        ▼
+┌───────────────────────────────┐
+│      Event Types              │
+├───────────────────────────────┤
+│ • node.registered             │
+│   - 節點註冊                  │
+│ • node.heartbeat              │
+│   - 節點心跳 (含負載率)       │
+│ • node.offline                │
+│   - 節點離線 (>60秒未心跳)    │
+│ • node.online                 │
+│   - 節點重新上線              │
+│ • task.created                │
+│   - 新任務建立                │
+│ • task.status_changed         │
+│   - 任務狀態變更 (預留)       │
+│ • stats.updated               │
+│   - 統計資料更新 (每30秒)     │
+└───────────────────────────────┘
+        │
+        │ broadcast to rooms
+        ▼
+┌───────────────────────────────┐
+│  Client Side Handlers         │
+├───────────────────────────────┤
+│ • 連線狀態指示器 (綠/黃/紅)   │
+│ • 自動重連機制                │
+│   (斷線後自動重新訂閱房間)    │
+│ • 數字動畫效果 (統計卡片)     │
+│ • 即時列表更新 (節點狀態)     │
+│ • 光環動畫                    │
+│   (資料更新視覺回饋)          │
+└───────────────────────────────┘
+</pre>
+        </div>
+
+        <div class="col-right">
+          <h3>7.1 變更要點</h3>
+          <ul>
+            <li>新增 <code>services/websocket_manager.py</code> 與 <code>static/js/websocket_client.js</code>,統一管理房間與事件。</li>
+            <li>Socket.IO 融入 <code>app.py</code>,啟動需改為 <code>socketio.run(app)</code>,並新增 <code>WEBSOCKET_*</code> 配置。</li>
+            <li>Dashboard、Nodes List、Node Detail 模板整合即時更新,帶有數字動畫與狀態指示。</li>
+          </ul>
+
+          <h3>7.2 事件清單</h3>
+          <table>
+            <thead><tr><th>事件</th><th>來源</th><th>觸發</th></tr></thead>
+            <tbody>
+              <tr><td><code>node.registered</code></td><td><code>api/node_api.py</code></td><td>節點註冊</td></tr>
+              <tr><td><code>node.heartbeat</code></td><td><code>api/node_api.py</code></td><td>節點心跳(含負載率)</td></tr>
+              <tr><td><code>node.offline</code></td><td><code>node_monitor.py</code></td><td>超過 60 秒未心跳</td></tr>
+              <tr><td><code>node.online</code></td><td><code>node_monitor.py</code></td><td>離線節點重新上線</td></tr>
+              <tr><td><code>task.created</code></td><td><code>task_scheduler.py</code></td><td>建立新任務</td></tr>
+              <tr><td><code>task.status_changed</code></td><td>預留</td><td>未來可擴充</td></tr>
+              <tr><td><code>stats.updated</code></td><td><code>node_monitor.py</code></td><td>每 30 秒推送統計</td></tr>
+            </tbody>
+          </table>
+
+          <h3>7.3 測試流程摘要</h3>
+          <ol>
+            <li><strong>環境準備</strong>:安裝 <code>Flask-SocketIO</code>、<code>python-socketio</code>、<code>eventlet</code>,啟動服務後以管理員登入 Web UI。</li>
+            <li><strong>連線確認</strong>:瀏覽器開發者工具 → Network → WS,確認 <code>/socket.io/</code> 連線;Console 應看到「初始化/連線成功」日誌。</li>
+            <li><strong>節點事件</strong>:啟動 <code>analysis_main.py</code>,於節點列表觀察註冊/心跳/離線/上線的即時更新與動畫效果。</li>
+            <li><strong>統計卡片</strong>:儀表板每 30 秒自動更新,顯示藍色光環與數字漸變。</li>
+            <li><strong>斷線復原</strong>:利用瀏覽器 Network Throttling 模擬 Offline → Online,確認狀態指示變黃/綠,並自動重新訂閱房間。</li>
+            <li><strong>多分頁同步</strong>:同時開啟儀表板與節點頁面,確認事件同步更新。</li>
+          </ol>
+
+          <div class="note">測試清單詳見 <code>WEBSOCKET_TEST_GUIDE.md</code>,包含性能基準、報告模板與故障排除建議。</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="analysis-data">
+      <h2>8. 分析節點與資料結構</h2>
+
+      <div class="layout-3col">
+        <div>
+          <h3>分析處理完整流程圖</h3>
+<pre>
+┌──────────────────────┐
+│ RabbitMQ 收到任務     │
+│ Routing Key:         │
+│ analysis.{method}    │
+└──────┬───────────────┘
+       │ consume
+       ▼
+┌────────────────────────┐
+│ Analysis Service V2    │
+│ rabbitmq_consumer.py   │
+└──────┬─────────────────┘
+       │ parse task
+       ▼
+┌────────────────────────┐
+│ 任務資訊提取            │
+│ - task_id              │
+│ - mongodb_instance     │
+│ - analyze_uuid         │
+│ - analysis_method_id   │
+│ - config_id            │
+│ - priority             │
+│ - metadata (rule info) │
+└──────┬─────────────────┘
+       │
+       ▼
+┌────────────────────────┐
+│ Step 0: 音訊轉檔檢查    │
+│ - 檢查是否需要轉檔      │
+│ - 若需要則執行格式轉換   │
+│ - 寫入 features_state: │
+│   pass 或 completed    │
+└──────┬─────────────────┘
+       │
+       ▼
+┌────────────────────────┐
+│ Step 1: 音訊切割        │
+│ Audio Slicer           │
+│ - 滑動視窗切割          │
+│ - 輸出: features_data[]│
+│   {selec, channel,     │
+│    start, end,         │
+│    freq range}         │
+└──────┬─────────────────┘
+       │
+       ▼
+┌────────────────────────┐
+│ Step 2: LEAF 特徵提取   │
+│ LEAF Feature Extractor │
+│ - SpeechBrain LEAF 模型 │
+│ - 批次處理切片          │
+│ - 輸出: features_data[]│
+│   (40維向量 x N個切片)  │
+└──────┬─────────────────┘
+       │
+       ▼
+┌────────────────────────┐
+│ Step 3: 分類預測        │
+│ Random Forest          │
+│ Classifier             │
+│ - 載入 RF 模型          │
+│ - 對每個特徵向量預測     │
+│ - 輸出: prediction,    │
+│   confidence           │
+│ - 彙總: final_         │
+│   prediction           │
+└──────┬─────────────────┘
+       │
+       ▼
+┌────────────────────────┐
+│ 更新 analyze_features  │
+│ 容器結構:              │
+│ - active_analysis_id   │
+│ - latest_analysis_id   │
+│ - runs[]               │
+│   └─ steps[0-3]        │
+└──────┬─────────────────┘
+       │
+       ▼
+┌────────────────────────┐
+│ 心跳回報                │
+│ POST /api/nodes/       │
+│ heartbeat              │
+│ - node_id              │
+│ - load_percentage      │
+│ - current_task_info    │
+└──────┬─────────────────┘
+       │
+       ▼
+┌────────────────────────┐
+│ ACK RabbitMQ 任務       │
+│ - 任務成功完成          │
+│ - 移除佇列              │
+└────────────────────────┘
+</pre>
+        </div>
+
+        <div>
+          <h3>analyze_features 容器資料結構圖</h3>
+<pre>
+analyze_features (容器)
+├── active_analysis_id:
+│   "run_20250125T120000Z"
+├── latest_analysis_id:
+│   "run_20250125T120000Z"
+├── latest_summary_index: 3
+├── total_runs: 3
+├── last_requested_at:
+│   ISODate(...)
+│
+└── runs[] (分析執行記錄陣列)
+    │
+    ├── [0] run_2025...Z
+    │   ├── analysis_id:
+    │   │   "run_2025...Z"
+    │   ├── run_index: 1
+    │   ├── analysis_summary:
+    │   │   {...}
+    │   ├── analysis_context:
+    │   │   {...}
+    │   ├── requested_at:
+    │   │   ISODate(...)
+    │   ├── started_at:
+    │   │   ISODate(...)
+    │   ├── completed_at:
+    │   │   ISODate(...)
+    │   └── steps[]
+    │       ├── [0] Step 0:
+    │       │   Audio Conversion
+    │       │   ├── features_step: 0
+    │       │   ├── features_state:
+    │       │   │   "pass"
+    │       │   ├── features_name:
+    │       │   │   "Audio_Conv..."
+    │       │   ├── processor_
+    │       │   │   metadata: {...}
+    │       │   ├── started_at:
+    │       │   │   ISODate(...)
+    │       │   └── completed_at:
+    │       │       ISODate(...)
+    │       │
+    │       ├── [1] Step 1:
+    │       │   Audio Slicing
+    │       │   ├── features_step: 1
+    │       │   ├── features_state:
+    │       │   │   "completed"
+    │       │   ├── features_name:
+    │       │   │   "Audio_Slicer"
+    │       │   ├── features_data:
+    │       │   │   [{selec,
+    │       │   │     channel,
+    │       │   │     start, end...}]
+    │       │   └── processor_
+    │       │       metadata: {...}
+    │       │
+    │       ├── [2] Step 2:
+    │       │   LEAF Features
+    │       │   ├── features_step: 2
+    │       │   ├── features_state:
+    │       │   │   "completed"
+    │       │   ├── features_name:
+    │       │   │   "LEAF_Feat..."
+    │       │   ├── features_data:
+    │       │   │   [[40維向量],
+    │       │   │    ...]
+    │       │   └── processor_
+    │       │       metadata:
+    │       │       {n_filters:
+    │       │        40...}
+    │       │
+    │       └── [3] Step 3:
+    │           Classification
+    │           ├── features_step: 3
+    │           ├── features_state:
+    │           │   "completed"
+    │           ├── features_name:
+    │           │   "RF_Classi..."
+    │           ├── features_data:
+    │           │   [{prediction,
+    │           │     confidence}]
+    │           └── processor_
+    │               metadata: {
+    │                 total_seg...,
+    │                 normal_count,
+    │                 final_pred...
+    │               }
+    │
+    ├── [1] run_2025...Z
+    │   └── ... (同樣結構)
+    │
+    └── [2] run_2025...Z (最新)
+        └── ... (同樣結構)
+</pre>
+        </div>
+
+        <div>
+          <h3>8.1 Analysis Service V2 架構重點</h3>
+          <ul>
+            <li>任務由 RabbitMQ 發送,每個分析節點以獨立消費者運行。</li>
+            <li>心跳以 30 秒為間隔發送到 <code>/api/nodes/heartbeat</code>,Redis 以 TTL 追蹤節點狀態。</li>
+            <li>任務處理步驟:Step 0 音訊轉檔 → Step 1 切割 → Step 2 LEAF 特徵 → Step 3 分類。</li>
+          </ul>
+
+          <h3>8.2 任務訊息格式</h3>
+<pre>{
+  "task_id": "uuid",
+  "mongodb_instance": "production",
+  "analyze_uuid": "record_uuid",
+  "analysis_method_id":
+    "WAV_LEAF_RF_v1",
+  "config_id": "config_001",
+  "priority": 1,
+  "created_at": "2025-11-10...",
+  "retry_count": 0,
+  "metadata": {
+    "rule_id": "rule_001",
+    "rule_name":
+      "CPC 批次上傳路由",
+    "source_instance":
+      "production"
+  }
+}</pre>
+          <p>節點收到任務後,會根據 <code>mongodb_instance</code> 連線並將結果寫回同一實例,最後 ACK RabbitMQ。</p>
+        </div>
+      </div>
+
+      <h3>8.3 <code>analyze_features</code> 多次分析容器</h3>
+<pre>"analyze_features": {
+  "active_analysis_id": "run_20250125T120000Z",
+  "latest_analysis_id": "run_20250125T120000Z",
+  "latest_summary_index": 3,
+  "total_runs": 3,
+  "last_requested_at": "2025-01-25T12:00:00Z",
+  "runs": [
+    {
+      "analysis_id": "run_20250125T120000Z",
+      "run_index": 3,
+      "analysis_summary": {...},
+      "analysis_context": {...},
+      "steps": [
+        {"features_step": 0, "features_state": "completed", ...},
+        {"features_step": 1, ...},
+        {"features_step": 2, ...},
+        {"features_step": 3, ...}
+      ],
+      "requested_at": "2025-01-25T11:59:00Z",
+      "started_at": "2025-01-25T12:00:05Z",
+      "completed_at": "2025-01-25T12:01:42Z"
+    }
+  ]
+}</pre>
+      <p>舊版陣列資料在重新分析時會自動轉換為容器格式。程式邏輯應透過 <code>runs</code> 與 <code>analysis_id</code> 尋找所需資料。</p>
+
+      <h3>8.4 步驟資料格式</h3>
+      <ul>
+        <li><strong>統一欄位:</strong><code>features_step</code>、<code>features_state</code>、<code>features_name</code>、<code>features_data</code>、<code>processor_metadata</code>、<code>error_message</code>、<code>started_at</code>、<code>completed_at</code>。</li>
+        <li><strong>Step 0 - Audio Conversion</strong>:即便無需轉檔仍會寫入,<code>features_state</code> 可能為 <code>pass</code>,metadata 標記 <code>needs_conversion</code>。</li>
+        <li><strong>Step 1 - Audio Slicing</strong>:<code>features_data</code> 為包含 <code>selec</code>、<code>channel</code>、<code>start</code>/<code>end</code>、頻率範圍的陣列。</li>
+        <li><strong>Step 2 - LEAF Features</strong>:使用二維陣列(每列 40 維向量)代表每個切片,缺失補零。</li>
+        <li><strong>Step 3 - Classification</strong>:輸出 <code>segment_id</code>、<code>prediction</code>、<code>confidence</code> 與機率;metadata 包含 <code>method</code>、<code>aggregation</code>、<code>final_prediction</code> 等統計。</li>
+      </ul>
+
+      <h3>8.5 讀取範例</h3>
+<pre>record = db.recordings.find_one({'AnalyzeUUID': 'xxx'})
+container = record.get('analyze_features', {})
+runs = container.get('runs', [])
+latest_id = container.get('latest_analysis_id')
+run = next((r for r in runs if r.get('analysis_id') == latest_id), runs[-1] if runs else None)
+
+def find_step(run, step_no):
+    return next((s for s in run.get('steps', []) if s.get('features_step') == step_no), None)
+
+slice_step = find_step(run, 1)
+leaf_step = find_step(run, 2)
+slices = slice_step.get('features_data', [])
+features = leaf_step.get('features_data', [])
+slice_info = slices[2]
+slice_feature = features[2]</pre>
+    </section>
+
+    <section id="operations">
+      <h2>9. 營運監控與疑難排解</h2>
+
+      <h3>系統監控架構圖</h3>
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│                      監控與日誌系統                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Web UI Dashboard (即時監控)                             │  │
+│  ├──────────────────────────────────────────────────────────┤  │
+│  │  • 節點狀態卡片                                          │  │
+│  │    - 在線節點數量                                        │  │
+│  │    - 節點負載百分比                                      │  │
+│  │    - 最後心跳時間                                        │  │
+│  │  • 統計卡片 (每30秒更新)                                 │  │
+│  │    - 分析設定/路由規則/MongoDB實例/節點 總數與啟用數      │  │
+│  │  • WebSocket 連線狀態指示器                              │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                         │                                       │
+│                         │ WebSocket events                      │
+│                         ▼                                       │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  State Management 後台監控                               │  │
+│  ├──────────────────────────────────────────────────────────┤  │
+│  │  ┌────────────────────┐  ┌──────────────────────────┐   │  │
+│  │  │ NodeMonitor        │  │ TaskScheduler            │   │  │
+│  │  │ - 心跳檢測 (60秒)   │  │ - 任務建立監控            │   │  │
+│  │  │ - 離線通知          │  │ - 規則匹配日誌            │   │  │
+│  │  │ - 統計推播          │  │ - RabbitMQ 發送記錄       │   │  │
+│  │  └────────────────────┘  └──────────────────────────┘   │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                         │                                       │
+│                         │ logs                                  │
+│                         ▼                                       │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  日誌檔案                                                │  │
+│  │  - logs/state_management.log                            │  │
+│  │  - logs/analysis_service.log                            │  │
+│  │  - debug_tools/batch_*.log                              │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+           │
+           │ 監控檢查點
+           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     外部監控工具                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────┐  │
+│  │  RabbitMQ        │  │  MongoDB         │  │  Redis       │  │
+│  │  Management UI   │  │  Compass/CLI     │  │  CLI         │  │
+│  ├──────────────────┤  ├──────────────────┤  ├──────────────┤  │
+│  │ • 佇列長度        │  │ • Collection統計  │  │ • TTL Keys   │  │
+│  │ • Consumer數量   │  │ • 索引使用率      │  │ • 記憶體使用  │  │
+│  │ • 訊息速率        │  │ • Slow Queries   │  │              │  │
+│  │ • 連線狀態        │  │ • GridFS空間     │  │              │  │
+│  └──────────────────┘  └──────────────────┘  └──────────────┘  │
+│                                                                 │
+│  CLI 指令:                                                      │
+│  • rabbitmqctl list_queues                                     │
+│  • docker exec mongodb_web_ui mongosh                          │
+│  • docker exec -it core_redis redis-cli -a redis_password      │
+│    KEYS nodes:*                                                │
+└─────────────────────────────────────────────────────────────────┘
+           │
+           │ 健康檢查 API
+           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     API 端點監控                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  • GET  /api/nodes                - 節點列表與狀態               │
+│  • GET  /api/instances            - MongoDB 實例狀態             │
+│  • POST /api/instances/{id}/test  - 連線測試                    │
+│  • GET  /api/routing/test         - 規則測試                    │
+│  • curl http://localhost:8000/api/nodes                        │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
+
+      <div class="layout-4-8">
+        <div class="col-left">
+          <h3>9.1 監控重點</h3>
+          <ul>
+            <li><strong>RabbitMQ</strong>:<code>rabbitmqctl list_queues</code> 或管理介面觀察 <code>analysis_tasks_queue</code> 是否堆積。</li>
+            <li><strong>節點狀態</strong>:<code>curl http://localhost:8000/api/nodes</code> 或於 Web UI Nodes 頁面。</li>
+            <li><strong>Redis</strong>:<code>docker exec -it core_redis redis-cli -a redis_password KEYS nodes:*</code> 查看心跳鍵值。</li>
+            <li><strong>Logs</strong>:<code>tail -f logs/state_management.log</code>、分析節點 log、debug_tools 產生的報告。</li>
+          </ul>
+
+          <h3>9.3 作業建議</h3>
+          <ol>
+            <li>資料工程師確認 batch_upload 欄位完整 → 建立/更新分析設定 → 規則測試 → Web UI 啟用 → 觀察調度器與 RabbitMQ 日誌 → 分析節點驗收。</li>
+            <li>刪除工具僅在測試或需要清理資料時使用,先備份再操作。</li>
+            <li>WebSocket 測試建議填寫 <code>WEBSOCKET 功能測試報告</code> 模板,紀錄延遲與成功標準。</li>
+          </ol>
+        </div>
+
+        <div class="col-right">
+          <h3>9.2 常見狀況對應</h3>
+          <table>
+            <thead><tr><th>症狀</th><th>檢查項</th></tr></thead>
+            <tbody>
+              <tr><td>無法登入 Web UI</td><td>確認帳戶啟用、重新執行 <code>python init_admin.py</code>;查看 <code>logs/state_management.log</code></td></tr>
+              <tr><td>MongoDB 連線測試失敗</td><td>檢查帳密、<code>auth_source</code>、服務是否可達</td></tr>
+              <tr><td>新資料未觸發任務</td><td>TaskScheduler 是否運行、MongoDB 實例是否啟用、資料是否含 <code>info_features.upload_time</code></td></tr>
+              <tr><td>規則應命中卻沒有</td><td>使用 <code>POST /api/routing/test</code> 驗證欄位名稱與大小寫</td></tr>
+              <tr><td>任務送出但節點未處理</td><td>確認 RabbitMQ Routing Key 是否與節點綁定一致</td></tr>
+              <tr><td>WebSocket 無法連線</td><td>是否使用 <code>socketio.run()</code>、eventlet 是否安裝、防火牆或代理設定</td></tr>
+              <tr><td>頁面頻繁重整</td><td>是否有節點不斷註冊/註銷或前端事件處理觸發 <code>location.reload()</code></td></tr>
+              <tr><td>節點離線</td><td>確認心跳是否送出、Redis 是否存在對應鍵、檢查網路</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h3>疑難排解決策樹</h3>
+<pre>
+任務未被處理?
+│
+├─ Yes ──► 檢查 1: 資料是否寫入 MongoDB?
+│          │
+│          ├─ No ──► 檢查 batch_upload 工具
+│          │         ├─ 配置檔案是否正確?
+│          │         └─ MongoDB 連線是否成功?
+│          │
+│          └─ Yes ──► 檢查 2: TaskScheduler 是否運行?
+│                     │
+│                     ├─ No ──► 啟動 State Management
+│                     │         └─ python app.py
+│                     │
+│                     └─ Yes ──► 檢查 3: 路由規則是否命中?
+│                                 │
+│                                 ├─ No ──► 使用 /api/routing/test
+│                                 │         ├─ 檢查 conditions 語法
+│                                 │         ├─ 確認欄位名稱正確
+│                                 │         └─ 檢查 enabled = true
+│                                 │
+│                                 └─ Yes ──► 檢查 4: 任務是否發送到 RabbitMQ?
+│                                             │
+│                                             ├─ No ──► 檢查 RabbitMQ 連線
+│                                             │         └─ http://localhost:15672
+│                                             │
+│                                             └─ Yes ──► 檢查 5: 節點是否在線?
+│                                                         │
+│                                                         ├─ No ──► 啟動分析節點
+│                                                         │         └─ python analysis_main.py
+│                                                         │
+│                                                         └─ Yes ──► 檢查 6: Routing Key 是否匹配?
+│                                                                     │
+│                                                                     ├─ No ──► 修改節點訂閱
+│                                                                     │         或調整規則
+│                                                                     │
+│                                                                     └─ Yes ──► 查看節點日誌
+│                                                                                 排查執行錯誤
+└─ No ──► 系統正常運行 ✅
+</pre>
+    </section>
+
+    <section id="doc-mapping">
+      <h2>10. 文檔對應表</h2>
+      <p>本檔案整合並取代以下參考資料,請在確認後再移除原檔:</p>
+      <table>
+        <thead><tr><th>原檔案</th><th>新的覆蓋範圍</th></tr></thead>
+        <tbody>
+          <tr><td><code>docs/使用教學.md</code></td><td>第 4 章 Web UI 操作指南</td></tr>
+          <tr><td><code>docs/路由規則管理指南.md</code></td><td>第 1、5、9 章</td></tr>
+          <tr><td><code>docs/設定規則說明.html</code></td><td>第 5 章</td></tr>
+          <tr><td><code>docs/debug_tools.html</code></td><td>第 6 章</td></tr>
+          <tr><td><code>core/state_management/WEB_UI_README.md</code></td><td>第 2、3、4 章</td></tr>
+          <tr><td><code>core/state_management/QUICK_START.md</code></td><td>第 3 章</td></tr>
+          <tr><td><code>core/state_management/WEBSOCKET_MIGRATION_SUMMARY.md</code></td><td>第 1、2、7 章</td></tr>
+          <tr><td><code>core/state_management/WEBSOCKET_TEST_GUIDE.md</code></td><td>第 7、9 章</td></tr>
+          <tr><td><code>a_sub_system/analysis_service_v2/README_V2.md</code></td><td>第 1、2、3、8、9 章</td></tr>
+          <tr><td><code>a_sub_system/analysis_service_v2/analyze_features_structure.md</code></td><td>第 8 章</td></tr>
+        </tbody>
+      </table>
+      <p>如需移除上述分散檔案,請先確認無其他流程依賴後再進行。</p>
+    </section>
+  </main>
+
+  <footer>
+    CPC Server Collector System · 最後更新:2025-01 · WebSocket/RabbitMQ 版本
+  </footer>
+</body>
+</html>
