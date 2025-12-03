@@ -213,3 +213,4 @@ __marimo__/
 /sub_system/analysis_service/logs/
 /sub_system/analysis_service/models/
 /core/state_management/logs/
+/sub_system/edge_client/temp_wav/
