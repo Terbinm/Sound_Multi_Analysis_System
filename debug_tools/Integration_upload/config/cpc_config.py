@@ -12,7 +12,7 @@ class CPCUploadConfig(BaseUploadConfig):
     # ==================== 資料來源 ====================
     UPLOAD_DIRECTORY = (
         r"C:\Users\sixsn\PycharmProjects\CPC_server_collectorSYS"
-        r"\debug_tools\Integration_upload\upload_data\cpc_data"
+        #r"\debug_tools\Integration_upload\upload_data\cpc_data"
     )
 
     # CPC 錄音沒有分類子資料夾，全部檔案使用同一標籤與裝置代碼

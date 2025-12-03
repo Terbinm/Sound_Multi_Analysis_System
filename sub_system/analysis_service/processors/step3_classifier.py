@@ -112,6 +112,9 @@ class AudioClassifier:
         except Exception as e:
             logger.error(f"模型載入失敗: {e}")
             logger.warning("將使用隨機分類模式")
+            self.model = None
+            self.scaler = None
+            self.metadata = None
 
     def classify(self, features_data: List[List[float]]) -> Dict[str, Any]:
         """
@@ -130,20 +133,7 @@ class AudioClassifier:
             if self.method == 'rf_model' and model is not None:
                 return self._model_classify(features_data)
             else:
-                # 任何使用隨機模式的情況皆發出警告
-                warn_reason = "配置指定隨機模式"
-                use_model = bool(self.config.get('use_model'))
-                model_path = self.config.get('model_path')
-                requested_method = self.config.get('method')
-                if use_model and model_path and not os.path.exists(model_path):
-                    warn_reason = f"模型路徑無效: {model_path}"
-                elif use_model and not model_path:
-                    warn_reason = "未提供模型路徑"
-                elif use_model and requested_method == 'rf_model' and model is None:
-                    warn_reason = "模型未載入成功"
-                elif not use_model and requested_method == 'rf_model':
-                    warn_reason = "未啟用模型 (use_model=False)"
-                logger.warning(f"分類使用隨機模式：{warn_reason}")
+                logger.warning(f"!!!分類使用隨機模式!!!")
                 return self._random_classify_all(features_data)
 
         except Exception as e:
@@ -190,8 +180,8 @@ class AudioClassifier:
             aggregated_feature = aggregated_feature.reshape(1, -1)
 
             # 標準化（如果有 scaler）
-            if self.scaler is not None:
-                aggregated_feature = self.scaler.transform(aggregated_feature)
+            # if self.scaler is not None:
+            #     aggregated_feature = self.scaler.transform(aggregated_feature)
 
             # 預測
             model = getattr(self, 'model', None)
