@@ -210,3 +210,5 @@ __marimo__/
 .idea/
 /debug_tools/edge_client_connector/edge_client_connector/downloaded_recordings/
 /debug_tools/simplify_mongodb_record/output/
+/sub_system/analysis_service/logs/
+/sub_system/analysis_service/models/
