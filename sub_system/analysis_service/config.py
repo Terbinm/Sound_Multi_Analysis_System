@@ -2,15 +2,19 @@
 
 import os
 import torch
+from dotenv import load_dotenv, find_dotenv
+
+# 預先載入 .env 讓所有子系統共用設定
+load_dotenv(find_dotenv())
 
 
 MONGODB_CONFIG = {
-    'host': 'localhost',
-    'port': 55101,  # 核心服務 MongoDB 端口（統一使用）
-    'username': 'web_ui',
-    'password': 'hod2iddfsgsrl',
-    'database': 'web_db',
-    'collection': 'recordings'
+    'host': os.getenv('MONGODB_HOST', 'localhost'),
+    'port': int(os.getenv('MONGODB_PORT', '55101')),  # 核心服務 MongoDB 端口（統一使用）
+    'username': os.getenv('MONGODB_USERNAME', 'web_ui'),
+    'password': os.getenv('MONGODB_PASSWORD', 'hod2iddfsgsrl'),
+    'database': os.getenv('MONGODB_DATABASE', 'web_db'),
+    'collection': os.getenv('MONGODB_COLLECTION', 'recordings')
 }
 
 # ==================== 音訊處理配置 ====================

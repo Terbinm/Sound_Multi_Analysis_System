@@ -77,6 +77,8 @@
     {% if rules %}
     <div class="tech-grid tech-grid-responsive">
         {% for rule in rules %}
+        {% set router_ids = rule.router_ids if rule.router_ids else [rule.rule_id] %}
+        {% set primary_router_id = router_ids[0] %}
         <div class="tech-card h-full p-6 flex flex-col gap-4">
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -112,32 +114,46 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-between pt-4 border-t border-dashed border-gray-200">
-                <div class="text-xs text-gray-500 flex items-center gap-2">
-                    <i class="fas fa-route text-gray-400"></i>
-                    <span>Rule ID：{{ rule.rule_id }}</span>
+            <div class="flex flex-col gap-3">
+                <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                    <i class="fas fa-network-wired text-gray-400"></i>
+                    <span class="font-semibold">Router IDs：</span>
+                    {% for router_id in router_ids %}
+                    <span class="px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-mono">{{ router_id }}</span>
+                    {% endfor %}
                 </div>
-                <div class="flex justify-end gap-3">
-                    <a href="{{ url_for('views.routing_view', rule_id=rule.rule_id) }}"
-                       class="text-indigo-600 hover:text-indigo-900 transition-colors"
-                       title="檢視">
-                        <i class="fas fa-eye"></i>
-                    </a>
-                    {% if current_user.is_admin() %}
-                    <a href="{{ url_for('views.routing_edit', rule_id=rule.rule_id) }}"
-                       class="text-blue-600 hover:text-blue-900 transition-colors"
-                       title="編輯">
-                        <i class="fas fa-edit"></i>
-                    </a>
-                    <form method="POST" action="{{ url_for('views.routing_delete', rule_id=rule.rule_id) }}"
-                          class="inline"
-                          onsubmit="return confirm('確定要刪除此規則嗎？');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="text-red-600 hover:text-red-900 transition-colors" title="刪除">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </form>
-                    {% endif %}
+                <div class="flex items-center justify-between pt-4 border-t border-dashed border-gray-200">
+                    <div class="text-xs text-gray-500 flex items-center gap-2">
+                        <i class="fas fa-route text-gray-400"></i>
+                        <span>Rule ID：{{ rule.rule_id }}</span>
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <a href="{{ url_for('views.routing_monitor', router_id=primary_router_id) }}"
+                           class="text-green-600 hover:text-green-800 transition-colors"
+                           title="Router 監控">
+                            <i class="fas fa-desktop"></i>
+                        </a>
+                        <a href="{{ url_for('views.routing_view', rule_id=rule.rule_id) }}"
+                           class="text-indigo-600 hover:text-indigo-900 transition-colors"
+                           title="檢視">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        {% if current_user.is_admin() %}
+                        <a href="{{ url_for('views.routing_edit', rule_id=rule.rule_id) }}"
+                           class="text-blue-600 hover:text-blue-900 transition-colors"
+                           title="編輯">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('views.routing_delete', rule_id=rule.rule_id) }}"
+                              class="inline"
+                              onsubmit="return confirm('確定要刪除此規則嗎？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-red-600 hover:text-red-900 transition-colors" title="刪除">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>

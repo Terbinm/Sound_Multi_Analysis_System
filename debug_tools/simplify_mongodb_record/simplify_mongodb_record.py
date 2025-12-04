@@ -3,11 +3,15 @@ import json
 from pymongo import MongoClient
 from datetime import datetime
 from bson import ObjectId
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv())
 
 # MongoDB 配置
+_mongo_port = os.getenv('TRAIN_MONGODB_PORT') or os.getenv('MONGODB_PORT', '55101')
 MONGODB_CONFIG = {
     'host': os.getenv('MONGODB_HOST', 'localhost'),
-    'port': int(os.getenv('MONGODB_PORT', '27021')),
+    'port': int(_mongo_port),
     'username': os.getenv('MONGODB_USERNAME', 'web_ui'),
     'password': os.getenv('MONGODB_PASSWORD', 'hod2iddfsgsrl'),
     'database': 'web_db',

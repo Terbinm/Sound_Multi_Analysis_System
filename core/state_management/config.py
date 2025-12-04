@@ -3,19 +3,23 @@
 """
 import os
 from typing import Dict, Any
+from dotenv import load_dotenv, find_dotenv
+
+# 先行載入 .env 方便後續配置取用
+load_dotenv(find_dotenv())
 
 class Config:
     """基礎配置"""
 
     # Flask 配置
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-    FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
+    SECRET_KEY = os.environ.get('STATE_MANAGEMENT_SECRET_KEY') or os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    FLASK_ENV = os.environ.get('STATE_MANAGEMENT_FLASK_ENV') or os.environ.get('FLASK_ENV', 'development')
     DEBUG = FLASK_ENV == 'development'
 
     # 服務配置
-    HOST = os.environ.get('HOST', '0.0.0.0')
-    PORT = int(os.environ.get('PORT', 55103))  # 核心服務狀態管理端口
-    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+    HOST = os.environ.get('STATE_MANAGEMENT_HOST') or os.environ.get('HOST', '0.0.0.0')
+    PORT = int(os.environ.get('STATE_MANAGEMENT_PORT') or os.environ.get('PORT', 55103))  # 核心服務狀態管理端口
+    LOG_LEVEL = os.environ.get('STATE_MANAGEMENT_LOG_LEVEL') or os.environ.get('LOG_LEVEL', 'INFO')
 
     # MongoDB 配置
     MONGODB_CONFIG: Dict[str, Any] = {
@@ -112,5 +116,5 @@ config_dict = {
 
 def get_config() -> Config:
     """獲取當前配置"""
-    env = os.environ.get('FLASK_ENV', 'development')
+    env = os.environ.get('STATE_MANAGEMENT_FLASK_ENV') or os.environ.get('FLASK_ENV', 'development')
     return config_dict.get(env, DevelopmentConfig)

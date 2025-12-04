@@ -8,6 +8,9 @@ import json
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional
 from pathlib import Path
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv())
 
 # 機器學習相關
 from sklearn.ensemble import RandomForestClassifier
@@ -42,13 +45,14 @@ target_step = 2
 class ModelConfig:
     """模型訓練配置"""
     # MongoDB 配置
+    _port = os.getenv('TRAIN_MONGODB_PORT') or os.getenv('MONGODB_PORT', '55101')
     MONGODB_CONFIG = {
-        'host': 'localhost',
-        'port': 27025,
-        'username': 'web_ui',
-        'password': 'hod2iddfsgsrl',
-        'database': 'web_db',
-        'collection': 'recordings'
+        'host': os.getenv('MONGODB_HOST', 'localhost'),
+        'port': int(_port),
+        'username': os.getenv('MONGODB_USERNAME', 'web_ui'),
+        'password': os.getenv('MONGODB_PASSWORD', 'hod2iddfsgsrl'),
+        'database': os.getenv('MONGODB_DATABASE', 'web_db'),
+        'collection': os.getenv('MONGODB_COLLECTION', 'recordings')
     }
 
     # 特徵配置

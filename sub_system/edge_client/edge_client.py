@@ -12,6 +12,9 @@ import logging
 import json
 from datetime import datetime
 import hashlib
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv())
 
 # 設置日誌
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -34,10 +37,9 @@ class AudioRecorder:
         self.RESPEAKER_RATE = 16000
         self.RESPEAKER_CHANNELS = 1
         self.WAVE_OUTPUT_FILENAME = "output.wav"
-        # self.SERVER_URL = "http://163.18.22.51:88/"  # 伺服器的 IP 和端口
-        self.SERVER_URL = "http://127.0.0.1:5000"  # 伺服器的 IP 和端口
-        self.CONFIG_FILE = config_file
-        self.TEMP_WAV_DIR = "temp_wav"
+        self.SERVER_URL = os.getenv("EDGE_SERVER_URL", "http://127.0.0.1:5000")  # 伺服器的 IP 和端口
+        self.CONFIG_FILE = os.getenv("EDGE_DEVICE_CONFIG_PATH", config_file)
+        self.TEMP_WAV_DIR = os.getenv("EDGE_TEMP_WAV_DIR", "temp_wav")
         self.device_id = None
         self.device_name = None
         self.status = "IDLE"  # 可能的狀態: IDLE, RECORDING, OFFLINE

@@ -6,17 +6,19 @@ services:
     image: mongo:6.0
     container_name: core_mongodb
     restart: unless-stopped
+    env_file:
+      - ../.env
     ports:
-      - "55101:55101"   # MongoDB 端口映射
+      - "${MONGODB_PORT:-55101}:${MONGODB_PORT:-55101}"   # MongoDB 端口映射
     volumes:
       - mongodb_data:/data/db
     environment:
-      MONGO_INITDB_ROOT_USERNAME: web_ui
-      MONGO_INITDB_ROOT_PASSWORD: hod2iddfsgsrl
-      MONGO_INITDB_DATABASE: web_db
-    command: ["mongod", "--port", "55101", "--bind_ip_all"]
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME:-web_ui}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-hod2iddfsgsrl}
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-web_db}
+    command: ["mongod", "--port", "${MONGODB_PORT:-55101}", "--bind_ip_all"]
     healthcheck:
-      test: ["CMD", "mongosh", "--port", "55101", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--port", "${MONGODB_PORT:-55101}", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,16 +28,18 @@ services:
     image: rabbitmq:3.12-management
     container_name: core_rabbitmq
     restart: unless-stopped
+    env_file:
+      - ../.env
     ports:
-      - "55102:55102"   # AMQP 協議端口
-      - "55112:55112"   # 管理界面端口
+      - "${RABBITMQ_PORT:-55102}:${RABBITMQ_PORT:-55102}"   # AMQP 協議端口
+      - "${RABBITMQ_MANAGEMENT_PORT:-55112}:${RABBITMQ_MANAGEMENT_PORT:-55112}"   # 管理界面端口
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro  # 自定義配置文件
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: rabbitmq_admin_pass
-      RABBITMQ_DEFAULT_VHOST: /
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbitmq_admin_pass}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -49,29 +53,31 @@ services:
       dockerfile: Dockerfile
     container_name: core_state_management
     restart: unless-stopped
+    env_file:
+      - ../.env
     ports:
-      - "55103:55103"   # 狀態管理系統端口
+      - "${STATE_MANAGEMENT_PORT:-55103}:${STATE_MANAGEMENT_PORT:-55103}"   # 狀態管理系統端口
     volumes:
       - ./state_management:/app
       - logs:/app/logs
     environment:
       # MongoDB 配置（連接宿主機）
-      - MONGODB_HOST=host.docker.internal
-      - MONGODB_PORT=55101
-      - MONGODB_USERNAME=web_ui
-      - MONGODB_PASSWORD=hod2iddfsgsrl
-      - MONGODB_DATABASE=web_db
+      - MONGODB_HOST=${DOCKER_MONGODB_HOST:-host.docker.internal}
+      - MONGODB_PORT=${MONGODB_PORT:-55101}
+      - MONGODB_USERNAME=${MONGODB_USERNAME:-web_ui}
+      - MONGODB_PASSWORD=${MONGODB_PASSWORD:-hod2iddfsgsrl}
+      - MONGODB_DATABASE=${MONGODB_DATABASE:-web_db}
 
       # RabbitMQ 配置（連接宿主機）
-      - RABBITMQ_HOST=host.docker.internal
-      - RABBITMQ_PORT=55102
-      - RABBITMQ_USERNAME=admin
-      - RABBITMQ_PASSWORD=rabbitmq_admin_pass
+      - RABBITMQ_HOST=${DOCKER_RABBITMQ_HOST:-host.docker.internal}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-55102}
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-admin}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-rabbitmq_admin_pass}
 
       # 服務配置
-      - FLASK_ENV=production
+      - FLASK_ENV=${STATE_MANAGEMENT_FLASK_ENV:-production}
       - PYTHONUNBUFFERED=1
-      - LOG_LEVEL=INFO
+      - LOG_LEVEL=${STATE_MANAGEMENT_LOG_LEVEL:-INFO}
 
 # 使用宿主機網路模式，不需要自定義網路
 
