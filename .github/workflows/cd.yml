@@ -2,16 +2,13 @@ name: CD Pipeline
 
 on:
   push:
-    tags:
-      - 'dev_v*'
-      - 'staging_v*'
-      - 'server_production_v*'
-      - 'edge_production_v*'
-      - 'edge_productio_v*'
+    branches:
+      - main
+      - master
   workflow_dispatch:
     inputs:
-      manual_tag:
-        description: '可選：覆蓋 ref 的標籤（格式：<prefix>_v主.中.次.流水_說明）'
+      manual_version:
+        description: '可選：手動指定版本（格式：<prefix>_v主.中.次.流水_說明）'
         required: false
         type: string
 
@@ -26,7 +23,7 @@ env:
   ANALYSIS_IMAGE: ${{ github.repository_owner }}/sound-analysis-service
 
 jobs:
-  parse_tag:
+  parse_version:
     name: 解析版本標籤
     runs-on: ubuntu-latest
     outputs:
@@ -36,34 +33,54 @@ jobs:
       desc: ${{ steps.parse.outputs.desc }}
       should_deploy: ${{ steps.parse.outputs.should_deploy }}
     steps:
-      - name: 解析格式
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 解析 commit message 格式
         id: parse
         shell: bash
         run: |
-          TAG="${{ github.ref_name }}"
-          if [ -n "${{ inputs.manual_tag }}" ]; then TAG="${{ inputs.manual_tag }}"; fi
-
-          if [[ -z "$TAG" ]]; then
-            echo "未取得 tag，請確認觸發方式" >&2
-            exit 1
+          # 優先使用手動輸入，否則從 commit message 取得
+          if [ -n "${{ inputs.manual_version }}" ]; then
+            VERSION_STRING="${{ inputs.manual_version }}"
+          else
+            # 取得最新 commit message 的第一行
+            VERSION_STRING=$(git log -1 --pretty=%s)
           fi
 
-          if [[ "$TAG" =~ ^(dev|staging|server_production|edge_production|edge_productio)_v([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)_(.+)$ ]]; then
+          echo "解析版本字串: $VERSION_STRING"
+
+          # 檢查是否符合版本格式：{env}_v{主}.{中}.{次}.{流水}_{說明}
+          if [[ "$VERSION_STRING" =~ ^(dev|staging|server_production|edge_production|edge_productio)_v([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)_(.+)$ ]]; then
             ENV_NAME="${BASH_REMATCH[1]}"
             VERSION="${BASH_REMATCH[2]}.${BASH_REMATCH[3]}.${BASH_REMATCH[4]}.${BASH_REMATCH[5]}"
             DESC="${BASH_REMATCH[6]}"
+            
+            # edge_productio* 視為 edge_production
+            if [ "$ENV_NAME" = "edge_productio" ]; then ENV_NAME="edge_production"; fi
+
+            SHOULD_DEPLOY="true"
+            if [ "$ENV_NAME" = "dev" ]; then SHOULD_DEPLOY="false"; fi
+
+            echo "✅ 符合版本格式"
+            echo "   環境: $ENV_NAME"
+            echo "   版本: $VERSION"
+            echo "   說明: $DESC"
+            echo "   部署: $SHOULD_DEPLOY"
           else
-            echo "tag $TAG 不符合規格 <prefix>_v主.中.次.流水_說明" >&2
-            exit 1
+            echo "⏭️ Commit message 不符合版本格式，跳過 CD 流程"
+            echo "   格式應為: {env}_v{主}.{中}.{次}.{流水}_{說明}"
+            echo "   例如: staging_v1.0.0.1_add_feature"
+            SHOULD_DEPLOY="false"
+            ENV_NAME=""
+            VERSION=""
+            DESC=""
+            VERSION_STRING=""
           fi
 
-          # edge_productio* 視為 edge_production
-          if [ "$ENV_NAME" = "edge_productio" ]; then ENV_NAME="edge_production"; fi
-
-          SHOULD_DEPLOY="true"
-          if [ "$ENV_NAME" = "dev" ]; then SHOULD_DEPLOY="false"; fi
-
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "tag=$VERSION_STRING" >> "$GITHUB_OUTPUT"
           echo "env=$ENV_NAME" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "desc=$DESC" >> "$GITHUB_OUTPUT"
@@ -71,12 +88,12 @@ jobs:
 
   build_and_push:
     name: 建置並推送映像
-    needs: parse_tag
-    if: needs.parse_tag.outputs.should_deploy == 'true'
+    needs: parse_version
+    if: needs.parse_version.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     env:
-      VERSION: ${{ needs.parse_tag.outputs.version }}
-      ENV_NAME: ${{ needs.parse_tag.outputs.env }}
+      VERSION: ${{ needs.parse_version.outputs.version }}
+      ENV_NAME: ${{ needs.parse_version.outputs.env }}
     steps:
       - name: 取得程式碼
         uses: actions/checkout@v4
@@ -115,12 +132,12 @@ jobs:
   deploy_staging:
     name: 部署到 Staging
     needs:
-      - parse_tag
+      - parse_version
       - build_and_push
-    if: needs.parse_tag.outputs.env == 'staging'
+    if: needs.parse_version.outputs.env == 'staging'
     runs-on: [self-hosted, staging]
     env:
-      VERSION: ${{ needs.parse_tag.outputs.version }}
+      VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
       - name: 取得程式碼
         uses: actions/checkout@v4
@@ -185,12 +202,12 @@ jobs:
   deploy_server_production:
     name: 部署到 Server Production
     needs:
-      - parse_tag
+      - parse_version
       - build_and_push
-    if: needs.parse_tag.outputs.env == 'server_production'
+    if: needs.parse_version.outputs.env == 'server_production'
     runs-on: [self-hosted, server_production]
     env:
-      VERSION: ${{ needs.parse_tag.outputs.version }}
+      VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
       - name: 取得程式碼
         uses: actions/checkout@v4
@@ -243,12 +260,12 @@ jobs:
   deploy_edge_production:
     name: 部署到 Edge Production
     needs:
-      - parse_tag
+      - parse_version
       - build_and_push
-    if: needs.parse_tag.outputs.env == 'edge_production'
+    if: needs.parse_version.outputs.env == 'edge_production'
     runs-on: [self-hosted, edge_production]
     env:
-      VERSION: ${{ needs.parse_tag.outputs.version }}
+      VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
       - name: 取得程式碼
         uses: actions/checkout@v4

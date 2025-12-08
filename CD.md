@@ -30,7 +30,9 @@
 
 ## 2. 版本標籤規則
 
-標籤格式：`{env}_v{主}.{中}.{次}.{流水}_{說明}`
+CD 流程以 **commit message** 作為觸發依據，格式如下：
+
+`{env}_v{主}.{中}.{次}.{流水}_{說明}`
 
 | 前綴 | 環境 | 行為 |
 |------|------|------|
@@ -39,12 +41,25 @@
 | `server_production_v*` | Server Production | 部署到 server_production runner |
 | `edge_production_v*` | Edge Production | 部署到 edge_production runner（僅 Analysis Service） |
 
-**範例：**
-- `staging_v1.4.2.7_rabbitmq-tuning`
-- `server_production_v2.0.0.3_hotfix-a`
-- `edge_production_v1.0.0.0_edge-node-1`
+**使用方式：**
+```bash
+# 觸發 staging 部署
+git commit -m "staging_v1.4.2.7_rabbitmq-tuning"
+git push origin main
 
-> **注意**：`{說明}` 僅用於人類辨識，映像 tag 只使用版本號（避免 Docker tag 非法字元）。
+# 觸發 production 部署
+git commit -m "server_production_v2.0.0.3_hotfix-a"
+git push origin main
+
+# 觸發 edge 部署
+git commit -m "edge_production_v1.0.0.0_edge-node-1"
+git push origin main
+```
+
+> **注意**：
+> - 只有 commit message **第一行**符合版本格式時才會觸發 CD
+> - 一般 commit（不符合格式）不會觸發部署流程
+> - `{說明}` 僅用於人類辨識，映像 tag 只使用版本號（避免 Docker tag 非法字元）
 
 ---
 
@@ -77,16 +92,16 @@
 Workflow 檔案：`.github/workflows/cd.yml`
 
 ### 觸發方式
-- Tag push（符合上述版本標籤格式）
-- `workflow_dispatch` 可手動指定 tag
+- Push 到 `main` 或 `master` 分支（commit message 符合版本格式時觸發）
+- `workflow_dispatch` 可手動指定版本字串
 
 ### 主要 Jobs
 
 ```
 ┌─────────────────┐
-│   parse_tag     │  解析 tag，輸出環境/版本/描述
+│  parse_version  │  解析 commit message，輸出環境/版本/描述
 └────────┬────────┘
-         │ dev_* → 結束（不部署）
+         │ 不符合格式 or dev_* → 結束（不部署）
          ▼
 ┌─────────────────┐
 │ build_and_push  │  建置並推送 GHCR 映像
@@ -230,12 +245,12 @@ Copy-Item docs\cd\env.staging.sample .env
 
 1. 確認 runner 標籤包含 `self-hosted`、`staging`
 2. 在 runner 上 clone 專案並放置 `.env`
-3. 建立並推送 tag：
+3. 使用版本格式的 commit message 並推送：
    ```bash
-   git tag staging_v1.0.0.0_first-release
-   git push origin staging_v1.0.0.0_first-release
+   git commit -m "staging_v1.0.0.0_first-release"
+   git push origin main
    ```
-4. 觀察 Actions：`parse_tag` → `build_and_push` → `deploy_staging`
+4. 觀察 Actions：`parse_version` → `build_and_push` → `deploy_staging`
 
 ### Staging 部署流程
 1. 產生 `core/docker-compose.override.ci.yml`
@@ -252,8 +267,8 @@ Copy-Item docs\cd\env.staging.sample .env
 與 Staging 類似，但不執行語法 smoke test。
 
 ```bash
-git tag server_production_v1.0.0.0_first-prod
-git push origin server_production_v1.0.0.0_first-prod
+git commit -m "server_production_v1.0.0.0_first-prod"
+git push origin main
 ```
 
 ### Edge Production
@@ -261,8 +276,8 @@ git push origin server_production_v1.0.0.0_first-prod
 僅部署 Analysis Service，連線至遠端核心服務。
 
 ```bash
-git tag edge_production_v1.0.0.0_edge-node-1
-git push origin edge_production_v1.0.0.0_edge-node-1
+git commit -m "edge_production_v1.0.0.0_edge-node-1"
+git push origin main
 ```
 
 部署會產生 `core/docker-compose.edge.override.yml`，只啟動 Analysis Service。
@@ -287,7 +302,7 @@ docker logs analysis_service
 ```
 
 ### 回滾方式
-- 推送舊版本號的 tag 重新部署
+- 使用舊版本號的 commit message 重新部署
 - 或手動 `docker compose ... up -d` 指定舊映像
 
 ---
