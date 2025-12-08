@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-# 複製 requirements (如果有的話)
-COPY ./requirements.txt* ./
+# 複製依賴文件（從根目錄）
+COPY requirements.txt .
 
 # 安裝 Python 依賴
 RUN pip install --no-cache-dir \
@@ -28,7 +28,7 @@ RUN pip install --no-cache-dir \
 RUN pip install --no-cache-dir speechbrain
 
 # 複製應用程式檔案
-COPY ./ ./
+COPY sub_system/analysis_service/ .
 
 # 建立日誌目錄
 RUN mkdir -p /app/logs
