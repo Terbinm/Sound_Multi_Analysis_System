@@ -1,0 +1,296 @@
+name: CD Pipeline
+
+on:
+  push:
+    tags:
+      - 'dev_v*'
+      - 'staging_v*'
+      - 'server_production_v*'
+      - 'edge_production_v*'
+      - 'edge_productio_v*'
+  workflow_dispatch:
+    inputs:
+      manual_tag:
+        description: '可選：覆蓋 ref 的標籤（格式：<prefix>_v主.中.次.流水_說明）'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  STATE_IMAGE: ${{ github.repository_owner }}/sound-state-management
+  ANALYSIS_IMAGE: ${{ github.repository_owner }}/sound-analysis-service
+
+jobs:
+  parse_tag:
+    name: 解析版本標籤
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.parse.outputs.tag }}
+      env: ${{ steps.parse.outputs.env }}
+      version: ${{ steps.parse.outputs.version }}
+      desc: ${{ steps.parse.outputs.desc }}
+      should_deploy: ${{ steps.parse.outputs.should_deploy }}
+    steps:
+      - name: 解析格式
+        id: parse
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [ -n "${{ inputs.manual_tag }}" ]; then TAG="${{ inputs.manual_tag }}"; fi
+
+          if [[ -z "$TAG" ]]; then
+            echo "未取得 tag，請確認觸發方式" >&2
+            exit 1
+          fi
+
+          if [[ "$TAG" =~ ^(dev|staging|server_production|edge_production|edge_productio)_v([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)_(.+)$ ]]; then
+            ENV_NAME="${BASH_REMATCH[1]}"
+            VERSION="${BASH_REMATCH[2]}.${BASH_REMATCH[3]}.${BASH_REMATCH[4]}.${BASH_REMATCH[5]}"
+            DESC="${BASH_REMATCH[6]}"
+          else
+            echo "tag $TAG 不符合規格 <prefix>_v主.中.次.流水_說明" >&2
+            exit 1
+          fi
+
+          # edge_productio* 視為 edge_production
+          if [ "$ENV_NAME" = "edge_productio" ]; then ENV_NAME="edge_production"; fi
+
+          SHOULD_DEPLOY="true"
+          if [ "$ENV_NAME" = "dev" ]; then SHOULD_DEPLOY="false"; fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "env=$ENV_NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "desc=$DESC" >> "$GITHUB_OUTPUT"
+          echo "should_deploy=$SHOULD_DEPLOY" >> "$GITHUB_OUTPUT"
+
+  build_and_push:
+    name: 建置並推送映像
+    needs: parse_tag
+    if: needs.parse_tag.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.parse_tag.outputs.version }}
+      ENV_NAME: ${{ needs.parse_tag.outputs.env }}
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 準備需求與入口檔
+        shell: bash
+        run: |
+          cp "  requirements.txt" requirements.txt
+          cp "  requirements.txt" core/state_management/requirements.txt
+          cp -f sub_system/analysis_service/analysis_main.py sub_system/analysis_service/main.py
+
+      - name: 登入 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 建置 State Management
+        uses: docker/build-push-action@v5
+        with:
+          context: core/state_management
+          file: core/state_management/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.VERSION }}
+            ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.ENV_NAME }}-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 建置 Analysis Service
+        uses: docker/build-push-action@v5
+        with:
+          context: sub_system/analysis_service
+          file: sub_system/analysis_service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
+            ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.ENV_NAME }}-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy_staging:
+    name: 部署到 Staging
+    needs:
+      - parse_tag
+      - build_and_push
+    if: needs.parse_tag.outputs.env == 'staging'
+    runs-on: [self-hosted, staging]
+    env:
+      VERSION: ${{ needs.parse_tag.outputs.version }}
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 登入 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 拉取映像
+        shell: bash
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${VERSION}
+          docker pull ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION}
+
+      - name: 產出部署覆蓋檔
+        shell: bash
+        run: |
+          cat > core/docker-compose.override.ci.yml <<EOF
+services:
+  state_management:
+    image: ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${VERSION}
+    command: ["python", "state_management_main.py"]
+  analysis_service:
+    image: ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION}
+    container_name: analysis_service
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      MONGODB_HOST: \${MONGODB_HOST:-mongodb}
+      MONGODB_PORT: \${MONGODB_PORT:-55101}
+      RABBITMQ_HOST: \${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_PORT: \${RABBITMQ_PORT:-55102}
+      STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL:-http://state_management:\${STATE_MANAGEMENT_PORT:-55103}}
+    volumes:
+      - ../sub_system/analysis_service/logs:/app/logs
+    depends_on:
+      - mongodb
+      - rabbitmq
+EOF
+
+      - name: 重新部署核心與分析服務
+        shell: bash
+        run: |
+          docker compose -f core/docker-compose.yml -f core/docker-compose.override.ci.yml up -d --remove-orphans mongodb rabbitmq state_management analysis_service
+
+      - name: 語法 smoke test
+        shell: bash
+        run: |
+          docker run --rm ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${VERSION} python -m compileall /app
+          docker run --rm ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION} python -m compileall /app
+
+      - name: 健康檢查
+        shell: bash
+        run: |
+          sleep 10
+          curl -f http://localhost:${STATE_MANAGEMENT_PORT:-55103}/health
+
+  deploy_server_production:
+    name: 部署到 Server Production
+    needs:
+      - parse_tag
+      - build_and_push
+    if: needs.parse_tag.outputs.env == 'server_production'
+    runs-on: [self-hosted, server_production]
+    env:
+      VERSION: ${{ needs.parse_tag.outputs.version }}
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 登入 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 拉取映像
+        shell: bash
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${VERSION}
+          docker pull ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION}
+
+      - name: 產出部署覆蓋檔
+        shell: bash
+        run: |
+          cat > core/docker-compose.override.ci.yml <<EOF
+services:
+  state_management:
+    image: ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${VERSION}
+    command: ["python", "state_management_main.py"]
+  analysis_service:
+    image: ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION}
+    container_name: analysis_service
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      MONGODB_HOST: \${MONGODB_HOST:-mongodb}
+      MONGODB_PORT: \${MONGODB_PORT:-55101}
+      RABBITMQ_HOST: \${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_PORT: \${RABBITMQ_PORT:-55102}
+      STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL:-http://state_management:\${STATE_MANAGEMENT_PORT:-55103}}
+    volumes:
+      - ../sub_system/analysis_service/logs:/app/logs
+    depends_on:
+      - mongodb
+      - rabbitmq
+EOF
+
+      - name: 部署
+        shell: bash
+        run: |
+          docker compose -f core/docker-compose.yml -f core/docker-compose.override.ci.yml up -d --remove-orphans mongodb rabbitmq state_management analysis_service
+
+  deploy_edge_production:
+    name: 部署到 Edge Production
+    needs:
+      - parse_tag
+      - build_and_push
+    if: needs.parse_tag.outputs.env == 'edge_production'
+    runs-on: [self-hosted, edge_production]
+    env:
+      VERSION: ${{ needs.parse_tag.outputs.version }}
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 登入 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 拉取映像
+        shell: bash
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION}
+
+      - name: 部署分析節點（僅 Analysis Service）
+        shell: bash
+        run: |
+          cat > core/docker-compose.edge.override.yml <<EOF
+services:
+  analysis_service:
+    image: ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION}
+    container_name: analysis_service
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      MONGODB_HOST: \${MONGODB_HOST}
+      MONGODB_PORT: \${MONGODB_PORT}
+      RABBITMQ_HOST: \${RABBITMQ_HOST}
+      RABBITMQ_PORT: \${RABBITMQ_PORT}
+      STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL}
+    volumes:
+      - ../sub_system/analysis_service/logs:/app/logs
+    command: ["python", "analysis_main.py"]
+EOF
+          docker compose -f core/docker-compose.edge.override.yml up -d --remove-orphans analysis_service
