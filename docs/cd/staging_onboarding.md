@@ -25,6 +25,7 @@ STATE_MANAGEMENT_PORT=55103
 STATE_MANAGEMENT_URL=http://localhost:55103
 ```
 
+
 Windows（PowerShell）建立：
 ```
 cd C:\path\to\repo
