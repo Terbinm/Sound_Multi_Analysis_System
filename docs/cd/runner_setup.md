@@ -33,7 +33,7 @@ sudo ./svc.sh start
 - 如果是 server_production / edge_production 環境，請把 `--labels` 改為 `self-hosted,linux,docker,server_production` 或 `self-hosted,linux,docker,edge_production`。
 - 需要讓 runner 用戶能操作 Docker：`sudo usermod -aG docker <runner_user>` 後重新登入。
 
-## 4. 安裝與註冊（Windows PowerShell）
+## 4. 安裝與註冊（Windows PowerShell，含互動提示）
 ```powershell
 # 1) 建立與下載（版本號依 GitHub UI）
 mkdir C:\actions-runner
@@ -41,15 +41,23 @@ cd C:\actions-runner
 Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/vX.Y.Z/actions-runner-win-x64-X.Y.Z.zip -OutFile actions-runner-win-x64.zip
 Expand-Archive actions-runner-win-x64.zip -DestinationPath .
 
-# 2) 依 GitHub UI 的 config 指令執行，範例：
-.\config.cmd --url https://github.com/<owner>/<repo> --token <RUNNER_TOKEN> --labels "self-hosted,windows,docker,staging" --name staging-runner-1
+# 2) 執行 config，示例對應 staging 環境：
+.\config.cmd --url https://github.com/<owner>/<repo> --token <RUNNER_TOKEN>
+# 互動輸入建議：
+# - Runner group: 直接按 Enter 使用 Default（免費版無自訂群組）
+# - Runner name: 按 Enter 接受預設或自訂如 E308-STAGE-SERV
+# - 額外標籤: 輸入環境標籤，例如 staging（或 server_production / edge_production）
+#   最終標籤列表會包含 self-hosted, Windows, X64, staging
+# - Work folder: 按 Enter 使用 _work
+# - Run as service?: 輸入 Y（建議）並按 Enter，帳號預設 NT AUTHORITY\NETWORK SERVICE
 
-# 3) 啟動方式
-.\run.cmd                # 互動模式測試
-.\svc install ; .\svc start  # 推薦：安裝成服務自動啟動
+# 3) 服務啟動（若前一步選 Y 會自動安裝服務）
+.\svc install ; .\svc start   # 再執行一次保險可啟動服務
+# 若僅測試可用互動模式：.\run.cmd
 ```
-- 標籤依環境替換為 `server_production` 或 `edge_production`。
+- 標籤依環境改為 `staging` / `server_production` / `edge_production`，Workflow 會據此配對。
 - 確保 Docker Desktop 已安裝並允許該帳號存取（Settings > General 勾選 WSL2 / 允許非管理員執行）。
+- 免費版沒有 Runner Group，請使用 Default，靠標籤區分環境。
 
 ## 5. 放置專案與 `.env`
 - runner 安裝路徑與 repo 路徑可分開；workflow 會將 repo 檢出到 `<runner_root>/_work/<repo>/<repo>`。只要 `.env` 放在該專案根目錄即可被 compose 覆蓋檔讀到。

@@ -38,4 +38,4 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
 # 啟動應用
-CMD ["python", "main.py"]
+CMD ["python", "analysis_main.py"]

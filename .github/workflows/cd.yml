@@ -81,13 +81,6 @@ jobs:
       - name: 取得程式碼
         uses: actions/checkout@v4
 
-      - name: 準備需求與入口檔
-        shell: bash
-        run: |
-          cp "  requirements.txt" requirements.txt
-          cp "  requirements.txt" core/state_management/requirements.txt
-          cp -f sub_system/analysis_service/analysis_main.py sub_system/analysis_service/main.py
-
       - name: 登入 GHCR
         uses: docker/login-action@v3
         with:
@@ -142,35 +135,35 @@ jobs:
       - name: 拉取映像
         shell: bash
         run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${VERSION}
-          docker pull ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION}
+          docker pull ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.VERSION }}
+          docker pull ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
 
       - name: 產出部署覆蓋檔
         shell: bash
         run: |
-          cat > core/docker-compose.override.ci.yml <<EOF
-services:
-  state_management:
-    image: ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${VERSION}
-    command: ["python", "state_management_main.py"]
-  analysis_service:
-    image: ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION}
-    container_name: analysis_service
-    restart: unless-stopped
-    env_file:
-      - ../.env
-    environment:
-      MONGODB_HOST: \${MONGODB_HOST:-mongodb}
-      MONGODB_PORT: \${MONGODB_PORT:-55101}
-      RABBITMQ_HOST: \${RABBITMQ_HOST:-rabbitmq}
-      RABBITMQ_PORT: \${RABBITMQ_PORT:-55102}
-      STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL:-http://state_management:\${STATE_MANAGEMENT_PORT:-55103}}
-    volumes:
-      - ../sub_system/analysis_service/logs:/app/logs
-    depends_on:
-      - mongodb
-      - rabbitmq
-EOF
+          cat <<'YAML' > core/docker-compose.override.ci.yml
+          services:
+            state_management:
+              image: ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.VERSION }}
+              command: ["python", "state_management_main.py"]
+            analysis_service:
+              image: ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
+              container_name: analysis_service
+              restart: unless-stopped
+              env_file:
+                - ../.env
+              environment:
+                MONGODB_HOST: \${MONGODB_HOST:-mongodb}
+                MONGODB_PORT: \${MONGODB_PORT:-55101}
+                RABBITMQ_HOST: \${RABBITMQ_HOST:-rabbitmq}
+                RABBITMQ_PORT: \${RABBITMQ_PORT:-55102}
+                STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL:-http://state_management:\${STATE_MANAGEMENT_PORT:-55103}}
+              volumes:
+                - ../sub_system/analysis_service/logs:/app/logs
+              depends_on:
+                - mongodb
+                - rabbitmq
+          YAML
 
       - name: 重新部署核心與分析服務
         shell: bash
@@ -180,8 +173,8 @@ EOF
       - name: 語法 smoke test
         shell: bash
         run: |
-          docker run --rm ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${VERSION} python -m compileall /app
-          docker run --rm ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION} python -m compileall /app
+          docker run --rm ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.VERSION }} python -m compileall /app
+          docker run --rm ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }} python -m compileall /app
 
       - name: 健康檢查
         shell: bash
@@ -212,35 +205,35 @@ EOF
       - name: 拉取映像
         shell: bash
         run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${VERSION}
-          docker pull ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION}
+          docker pull ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.VERSION }}
+          docker pull ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
 
       - name: 產出部署覆蓋檔
         shell: bash
         run: |
-          cat > core/docker-compose.override.ci.yml <<EOF
-services:
-  state_management:
-    image: ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${VERSION}
-    command: ["python", "state_management_main.py"]
-  analysis_service:
-    image: ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION}
-    container_name: analysis_service
-    restart: unless-stopped
-    env_file:
-      - ../.env
-    environment:
-      MONGODB_HOST: \${MONGODB_HOST:-mongodb}
-      MONGODB_PORT: \${MONGODB_PORT:-55101}
-      RABBITMQ_HOST: \${RABBITMQ_HOST:-rabbitmq}
-      RABBITMQ_PORT: \${RABBITMQ_PORT:-55102}
-      STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL:-http://state_management:\${STATE_MANAGEMENT_PORT:-55103}}
-    volumes:
-      - ../sub_system/analysis_service/logs:/app/logs
-    depends_on:
-      - mongodb
-      - rabbitmq
-EOF
+          cat <<'YAML' > core/docker-compose.override.ci.yml
+          services:
+            state_management:
+              image: ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.VERSION }}
+              command: ["python", "state_management_main.py"]
+            analysis_service:
+              image: ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
+              container_name: analysis_service
+              restart: unless-stopped
+              env_file:
+                - ../.env
+              environment:
+                MONGODB_HOST: \${MONGODB_HOST:-mongodb}
+                MONGODB_PORT: \${MONGODB_PORT:-55101}
+                RABBITMQ_HOST: \${RABBITMQ_HOST:-rabbitmq}
+                RABBITMQ_PORT: \${RABBITMQ_PORT:-55102}
+                STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL:-http://state_management:\${STATE_MANAGEMENT_PORT:-55103}}
+              volumes:
+                - ../sub_system/analysis_service/logs:/app/logs
+              depends_on:
+                - mongodb
+                - rabbitmq
+          YAML
 
       - name: 部署
         shell: bash
@@ -270,27 +263,27 @@ EOF
       - name: 拉取映像
         shell: bash
         run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION}
+          docker pull ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
 
       - name: 部署分析節點（僅 Analysis Service）
         shell: bash
         run: |
-          cat > core/docker-compose.edge.override.yml <<EOF
-services:
-  analysis_service:
-    image: ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${VERSION}
-    container_name: analysis_service
-    restart: unless-stopped
-    env_file:
-      - ../.env
-    environment:
-      MONGODB_HOST: \${MONGODB_HOST}
-      MONGODB_PORT: \${MONGODB_PORT}
-      RABBITMQ_HOST: \${RABBITMQ_HOST}
-      RABBITMQ_PORT: \${RABBITMQ_PORT}
-      STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL}
-    volumes:
-      - ../sub_system/analysis_service/logs:/app/logs
-    command: ["python", "analysis_main.py"]
-EOF
+          cat <<'YAML' > core/docker-compose.edge.override.yml
+          services:
+            analysis_service:
+              image: ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
+              container_name: analysis_service
+              restart: unless-stopped
+              env_file:
+                - ../.env
+              environment:
+                MONGODB_HOST: \${MONGODB_HOST}
+                MONGODB_PORT: \${MONGODB_PORT}
+                RABBITMQ_HOST: \${RABBITMQ_HOST}
+                RABBITMQ_PORT: \${RABBITMQ_PORT}
+                STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL}
+              volumes:
+                - ../sub_system/analysis_service/logs:/app/logs
+              command: ["python", "analysis_main.py"]
+          YAML
           docker compose -f core/docker-compose.edge.override.yml up -d --remove-orphans analysis_service
