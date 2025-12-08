@@ -101,6 +101,14 @@ jobs:
       - name: 設定 Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: 設定映像名稱（轉換為小寫）
+        id: image_names
+        shell: bash
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "state_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-state-management" >> "$GITHUB_OUTPUT"
+          echo "analysis_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-analysis-service" >> "$GITHUB_OUTPUT"
+
       - name: 登入 GHCR
         uses: docker/login-action@v3
         with:
@@ -115,8 +123,8 @@ jobs:
           file: core/state_management/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.VERSION }}
-            ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.ENV_NAME }}-latest
+            ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
+            ${{ steps.image_names.outputs.state_image }}:${{ env.ENV_NAME }}-latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -127,8 +135,8 @@ jobs:
           file: sub_system/analysis_service/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
-            ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.ENV_NAME }}-latest
+            ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
+            ${{ steps.image_names.outputs.analysis_image }}:${{ env.ENV_NAME }}-latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -145,6 +153,14 @@ jobs:
       - name: 取得程式碼
         uses: actions/checkout@v4
 
+      - name: 設定映像名稱（轉換為小寫）
+        id: image_names
+        shell: bash
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "state_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-state-management" >> "$GITHUB_OUTPUT"
+          echo "analysis_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-analysis-service" >> "$GITHUB_OUTPUT"
+
       - name: 登入 GHCR
         uses: docker/login-action@v3
         with:
@@ -155,8 +171,8 @@ jobs:
       - name: 拉取映像
         shell: bash
         run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.VERSION }}
-          docker pull ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
+          docker pull ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
+          docker pull ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
 
       - name: 產出部署覆蓋檔
         shell: bash
@@ -164,10 +180,10 @@ jobs:
           cat <<'YAML' > core/docker-compose.override.ci.yml
           services:
             state_management:
-              image: ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.VERSION }}
+              image: ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
               command: ["python", "state_management_main.py"]
             analysis_service:
-              image: ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
+              image: ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
               container_name: analysis_service
               restart: unless-stopped
               env_file:
@@ -193,8 +209,8 @@ jobs:
       - name: 語法 smoke test
         shell: bash
         run: |
-          docker run --rm ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.VERSION }} python -m compileall /app
-          docker run --rm ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }} python -m compileall /app
+          docker run --rm ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }} python -m compileall /app
+          docker run --rm ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }} python -m compileall /app
 
       - name: 健康檢查
         shell: bash
@@ -215,6 +231,14 @@ jobs:
       - name: 取得程式碼
         uses: actions/checkout@v4
 
+      - name: 設定映像名稱（轉換為小寫）
+        id: image_names
+        shell: bash
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "state_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-state-management" >> "$GITHUB_OUTPUT"
+          echo "analysis_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-analysis-service" >> "$GITHUB_OUTPUT"
+
       - name: 登入 GHCR
         uses: docker/login-action@v3
         with:
@@ -225,8 +249,8 @@ jobs:
       - name: 拉取映像
         shell: bash
         run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.VERSION }}
-          docker pull ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
+          docker pull ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
+          docker pull ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
 
       - name: 產出部署覆蓋檔
         shell: bash
@@ -234,10 +258,10 @@ jobs:
           cat <<'YAML' > core/docker-compose.override.ci.yml
           services:
             state_management:
-              image: ${{ env.REGISTRY }}/${{ env.STATE_IMAGE }}:${{ env.VERSION }}
+              image: ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
               command: ["python", "state_management_main.py"]
             analysis_service:
-              image: ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
+              image: ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
               container_name: analysis_service
               restart: unless-stopped
               env_file:
@@ -273,6 +297,13 @@ jobs:
       - name: 取得程式碼
         uses: actions/checkout@v4
 
+      - name: 設定映像名稱（轉換為小寫）
+        id: image_names
+        shell: bash
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "analysis_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-analysis-service" >> "$GITHUB_OUTPUT"
+
       - name: 登入 GHCR
         uses: docker/login-action@v3
         with:
@@ -283,7 +314,7 @@ jobs:
       - name: 拉取映像
         shell: bash
         run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
+          docker pull ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
 
       - name: 部署分析節點（僅 Analysis Service）
         shell: bash
@@ -291,7 +322,7 @@ jobs:
           cat <<'YAML' > core/docker-compose.edge.override.yml
           services:
             analysis_service:
-              image: ${{ env.REGISTRY }}/${{ env.ANALYSIS_IMAGE }}:${{ env.VERSION }}
+              image: ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
               container_name: analysis_service
               restart: unless-stopped
               env_file:
