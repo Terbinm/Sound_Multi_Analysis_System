@@ -146,7 +146,7 @@ jobs:
       - parse_version
       - build_and_push
     if: needs.parse_version.outputs.env == 'staging'
-    runs-on: [self-hosted, staging]
+    runs-on: [self-hosted, staging, linux]
     env:
       VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
@@ -189,11 +189,11 @@ jobs:
               env_file:
                 - ../.env
               environment:
-                MONGODB_HOST: \${MONGODB_HOST:-mongodb}
-                MONGODB_PORT: \${MONGODB_PORT:-55101}
-                RABBITMQ_HOST: \${RABBITMQ_HOST:-rabbitmq}
-                RABBITMQ_PORT: \${RABBITMQ_PORT:-55102}
-                STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL:-http://state_management:\${STATE_MANAGEMENT_PORT:-55103}}
+                MONGODB_HOST: ${MONGODB_HOST:-mongodb}
+                MONGODB_PORT: ${MONGODB_PORT:-55101}
+                RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+                RABBITMQ_PORT: ${RABBITMQ_PORT:-55102}
+                STATE_MANAGEMENT_URL: ${STATE_MANAGEMENT_URL:-http://state_management:${STATE_MANAGEMENT_PORT:-55103}}
               volumes:
                 - ../sub_system/analysis_service/logs:/app/logs
               depends_on:
@@ -224,7 +224,7 @@ jobs:
       - parse_version
       - build_and_push
     if: needs.parse_version.outputs.env == 'server_production'
-    runs-on: [self-hosted, server_production]
+    runs-on: [self-hosted, server_production, linux]
     env:
       VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
@@ -267,11 +267,11 @@ jobs:
               env_file:
                 - ../.env
               environment:
-                MONGODB_HOST: \${MONGODB_HOST:-mongodb}
-                MONGODB_PORT: \${MONGODB_PORT:-55101}
-                RABBITMQ_HOST: \${RABBITMQ_HOST:-rabbitmq}
-                RABBITMQ_PORT: \${RABBITMQ_PORT:-55102}
-                STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL:-http://state_management:\${STATE_MANAGEMENT_PORT:-55103}}
+                MONGODB_HOST: ${MONGODB_HOST:-mongodb}
+                MONGODB_PORT: ${MONGODB_PORT:-55101}
+                RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+                RABBITMQ_PORT: ${RABBITMQ_PORT:-55102}
+                STATE_MANAGEMENT_URL: ${STATE_MANAGEMENT_URL:-http://state_management:${STATE_MANAGEMENT_PORT:-55103}}
               volumes:
                 - ../sub_system/analysis_service/logs:/app/logs
               depends_on:
@@ -290,7 +290,7 @@ jobs:
       - parse_version
       - build_and_push
     if: needs.parse_version.outputs.env == 'edge_production'
-    runs-on: [self-hosted, edge_production]
+    runs-on: [self-hosted, edge_production, linux]
     env:
       VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
@@ -328,11 +328,11 @@ jobs:
               env_file:
                 - ../.env
               environment:
-                MONGODB_HOST: \${MONGODB_HOST}
-                MONGODB_PORT: \${MONGODB_PORT}
-                RABBITMQ_HOST: \${RABBITMQ_HOST}
-                RABBITMQ_PORT: \${RABBITMQ_PORT}
-                STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL}
+                MONGODB_HOST: ${MONGODB_HOST}
+                MONGODB_PORT: ${MONGODB_PORT}
+                RABBITMQ_HOST: ${RABBITMQ_HOST}
+                RABBITMQ_PORT: ${RABBITMQ_PORT}
+                STATE_MANAGEMENT_URL: ${STATE_MANAGEMENT_URL}
               volumes:
                 - ../sub_system/analysis_service/logs:/app/logs
               command: ["python", "analysis_main.py"]
