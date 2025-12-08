@@ -12,4 +12,5 @@
 - `staging_onboarding.md`：Staging 首次接入、.env 建立、流程測試。
 - `production_onboarding.md`：Server Production 與 Edge Production 首次接入與驗證。
 - 範例環境檔：`env.staging.sample`、`env.server_production.sample`、`env.edge_production.sample`（放在 repo 根目錄後可直接套用）。
+- runner 註冊：`runner_setup.md` 說明如何在 Windows/Linux 安裝自託管 Docker runner 並標籤到 staging / server_production / edge_production。
 - 參考：根目錄 `CD.md` 內有整體流程與設計原則。
