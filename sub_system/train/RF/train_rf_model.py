@@ -100,7 +100,7 @@ class ModelConfig:
     OUTPUT_CONFIG = {
         'model_dir': 'models',
         'model_filename': 'rf_classifier.pkl',
-        'scaler_filename': 'feature_scaler.pkl',
+        #'scaler_filename': 'feature_scaler.pkl',
         'metadata_filename': 'model_metadata.json',
         'report_dir': 'training_reports',
         'plot_confusion_matrix': True,

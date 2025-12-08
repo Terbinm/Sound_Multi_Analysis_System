@@ -68,7 +68,7 @@ CLASSIFICATION_CONFIG = {
     'normal_probability': 0.7,  # 隨機分類時正常的機率
 
     # 未來模型配置（預留）
-    'model_path': 'models',
+    'model_path': r'D:\D_PycharmProjects\Sound_Multi_Analysis_System\sub_system\train\RF\models',
     'threshold': 0.5
 }
 

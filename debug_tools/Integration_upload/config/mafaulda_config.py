@@ -3,6 +3,8 @@ MAFAULDA 資料集配置
 機械故障診斷資料集的特定配置
 """
 
+import os
+
 from .base_config import BaseUploadConfig
 
 
@@ -10,10 +12,11 @@ class MAFAULDAUploadConfig(BaseUploadConfig):
     """MAFAULDA 批次上傳工具的配置"""
 
     # ==================== 資料來源 ====================
-    UPLOAD_DIRECTORY = (
+    _DEFAULT_UPLOAD_DIRECTORY = (
         r"C:\Users\sixsn\PycharmProjects\CPC_server_collectorSYS"
         r"\debug_tools\Integration_upload\upload_data\mafaulda_data"
     )
+    UPLOAD_DIRECTORY = os.getenv('MAFAULDA_UPLOAD_DIR', _DEFAULT_UPLOAD_DIRECTORY)
 
     # ==================== 標籤對應資料夾名稱 ====================
     LABEL_FOLDERS = {

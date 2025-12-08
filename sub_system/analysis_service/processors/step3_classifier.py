@@ -88,17 +88,10 @@ class AudioClassifier:
             model_dir = Path(model_dir)
 
             # 載入模型
-            model_path = model_dir / 'rf_classifier.pkl'
+            model_path = model_dir / 'mimii_fan_rf_classifier.pkl'
             with open(model_path, 'rb') as f:
                 self.model = pickle.load(f)
             logger.info(f"✓ 模型載入成功: {model_path}")
-
-            # 載入 Scaler
-            scaler_path = model_dir / 'feature_scaler.pkl'
-            if scaler_path.exists():
-                with open(scaler_path, 'rb') as f:
-                    self.scaler = pickle.load(f)
-                logger.info(f"✓ Scaler 載入成功: {scaler_path}")
 
             # 載入元資料
             metadata_path = model_dir / 'model_metadata.json'
