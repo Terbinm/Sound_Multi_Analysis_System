@@ -150,6 +150,13 @@ jobs:
     env:
       VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
+      - name: 清理工作目錄（解決 Docker 產生的權限問題）
+        shell: bash
+        run: |
+          # 刪除 Docker 容器以 root 身份創建的 __pycache__ 檔案
+          sudo find ${{ github.workspace }} -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+          sudo find ${{ github.workspace }} -type f -name '*.pyc' -delete 2>/dev/null || true
+
       - name: 取得程式碼
         uses: actions/checkout@v4
 
@@ -255,6 +262,13 @@ jobs:
     env:
       VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
+      - name: 清理工作目錄（解決 Docker 產生的權限問題）
+        shell: bash
+        run: |
+          # 刪除 Docker 容器以 root 身份創建的 __pycache__ 檔案
+          sudo find ${{ github.workspace }} -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+          sudo find ${{ github.workspace }} -type f -name '*.pyc' -delete 2>/dev/null || true
+
       - name: 取得程式碼
         uses: actions/checkout@v4
 
@@ -348,6 +362,13 @@ jobs:
     env:
       VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
+      - name: 清理工作目錄（解決 Docker 產生的權限問題）
+        shell: bash
+        run: |
+          # 刪除 Docker 容器以 root 身份創建的 __pycache__ 檔案
+          sudo find ${{ github.workspace }} -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+          sudo find ${{ github.workspace }} -type f -name '*.pyc' -delete 2>/dev/null || true
+
       - name: 取得程式碼
         uses: actions/checkout@v4
 
