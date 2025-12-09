@@ -31,34 +31,47 @@ class MIMIIBatchUploader(BaseBatchUploader):
 
     def scan_directory(self) -> List[Tuple[Path, str, Optional[Dict[str, Any]]]]:
         """
-        掃描 MIMII 資料夾
-        解析 4 層路徑結構以提取 SNR、機器類型、obj_ID 和標籤
-
-        Returns:
-            List of (file_path, label, path_metadata) tuples
+        掃描 MIMII 資料夾，並且依照 MACHINE_TYPES 過濾機器類型。
         """
         self.logger.info(f"掃描資料夾：{self.config.UPLOAD_DIRECTORY}")
 
         directory_path = Path(self.config.UPLOAD_DIRECTORY)
         dataset_files: List[Tuple[Path, str, Optional[Dict[str, Any]]]] = []
 
+        allowed_types = [m.lower() for m in self.config.MACHINE_TYPES]
+
         # 遞迴掃描
         for ext in self.config.SUPPORTED_FORMATS:
             for file_path in directory_path.rglob(f"*{ext}"):
-                if file_path.is_file():
-                    label, path_metadata = self._analyze_file_path(file_path)
-                    if label == 'unknown':
-                        try:
-                            rel_path = file_path.relative_to(directory_path)
-                        except ValueError:
-                            rel_path = file_path
-                        self.logger.warning(
-                            f"忽略未在 LABEL_FOLDERS 設定中的子資料夾檔案：{rel_path}"
-                        )
-                        self.stats['filtered_invalid_label'] += 1
-                        continue
+                if not file_path.is_file():
+                    continue
 
-                    dataset_files.append((file_path, label, path_metadata))
+                # 取得 path metadata（含 machine_type）
+                label, path_metadata = self._analyze_file_path(file_path)
+
+                # 若找不到標籤 → 原本邏輯
+                if label == 'unknown':
+                    try:
+                        rel_path = file_path.relative_to(directory_path)
+                    except ValueError:
+                        rel_path = file_path
+                    self.logger.warning(
+                        f"忽略未在 LABEL_FOLDERS 設定中的子資料夾檔案：{rel_path}"
+                    )
+                    self.stats['filtered_invalid_label'] += 1
+                    continue
+
+                # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                # 新增：機器類型過濾（重點！）
+                # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                machine_type = path_metadata.get("machine_type", None)
+
+                if machine_type is None or machine_type.lower() not in allowed_types:
+                    # 不在指定 MACHINE_TYPES → 跳過
+                    continue
+                # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+                dataset_files.append((file_path, label, path_metadata))
 
         self.logger.info(f"找到 {len(dataset_files)} 個音頻檔案")
         return dataset_files

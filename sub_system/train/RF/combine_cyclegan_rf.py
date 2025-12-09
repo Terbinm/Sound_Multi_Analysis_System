@@ -11,7 +11,8 @@ combine_cyclegan_rf.py
 python combine_cyclegan_rf.py --uuid_file uuid_list.txt --direction AB
 python combine_cyclegan_rf.py --uuid 1111-2222 --uuid 3333-4444
 """
-
+from env_loader import load_project_env
+load_project_env()
 import argparse
 import csv
 import sys
@@ -44,8 +45,8 @@ CHECKPOINT_DIR = (Path(ROOT) / "sub_system/train/py_cyclegan/checkpoints").resol
 
 # --- 預設檔案路徑設定（確保不用額外傳參數也能執行） ---
 DEFAULT_CKPT = (CHECKPOINT_DIR / "last-v3.ckpt").resolve()
-DEFAULT_RF = (Path(ROOT) / "sub_system/train/RF/models/rf_classifier.pkl").resolve()
-DEFAULT_SCALER = (Path(ROOT) / "a_sub_system/train/RF/models/feature_scaler.pkl").resolve()
+DEFAULT_RF = (Path(ROOT) / "sub_system/train/RF/models/mimii_fan_rf_classifier.pkl").resolve()
+#DEFAULT_SCALER = (Path(ROOT) / "a_sub_system/train/RF/models/feature_scaler.pkl").resolve()
 DEFAULT_UUID_FILE = (Path(ROOT) / "sub_system/train/RF/uuid_list.txt").resolve()
 
 # 嘗試從 train_rf_model import DataLoader（優先使用）
@@ -386,16 +387,16 @@ def main():
     parser.add_argument('--direction', choices=['AB', 'BA'], default='AB')
     parser.add_argument('--cyclegan', default=str(DEFAULT_CKPT), help='CycleGAN checkpoint 路徑/檔名/資料夾')
     parser.add_argument('--rf', default=str(DEFAULT_RF))
-    parser.add_argument('--scaler', default=str(DEFAULT_SCALER))
-    parser.add_argument('--out_csv', default='rf_cyclegan_segment_results.csv')
-    parser.add_argument('--out_summary', default='rf_cyclegan_summary.csv')
+    parser.add_argument('--scaler', default=None)
+    parser.add_argument('--out_csv', default='cpc_normal.csv')
+    parser.add_argument('--out_summary', default='cpc_normal_summary.csv')
 
     # MongoDB arguments (可覆蓋 DEFAULT)
     # try to import default config
     try:
         from sub_system.analysis_service.config import MONGODB_CONFIG as DEFAULT_MONGO_CONFIG
     except Exception:
-        DEFAULT_MONGO_CONFIG = {'host': 'localhost', 'port': 27025, 'username': None, 'password': None, 'database': 'web_db', 'collection': 'recordings'}
+        DEFAULT_MONGO_CONFIG = {'host': 'localhost', 'port': 27017, 'username': None, 'password': None, 'database': 'web_db', 'collection': 'recordings'}
 
     parser.add_argument('--mongo_host', default=DEFAULT_MONGO_CONFIG.get('host'))
     parser.add_argument('--mongo_port', type=int, default=DEFAULT_MONGO_CONFIG.get('port'))

@@ -2,9 +2,9 @@
 整合批次上傳工具 - CLI 主程序
 支援 CPC、MAFAULDA、MIMII 三種資料集的整合上傳
 """
-
 from __future__ import annotations
-
+from env_loader import load_project_env
+load_project_env()
 import json
 import logging
 import sys

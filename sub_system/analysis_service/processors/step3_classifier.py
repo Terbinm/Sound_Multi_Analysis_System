@@ -24,12 +24,27 @@ class AudioClassifier:
         # 載入模型（如果路徑已設定）
         self._apply_method_and_model()
 
+
     def apply_config(self, classification_config: Dict[str, Any]):
         """更新分類配置並視需要重新載入模型"""
         if not isinstance(classification_config, dict):
             return
         self.config.update(classification_config)
+        #  寫死RF 模型，忽略前端傳來的 model_path
+        self.config["model_path"] = (
+            r"D:\D_PycharmProjects\Sound_Multi_Analysis_System\sub_system\train\RF\models"
+        )
         self._apply_method_and_model()
+
+    # def apply_config(self, classification_config: Dict[str, Any]):
+    #     """更新分類配置並視需要重新載入模型"""
+    #     if not isinstance(classification_config, dict):
+    #         return
+    #     self.config.update(classification_config)
+    #     self._apply_method_and_model()
+
+
+
 
     def _apply_method_and_model(self):
         """根據 use_model/support_list 決定實際使用的分類策略並載入模型"""

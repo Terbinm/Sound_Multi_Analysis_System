@@ -52,8 +52,7 @@ DATA_CONFIG = {
 
         },
         'max_samples': int(os.getenv('DOMAIN_B_MAX_SAMPLES', '50000')),
-        # ⭐
-        #'file_path': os.getenv('DOMAIN_B_FILE_PATH', 'data/domain_mimii.json') #  <-- 刪除或註釋掉
+        #'file_path': os.getenv('DOMAIN_B_FILE_PATH', 'data/domain_mimii.json')
         'file_path': os.getenv('DOMAIN_B_PROD_FILE_PATH', 'data/domain_mimii_prod.json') # <-- 訓練專用
     },
 

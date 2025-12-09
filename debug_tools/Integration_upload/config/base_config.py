@@ -7,6 +7,8 @@ import os
 from abc import ABC
 from pathlib import Path
 from typing import Dict, Any, List
+from env_loader import load_project_env
+load_project_env()
 
 
 class BaseUploadConfig(ABC):
@@ -31,7 +33,7 @@ class BaseUploadConfig(ABC):
         'retry_delay': 2,               # 重試延遲（秒）
         # 'per_label_limit': 0,           # 限制每個 label 上傳數量，0 為不限制
         # 'per_label_limit': 2,           # 限制每個 label 上傳數量，0 為不限制
-        'per_label_limit': 8,           # 限制每個 label 上傳數量，0 為不限制
+        'per_label_limit': 10,           # 限制每個 label 上傳數量，0 為不限制
         # 'per_label_limit': 200,           # 限制每個 label 上傳數量，0 為不限制
     }
 

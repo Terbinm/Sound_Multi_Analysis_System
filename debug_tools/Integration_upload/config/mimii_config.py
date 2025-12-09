@@ -2,6 +2,8 @@
 MIMII 資料集配置
 機器異音檢測資料集的特定配置
 """
+from env_loader import load_project_env
+load_project_env()
 
 import os
 from pathlib import Path
@@ -14,10 +16,7 @@ class MIMIIUploadConfig(BaseUploadConfig):
     """MIMII 批次上傳工具的配置"""
 
     # ==================== 資料來源 ====================
-    _DEFAULT_UPLOAD_DIRECTORY = (
-        r"C:\Users\sixsn\PycharmProjects\CPC_server_collectorSYS"
-        r"\debug_tools\Integration_upload\upload_data\mimii_data"
-    )
+    _DEFAULT_UPLOAD_DIRECTORY = ()
     UPLOAD_DIRECTORY = os.getenv('MIMII_UPLOAD_DIR', _DEFAULT_UPLOAD_DIRECTORY)
 
     # ==================== 標籤對應資料夾名稱 ====================
@@ -27,7 +26,10 @@ class MIMIIUploadConfig(BaseUploadConfig):
     }
 
     # 支援的機器類型
-    MACHINE_TYPES = ['pump', 'fan', 'slider', 'valve']
+    MACHINE_TYPES = ['fan']
+    # MACHINE_TYPES = ['pump']
+    #MACHINE_TYPES = ['slider']
+    # MACHINE_TYPES = ['valve']
 
     # ==================== 支援檔案格式 ====================
     SUPPORTED_FORMATS = ['.wav']
