@@ -153,6 +153,33 @@ jobs:
       - name: 取得程式碼
         uses: actions/checkout@v4
 
+      - name: 建立 .env 檔案
+        shell: bash
+        run: |
+          cat <<'EOF' > .env
+          # Staging 環境設定（由 GitHub Actions 自動產生）
+          
+          # MongoDB 設定
+          MONGODB_HOST=${{ secrets.STAGING_MONGODB_HOST }}
+          MONGODB_PORT=${{ secrets.STAGING_MONGODB_PORT }}
+          MONGODB_USERNAME=${{ secrets.STAGING_MONGODB_USERNAME }}
+          MONGODB_PASSWORD=${{ secrets.STAGING_MONGODB_PASSWORD }}
+          MONGODB_DATABASE=${{ secrets.STAGING_MONGODB_DATABASE }}
+          
+          # RabbitMQ 設定
+          RABBITMQ_HOST=${{ secrets.STAGING_RABBITMQ_HOST }}
+          RABBITMQ_PORT=${{ secrets.STAGING_RABBITMQ_PORT }}
+          RABBITMQ_USERNAME=${{ secrets.STAGING_RABBITMQ_USERNAME }}
+          RABBITMQ_PASSWORD=${{ secrets.STAGING_RABBITMQ_PASSWORD }}
+          
+          # State Management 設定
+          STATE_MANAGEMENT_PORT=${{ secrets.STAGING_STATE_MANAGEMENT_PORT }}
+          STATE_MANAGEMENT_URL=${{ secrets.STAGING_STATE_MANAGEMENT_URL }}
+          EOF
+          
+          echo "✅ .env 檔案已建立"
+          chmod 600 .env
+
       - name: 設定映像名稱（轉換為小寫）
         id: image_names
         shell: bash
@@ -231,6 +258,33 @@ jobs:
       - name: 取得程式碼
         uses: actions/checkout@v4
 
+      - name: 建立 .env 檔案
+        shell: bash
+        run: |
+          cat <<'EOF' > .env
+          # Server Production 環境設定（由 GitHub Actions 自動產生）
+          
+          # MongoDB 設定
+          MONGODB_HOST=${{ secrets.PRODUCTION_MONGODB_HOST }}
+          MONGODB_PORT=${{ secrets.PRODUCTION_MONGODB_PORT }}
+          MONGODB_USERNAME=${{ secrets.PRODUCTION_MONGODB_USERNAME }}
+          MONGODB_PASSWORD=${{ secrets.PRODUCTION_MONGODB_PASSWORD }}
+          MONGODB_DATABASE=${{ secrets.PRODUCTION_MONGODB_DATABASE }}
+          
+          # RabbitMQ 設定
+          RABBITMQ_HOST=${{ secrets.PRODUCTION_RABBITMQ_HOST }}
+          RABBITMQ_PORT=${{ secrets.PRODUCTION_RABBITMQ_PORT }}
+          RABBITMQ_USERNAME=${{ secrets.PRODUCTION_RABBITMQ_USERNAME }}
+          RABBITMQ_PASSWORD=${{ secrets.PRODUCTION_RABBITMQ_PASSWORD }}
+          
+          # State Management 設定
+          STATE_MANAGEMENT_PORT=${{ secrets.PRODUCTION_STATE_MANAGEMENT_PORT }}
+          STATE_MANAGEMENT_URL=${{ secrets.PRODUCTION_STATE_MANAGEMENT_URL }}
+          EOF
+          
+          echo "✅ .env 檔案已建立"
+          chmod 600 .env
+
       - name: 設定映像名稱（轉換為小寫）
         id: image_names
         shell: bash
@@ -296,6 +350,33 @@ jobs:
     steps:
       - name: 取得程式碼
         uses: actions/checkout@v4
+
+      - name: 建立 .env 檔案
+        shell: bash
+        run: |
+          cat <<'EOF' > .env
+          # Edge Production 環境設定（由 GitHub Actions 自動產生）
+          
+          # MongoDB 設定
+          MONGODB_HOST=${{ secrets.EDGE_MONGODB_HOST }}
+          MONGODB_PORT=${{ secrets.EDGE_MONGODB_PORT }}
+          MONGODB_USERNAME=${{ secrets.EDGE_MONGODB_USERNAME }}
+          MONGODB_PASSWORD=${{ secrets.EDGE_MONGODB_PASSWORD }}
+          MONGODB_DATABASE=${{ secrets.EDGE_MONGODB_DATABASE }}
+          
+          # RabbitMQ 設定
+          RABBITMQ_HOST=${{ secrets.EDGE_RABBITMQ_HOST }}
+          RABBITMQ_PORT=${{ secrets.EDGE_RABBITMQ_PORT }}
+          RABBITMQ_USERNAME=${{ secrets.EDGE_RABBITMQ_USERNAME }}
+          RABBITMQ_PASSWORD=${{ secrets.EDGE_RABBITMQ_PASSWORD }}
+          
+          # State Management 設定
+          STATE_MANAGEMENT_PORT=${{ secrets.EDGE_STATE_MANAGEMENT_PORT }}
+          STATE_MANAGEMENT_URL=${{ secrets.EDGE_STATE_MANAGEMENT_URL }}
+          EOF
+          
+          echo "✅ .env 檔案已建立"
+          chmod 600 .env
 
       - name: 設定映像名稱（轉換為小寫）
         id: image_names
