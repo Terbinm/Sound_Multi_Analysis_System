@@ -115,17 +115,21 @@
                                 {% endif %}
                             {% else %}
                                 <span class="text-gray-400 text-xs">尚無執行紀錄</span>
-                            {% endif %}
-                        </td>
+                        {% endif %}
+                    </td>
                         <td class="px-4 py-3 text-sm">
-                            {% set status = latest.status if latest else 'pending' %}
-                            <span class="tech-badge
-                                {% if status == 'completed' %} tech-badge-success
-                                {% elif status == 'processing' %} tech-badge-info
-                                {% elif status == 'failed' %} tech-badge-danger
-                                {% else %} tech-badge-warning {% endif %}">
-                                {{ status }}
-                            </span>
+                            {% if latest %}
+                                {% set status = latest.status %}
+                                <span class="tech-badge
+                                    {% if status == 'completed' %} tech-badge-success
+                                    {% elif status == 'processing' %} tech-badge-info
+                                    {% elif status == 'failed' %} tech-badge-danger
+                                    {% else %} tech-badge-warning {% endif %}">
+                                    {{ status }}
+                                </span>
+                            {% else %}
+                                <span class="text-gray-400 text-xs">未執行</span>
+                            {% endif %}
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-700">
                             {% if rec.latest_prediction %}
@@ -162,13 +166,11 @@
                 - {{ (pagination.page - 1) * pagination.page_size + records|length }} 筆，共 {{ pagination.total }} 筆
             </div>
             <div class="flex gap-2">
-                {% set prev_page = pagination.page - 1 %}
-                {% set next_page = pagination.page + 1 %}
-                <a href="{{ url_for('views.data_list', **filters.to_dict(), page=prev_page if pagination.page>1 else 1) }}"
+                <a href="{{ prev_url }}"
                    class="tech-button-outline {% if pagination.page<=1 %}opacity-50 cursor-not-allowed{% endif %}">
                     <i class="fas fa-chevron-left"></i>
                 </a>
-                <a href="{{ url_for('views.data_list', **filters.to_dict(), page=next_page if pagination.page < pagination.pages else pagination.pages) }}"
+                <a href="{{ next_url }}"
                    class="tech-button-outline {% if pagination.page>=pagination.pages %}opacity-50 cursor-not-allowed{% endif %}">
                     <i class="fas fa-chevron-right"></i>
                 </a>

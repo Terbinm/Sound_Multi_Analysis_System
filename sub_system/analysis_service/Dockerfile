@@ -1,34 +1,41 @@
 # 分析後端 Dockerfile
+# 優化建置時間：使用分層快取，將很少變動的依賴放在前面
 FROM python:3.9-slim
 
 # 設定工作目錄
 WORKDIR /app
 
-# 安裝系統依賴
+# 安裝系統依賴（很少變動）
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-# 複製 requirements (如果有的話)
-COPY ./requirements.txt* ./
-
-# 安裝 Python 依賴
+# ============ 第一層：ML 大型依賴（很少變動，充分利用快取）============
+# PyTorch CPU 版本（約 700MB，很少更新）
 RUN pip install --no-cache-dir \
-    pymongo \
-    numpy \
-    librosa \
-    soundfile \
-    gridfs \
-    torch --index-url https://download.pytorch.org/whl/cpu || \
-    pip install --no-cache-dir pymongo numpy librosa soundfile torch
+    torch --index-url https://download.pytorch.org/whl/cpu \
+    torchaudio --index-url https://download.pytorch.org/whl/cpu
 
-# 安裝 SpeechBrain (用於 LEAF)
+# SpeechBrain (用於 LEAF，約 200MB)
 RUN pip install --no-cache-dir speechbrain
 
+# ============ 第二層：核心依賴（偶爾變動）============
+RUN pip install --no-cache-dir \
+    pymongo==4.6.1 \
+    pika==1.3.2 \
+    numpy>=1.24.3 \
+    pandas>=2.0.0 \
+    librosa==0.10.1 \
+    soundfile==0.12.1 \
+    python-dotenv==1.0.1 \
+    requests==2.31.0 \
+    scikit-learn>=1.3.0
+
+# ============ 第三層：應用程式碼（經常變動）============
 # 複製應用程式檔案
-COPY ./ ./
+COPY sub_system/analysis_service/ .
 
 # 建立日誌目錄
 RUN mkdir -p /app/logs
@@ -38,4 +45,4 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
 # 啟動應用
-CMD ["python", "main.py"]
+CMD ["python", "analysis_main.py"]

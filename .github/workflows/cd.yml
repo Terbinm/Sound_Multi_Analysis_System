@@ -1,0 +1,588 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      manual_version:
+        description: '可選：手動指定版本（格式：<prefix>_v主.中.次.流水_說明）'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  STATE_IMAGE: ${{ github.repository_owner }}/sound-state-management
+  ANALYSIS_IMAGE: ${{ github.repository_owner }}/sound-analysis-service
+
+jobs:
+  parse_version:
+    name: 解析版本標籤
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.parse.outputs.tag }}
+      env: ${{ steps.parse.outputs.env }}
+      version: ${{ steps.parse.outputs.version }}
+      desc: ${{ steps.parse.outputs.desc }}
+      should_deploy: ${{ steps.parse.outputs.should_deploy }}
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 解析 commit message 格式
+        id: parse
+        shell: bash
+        run: |
+          # 優先使用手動輸入，否則從 commit message 取得
+          if [ -n "${{ inputs.manual_version }}" ]; then
+            VERSION_STRING="${{ inputs.manual_version }}"
+          else
+            # 取得最新 commit message 的第一行
+            VERSION_STRING=$(git log -1 --pretty=%s)
+          fi
+
+          echo "解析版本字串: $VERSION_STRING"
+
+          # 檢查是否符合版本格式：{env}_v{主}.{中}.{次}.{流水}_{說明}
+          if [[ "$VERSION_STRING" =~ ^(dev|staging|server_production|edge_production|edge_productio)_v([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)_(.+)$ ]]; then
+            ENV_NAME="${BASH_REMATCH[1]}"
+            VERSION="${BASH_REMATCH[2]}.${BASH_REMATCH[3]}.${BASH_REMATCH[4]}.${BASH_REMATCH[5]}"
+            DESC="${BASH_REMATCH[6]}"
+            
+            # edge_productio* 視為 edge_production
+            if [ "$ENV_NAME" = "edge_productio" ]; then ENV_NAME="edge_production"; fi
+
+            SHOULD_DEPLOY="true"
+            if [ "$ENV_NAME" = "dev" ]; then SHOULD_DEPLOY="false"; fi
+
+            echo "✅ 符合版本格式"
+            echo "   環境: $ENV_NAME"
+            echo "   版本: $VERSION"
+            echo "   說明: $DESC"
+            echo "   部署: $SHOULD_DEPLOY"
+          else
+            echo "⏭️ Commit message 不符合版本格式，跳過 CD 流程"
+            echo "   格式應為: {env}_v{主}.{中}.{次}.{流水}_{說明}"
+            echo "   例如: staging_v1.0.0.1_add_feature"
+            SHOULD_DEPLOY="false"
+            ENV_NAME=""
+            VERSION=""
+            DESC=""
+            VERSION_STRING=""
+          fi
+
+          echo "tag=$VERSION_STRING" >> "$GITHUB_OUTPUT"
+          echo "env=$ENV_NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "desc=$DESC" >> "$GITHUB_OUTPUT"
+          echo "should_deploy=$SHOULD_DEPLOY" >> "$GITHUB_OUTPUT"
+
+  build_and_push:
+    name: 建置並推送映像
+    needs: parse_version
+    if: needs.parse_version.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.parse_version.outputs.version }}
+      ENV_NAME: ${{ needs.parse_version.outputs.env }}
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 設定映像名稱（轉換為小寫）
+        id: image_names
+        shell: bash
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "state_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-state-management" >> "$GITHUB_OUTPUT"
+          echo "analysis_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-analysis-service" >> "$GITHUB_OUTPUT"
+
+      - name: 登入 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 建置 State Management
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: core/state_management/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
+            ${{ steps.image_names.outputs.state_image }}:${{ env.ENV_NAME }}-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 建置 Analysis Service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: sub_system/analysis_service/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
+            ${{ steps.image_names.outputs.analysis_image }}:${{ env.ENV_NAME }}-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy_staging:
+    name: 部署到 Staging
+    needs:
+      - parse_version
+      - build_and_push
+    if: needs.parse_version.outputs.env == 'staging'
+    runs-on: [self-hosted, staging, linux]
+    env:
+      VERSION: ${{ needs.parse_version.outputs.version }}
+    steps:
+      - name: 清理工作目錄（解決 Docker 產生的權限問題）
+        shell: bash
+        run: |
+          echo "🧹 清理工作目錄..."
+          WORKSPACE="${{ github.workspace }}"
+          
+          # 修復整個工作目錄的權限（包含子目錄）
+          if [ -d "$WORKSPACE" ]; then
+            echo "修復目錄權限: $WORKSPACE"
+            sudo chown -R $(whoami):$(id -gn) "$WORKSPACE" || true
+            sudo chmod -R u+rwX "$WORKSPACE" || true
+          fi
+          
+          # 也修復上層目錄（actions-runner/_work/repo_name/）
+          PARENT_DIR=$(dirname "$WORKSPACE")
+          if [ -d "$PARENT_DIR" ]; then
+            echo "修復上層目錄權限: $PARENT_DIR"
+            sudo chown -R $(whoami):$(id -gn) "$PARENT_DIR" || true
+            sudo chmod -R u+rwX "$PARENT_DIR" || true
+          fi
+          
+          # 強制刪除 __pycache__ 和 .pyc 檔案
+          if [ -d "$WORKSPACE" ]; then
+            sudo find "$WORKSPACE" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+            sudo find "$WORKSPACE" -type f -name '*.pyc' -delete 2>/dev/null || true
+          fi
+          
+          echo "✅ 權限修復完成"
+
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 建立 .env 檔案
+        shell: bash
+        run: |
+          cat <<'EOF' > .env
+          # Staging 環境設定（由 GitHub Actions 自動產生）
+          
+          # MongoDB 設定
+          MONGODB_HOST=${{ secrets.STAGING_MONGODB_HOST }}
+          MONGODB_PORT=${{ secrets.STAGING_MONGODB_PORT }}
+          MONGODB_USERNAME=${{ secrets.STAGING_MONGODB_USERNAME }}
+          MONGODB_PASSWORD=${{ secrets.STAGING_MONGODB_PASSWORD }}
+          MONGODB_DATABASE=${{ secrets.STAGING_MONGODB_DATABASE }}
+          
+          # RabbitMQ 設定
+          RABBITMQ_HOST=${{ secrets.STAGING_RABBITMQ_HOST }}
+          RABBITMQ_PORT=${{ secrets.STAGING_RABBITMQ_PORT }}
+          RABBITMQ_USERNAME=${{ secrets.STAGING_RABBITMQ_USERNAME }}
+          RABBITMQ_PASSWORD=${{ secrets.STAGING_RABBITMQ_PASSWORD }}
+          
+          # State Management 設定
+          STATE_MANAGEMENT_PORT=${{ secrets.STAGING_STATE_MANAGEMENT_PORT }}
+          STATE_MANAGEMENT_URL=${{ secrets.STAGING_STATE_MANAGEMENT_URL }}
+          EOF
+          
+          echo "✅ .env 檔案已建立"
+          chmod 600 .env
+
+      - name: 設定映像名稱（轉換為小寫）
+        id: image_names
+        shell: bash
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "state_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-state-management" >> "$GITHUB_OUTPUT"
+          echo "analysis_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-analysis-service" >> "$GITHUB_OUTPUT"
+
+      - name: 登入 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 拉取映像
+        shell: bash
+        run: |
+          docker pull ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
+          docker pull ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
+
+      - name: 產出部署覆蓋檔
+        shell: bash
+        run: |
+          cat <<'YAML' > core/docker-compose.override.ci.yml
+          services:
+            state_management:
+              image: ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
+              command: ["python", "state_management_main.py"]
+            analysis_service:
+              image: ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
+              container_name: analysis_service
+              restart: unless-stopped
+              env_file:
+                - ../.env
+              environment:
+                MONGODB_HOST: ${MONGODB_HOST:-mongodb}
+                MONGODB_PORT: ${MONGODB_PORT:-55101}
+                MONGODB_USERNAME: ${MONGODB_USERNAME:-web_ui}
+                MONGODB_PASSWORD: ${MONGODB_PASSWORD:-hod2iddfsgsrl}
+                MONGODB_DATABASE: ${MONGODB_DATABASE:-web_db}
+                RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+                RABBITMQ_PORT: ${RABBITMQ_PORT:-55102}
+                STATE_MANAGEMENT_URL: ${STATE_MANAGEMENT_URL:-http://state_management:${STATE_MANAGEMENT_PORT:-55103}}
+              volumes:
+                - ../sub_system/analysis_service/logs:/app/logs
+              depends_on:
+                - mongodb
+                - rabbitmq
+          YAML
+
+      - name: 重新部署核心與分析服務
+        shell: bash
+        run: |
+          docker compose -f core/docker-compose.yml -f core/docker-compose.override.ci.yml up -d --remove-orphans mongodb rabbitmq state_management analysis_service
+
+      - name: 等待 MongoDB 就緒
+        shell: bash
+        run: |
+          echo "等待 MongoDB 啟動..."
+          for i in {1..30}; do
+            if docker exec core_mongodb mongosh --port 55101 --eval "db.adminCommand('ping')" 2>/dev/null; then
+              echo "✅ MongoDB 已就緒"
+              break
+            fi
+            echo "等待中... ($i/30)"
+            sleep 2
+          done
+
+      - name: 初始化管理員帳號
+        shell: bash
+        run: |
+          echo "初始化管理員帳號..."
+          docker exec core_state_management python init_admin.py \
+            --username admin \
+            --password "${{ secrets.ADMIN_PASSWORD }}" \
+            --email "${{ secrets.ADMIN_EMAIL }}"
+
+      - name: 語法 smoke test
+        shell: bash
+        run: |
+          docker run --rm ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }} python -m compileall /app
+          docker run --rm ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }} python -m compileall /app
+
+      - name: 健康檢查
+        shell: bash
+        run: |
+          sleep 10
+          curl -f http://localhost:${STATE_MANAGEMENT_PORT:-55103}/health
+
+      - name: 清理 Docker 產生的檔案權限（確保下次 CI 可正常運行）
+        if: always()
+        shell: bash
+        run: |
+          echo "🧹 清理檔案權限..."
+          sudo chown -R $(whoami):$(id -gn) "${{ github.workspace }}" || true
+          sudo chown -R $(whoami):$(id -gn) "$(dirname '${{ github.workspace }}')" || true
+          echo "✅ 權限清理完成"
+
+  deploy_server_production:
+    name: 部署到 Server Production
+    needs:
+      - parse_version
+      - build_and_push
+    if: needs.parse_version.outputs.env == 'server_production'
+    runs-on: [self-hosted, server_production, linux]
+    env:
+      VERSION: ${{ needs.parse_version.outputs.version }}
+    steps:
+      - name: 清理工作目錄（解決 Docker 產生的權限問題）
+        shell: bash
+        run: |
+          echo "🧹 清理工作目錄..."
+          WORKSPACE="${{ github.workspace }}"
+          
+          # 修復整個工作目錄的權限（包含子目錄）
+          if [ -d "$WORKSPACE" ]; then
+            echo "修復目錄權限: $WORKSPACE"
+            sudo chown -R $(whoami):$(id -gn) "$WORKSPACE" || true
+            sudo chmod -R u+rwX "$WORKSPACE" || true
+          fi
+          
+          # 也修復上層目錄（actions-runner/_work/repo_name/）
+          PARENT_DIR=$(dirname "$WORKSPACE")
+          if [ -d "$PARENT_DIR" ]; then
+            echo "修復上層目錄權限: $PARENT_DIR"
+            sudo chown -R $(whoami):$(id -gn) "$PARENT_DIR" || true
+            sudo chmod -R u+rwX "$PARENT_DIR" || true
+          fi
+          
+          # 強制刪除 __pycache__ 和 .pyc 檔案
+          if [ -d "$WORKSPACE" ]; then
+            sudo find "$WORKSPACE" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+            sudo find "$WORKSPACE" -type f -name '*.pyc' -delete 2>/dev/null || true
+          fi
+          
+          echo "✅ 權限修復完成"
+
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 建立 .env 檔案
+        shell: bash
+        run: |
+          cat <<'EOF' > .env
+          # Server Production 環境設定（由 GitHub Actions 自動產生）
+          
+          # MongoDB 設定
+          MONGODB_HOST=${{ secrets.PRODUCTION_MONGODB_HOST }}
+          MONGODB_PORT=${{ secrets.PRODUCTION_MONGODB_PORT }}
+          MONGODB_USERNAME=${{ secrets.PRODUCTION_MONGODB_USERNAME }}
+          MONGODB_PASSWORD=${{ secrets.PRODUCTION_MONGODB_PASSWORD }}
+          MONGODB_DATABASE=${{ secrets.PRODUCTION_MONGODB_DATABASE }}
+          
+          # RabbitMQ 設定
+          RABBITMQ_HOST=${{ secrets.PRODUCTION_RABBITMQ_HOST }}
+          RABBITMQ_PORT=${{ secrets.PRODUCTION_RABBITMQ_PORT }}
+          RABBITMQ_USERNAME=${{ secrets.PRODUCTION_RABBITMQ_USERNAME }}
+          RABBITMQ_PASSWORD=${{ secrets.PRODUCTION_RABBITMQ_PASSWORD }}
+          
+          # State Management 設定
+          STATE_MANAGEMENT_PORT=${{ secrets.PRODUCTION_STATE_MANAGEMENT_PORT }}
+          STATE_MANAGEMENT_URL=${{ secrets.PRODUCTION_STATE_MANAGEMENT_URL }}
+          EOF
+          
+          echo "✅ .env 檔案已建立"
+          chmod 600 .env
+
+      - name: 設定映像名稱（轉換為小寫）
+        id: image_names
+        shell: bash
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "state_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-state-management" >> "$GITHUB_OUTPUT"
+          echo "analysis_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-analysis-service" >> "$GITHUB_OUTPUT"
+
+      - name: 登入 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 拉取映像
+        shell: bash
+        run: |
+          docker pull ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
+          docker pull ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
+
+      - name: 產出部署覆蓋檔
+        shell: bash
+        run: |
+          cat <<'YAML' > core/docker-compose.override.ci.yml
+          services:
+            state_management:
+              image: ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
+              command: ["python", "state_management_main.py"]
+            analysis_service:
+              image: ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
+              container_name: analysis_service
+              restart: unless-stopped
+              env_file:
+                - ../.env
+              environment:
+                MONGODB_HOST: ${MONGODB_HOST:-mongodb}
+                MONGODB_PORT: ${MONGODB_PORT:-55101}
+                MONGODB_USERNAME: ${MONGODB_USERNAME:-web_ui}
+                MONGODB_PASSWORD: ${MONGODB_PASSWORD:-hod2iddfsgsrl}
+                MONGODB_DATABASE: ${MONGODB_DATABASE:-web_db}
+                RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+                RABBITMQ_PORT: ${RABBITMQ_PORT:-55102}
+                STATE_MANAGEMENT_URL: ${STATE_MANAGEMENT_URL:-http://state_management:${STATE_MANAGEMENT_PORT:-55103}}
+              volumes:
+                - ../sub_system/analysis_service/logs:/app/logs
+              depends_on:
+                - mongodb
+                - rabbitmq
+          YAML
+
+      - name: 部署
+        shell: bash
+        run: |
+          docker compose -f core/docker-compose.yml -f core/docker-compose.override.ci.yml up -d --remove-orphans mongodb rabbitmq state_management analysis_service
+
+      - name: 等待 MongoDB 就緒
+        shell: bash
+        run: |
+          echo "等待 MongoDB 啟動..."
+          for i in {1..30}; do
+            if docker exec core_mongodb mongosh --port 55101 --eval "db.adminCommand('ping')" 2>/dev/null; then
+              echo "✅ MongoDB 已就緒"
+              break
+            fi
+            echo "等待中... ($i/30)"
+            sleep 2
+          done
+
+      - name: 初始化管理員帳號
+        shell: bash
+        run: |
+          echo "初始化管理員帳號..."
+          docker exec core_state_management python init_admin.py \
+            --username admin \
+            --password "${{ secrets.ADMIN_PASSWORD }}" \
+            --email "${{ secrets.ADMIN_EMAIL }}"
+
+      - name: 清理 Docker 產生的檔案權限（確保下次 CI 可正常運行）
+        if: always()
+        shell: bash
+        run: |
+          echo "🧹 清理檔案權限..."
+          sudo chown -R $(whoami):$(id -gn) "${{ github.workspace }}" || true
+          sudo chown -R $(whoami):$(id -gn) "$(dirname '${{ github.workspace }}')" || true
+          echo "✅ 權限清理完成"
+
+  deploy_edge_production:
+    name: 部署到 Edge Production
+    needs:
+      - parse_version
+      - build_and_push
+    if: needs.parse_version.outputs.env == 'edge_production'
+    runs-on: [self-hosted, edge_production, linux]
+    env:
+      VERSION: ${{ needs.parse_version.outputs.version }}
+    steps:
+      - name: 清理工作目錄（解決 Docker 產生的權限問題）
+        shell: bash
+        run: |
+          echo "🧹 清理工作目錄..."
+          WORKSPACE="${{ github.workspace }}"
+          
+          # 修復整個工作目錄的權限（包含子目錄）
+          if [ -d "$WORKSPACE" ]; then
+            echo "修復目錄權限: $WORKSPACE"
+            sudo chown -R $(whoami):$(id -gn) "$WORKSPACE" || true
+            sudo chmod -R u+rwX "$WORKSPACE" || true
+          fi
+          
+          # 也修復上層目錄（actions-runner/_work/repo_name/）
+          PARENT_DIR=$(dirname "$WORKSPACE")
+          if [ -d "$PARENT_DIR" ]; then
+            echo "修復上層目錄權限: $PARENT_DIR"
+            sudo chown -R $(whoami):$(id -gn) "$PARENT_DIR" || true
+            sudo chmod -R u+rwX "$PARENT_DIR" || true
+          fi
+          
+          # 強制刪除 __pycache__ 和 .pyc 檔案
+          if [ -d "$WORKSPACE" ]; then
+            sudo find "$WORKSPACE" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+            sudo find "$WORKSPACE" -type f -name '*.pyc' -delete 2>/dev/null || true
+          fi
+          
+          echo "✅ 權限修復完成"
+
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 建立 .env 檔案
+        shell: bash
+        run: |
+          cat <<'EOF' > .env
+          # Edge Production 環境設定（由 GitHub Actions 自動產生）
+          
+          # MongoDB 設定
+          MONGODB_HOST=${{ secrets.EDGE_MONGODB_HOST }}
+          MONGODB_PORT=${{ secrets.EDGE_MONGODB_PORT }}
+          MONGODB_USERNAME=${{ secrets.EDGE_MONGODB_USERNAME }}
+          MONGODB_PASSWORD=${{ secrets.EDGE_MONGODB_PASSWORD }}
+          MONGODB_DATABASE=${{ secrets.EDGE_MONGODB_DATABASE }}
+          
+          # RabbitMQ 設定
+          RABBITMQ_HOST=${{ secrets.EDGE_RABBITMQ_HOST }}
+          RABBITMQ_PORT=${{ secrets.EDGE_RABBITMQ_PORT }}
+          RABBITMQ_USERNAME=${{ secrets.EDGE_RABBITMQ_USERNAME }}
+          RABBITMQ_PASSWORD=${{ secrets.EDGE_RABBITMQ_PASSWORD }}
+          
+          # State Management 設定
+          STATE_MANAGEMENT_PORT=${{ secrets.EDGE_STATE_MANAGEMENT_PORT }}
+          STATE_MANAGEMENT_URL=${{ secrets.EDGE_STATE_MANAGEMENT_URL }}
+          EOF
+          
+          echo "✅ .env 檔案已建立"
+          chmod 600 .env
+
+      - name: 設定映像名稱（轉換為小寫）
+        id: image_names
+        shell: bash
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "analysis_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-analysis-service" >> "$GITHUB_OUTPUT"
+
+      - name: 登入 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 拉取映像
+        shell: bash
+        run: |
+          docker pull ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
+
+      - name: 部署分析節點（僅 Analysis Service）
+        shell: bash
+        run: |
+          cat <<'YAML' > core/docker-compose.edge.override.yml
+          services:
+            analysis_service:
+              image: ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
+              container_name: analysis_service
+              restart: unless-stopped
+              env_file:
+                - ../.env
+              environment:
+                MONGODB_HOST: ${MONGODB_HOST}
+                MONGODB_PORT: ${MONGODB_PORT}
+                MONGODB_USERNAME: ${MONGODB_USERNAME}
+                MONGODB_PASSWORD: ${MONGODB_PASSWORD}
+                MONGODB_DATABASE: ${MONGODB_DATABASE}
+                RABBITMQ_HOST: ${RABBITMQ_HOST}
+                RABBITMQ_PORT: ${RABBITMQ_PORT}
+                STATE_MANAGEMENT_URL: ${STATE_MANAGEMENT_URL}
+              volumes:
+                - ../sub_system/analysis_service/logs:/app/logs
+              command: ["python", "analysis_main.py"]
+          YAML
+          docker compose -f core/docker-compose.edge.override.yml up -d --remove-orphans analysis_service
+
+      - name: 清理 Docker 產生的檔案權限（確保下次 CI 可正常運行）
+        if: always()
+        shell: bash
+        run: |
+          echo "🧹 清理檔案權限..."
+          sudo chown -R $(whoami):$(id -gn) "${{ github.workspace }}" || true
+          sudo chown -R $(whoami):$(id -gn) "$(dirname '${{ github.workspace }}')" || true
+          echo "✅ 權限清理完成"

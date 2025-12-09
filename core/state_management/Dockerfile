@@ -9,14 +9,14 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# 複製依賴文件
+# 複製依賴文件（從根目錄）
 COPY requirements.txt .
 
 # 安裝 Python 依賴
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 複製應用程式代碼
-COPY . .
+COPY core/state_management/ .
 
 # 創建日誌目錄
 RUN mkdir -p logs

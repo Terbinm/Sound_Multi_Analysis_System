@@ -220,3 +220,4 @@ __marimo__/
 /sub_system/train/RF/models/
 /sub_system/edge_client/temp_wav/
 /core/state_management_2/
+/debug_tools/Integration_upload/reports/

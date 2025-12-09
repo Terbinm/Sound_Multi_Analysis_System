@@ -9,6 +9,7 @@ Flask-SocketIO==5.3.6
 python-socketio==5.11.0
 Flask-SQLAlchemy==3.1.1
 Werkzeug==3.0.1
+python-dotenv==1.0.1
 
 # Socket.IO workers (pick one in production)
 eventlet==0.33.3

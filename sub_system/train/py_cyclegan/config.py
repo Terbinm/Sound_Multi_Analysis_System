@@ -1,27 +1,31 @@
 # a_sub_system/train/py_cyclegan/config.py - CycleGAN 訓練系統統一配置
 
 import os
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv())
 
 # ==================== MongoDB 配置 ====================
 # 用於從 analysis_service 讀取 LEAF 特徵
 
+_train_mongo_port = os.getenv('TRAIN_MONGODB_PORT')
+_mongo_port = int(_train_mongo_port or os.getenv('MONGODB_PORT', '55101'))
+_mongo_host = os.getenv('MONGODB_HOST', 'localhost')
+_mongo_username = os.getenv('MONGODB_USERNAME', 'web_ui')
+_mongo_password = os.getenv('MONGODB_PASSWORD', 'hod2iddfsgsrl')
+
 MONGODB_CONFIG = {
-    'host': os.getenv('MONGODB_HOST', 'localhost'),
-    'port': int(os.getenv('MONGODB_PORT', '27025')),
-    'username': os.getenv('MONGODB_USERNAME', 'web_ui'),
-    'password': os.getenv('MONGODB_PASSWORD', 'hod2iddfsgsrl'),
+    'host': _mongo_host,
+    'port': _mongo_port,
+    'username': _mongo_username,
+    'password': _mongo_password,
     'database': os.getenv('MONGODB_DATABASE', 'web_db'),
     'collection': os.getenv('MONGODB_COLLECTION', 'recordings'),
 
     # MongoDB URI（自動組合）
     'uri': os.getenv(
         'MONGODB_URI',
-        'mongodb://{username}:{password}@{host}:{port}'.format(
-            username=os.getenv('MONGODB_USERNAME', 'web_ui'),
-            password=os.getenv('MONGODB_PASSWORD', 'hod2iddfsgsrl'),
-            host=os.getenv('MONGODB_HOST', 'localhost'),
-            port=os.getenv('MONGODB_PORT', '27025')
-        )
+        f'mongodb://{_mongo_username}:{_mongo_password}@{_mongo_host}:{_mongo_port}'
     )
 }
 

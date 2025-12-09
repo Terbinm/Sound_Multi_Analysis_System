@@ -8,11 +8,14 @@
     - title: 卡片標題
     - collapsible: 是否可折疊
     - default_collapsed: 預設是否折疊
+    - collapsed: 舊版參數別名（等同 default_collapsed，會自動啟用可折疊）
     - icon: 圖示類別（預設 fa-code）
 #}
-{% macro json_viewer(data, title="JSON 資料", collapsible=false, default_collapsed=false, icon="fa-code") %}
+{% macro json_viewer(data, title="JSON 資料", collapsible=false, default_collapsed=false, icon="fa-code", collapsed=none) %}
+{% set effective_collapsible = collapsible or (collapsed is not none) %}
+{% set effective_default_collapsed = collapsed if collapsed is not none else default_collapsed %}
 <div class="tech-card parallax-layer parallax-layer2"
-     {% if collapsible %}x-data="{ isOpen: {{ 'false' if default_collapsed else 'true' }} }"{% endif %}>
+     {% if effective_collapsible %}x-data="{ isOpen: {{ 'false' if effective_default_collapsed else 'true' }} }"{% endif %}>
     <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
@@ -21,7 +24,7 @@
                 </div>
                 <h3 class="text-lg font-semibold text-gray-900">{{ title }}</h3>
             </div>
-            {% if collapsible %}
+            {% if effective_collapsible %}
             <button @click="isOpen = !isOpen"
                     class="text-gray-500 hover:text-gray-700 transition-colors">
                 <i class="fas fa-chevron-down transition-transform duration-200"
@@ -30,7 +33,7 @@
             {% endif %}
         </div>
     </div>
-    <div class="px-6 py-6" {% if collapsible %}x-show="isOpen" x-transition{% endif %}>
+    <div class="px-6 py-6" {% if effective_collapsible %}x-show="isOpen" x-transition{% endif %}>
         {% if data %}
         <pre class="tech-code-block"><code>{{ data | tojson(indent=2) }}</code></pre>
         {% else %}

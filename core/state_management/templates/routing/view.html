@@ -4,6 +4,8 @@
 {% block page_title %}路由規則詳情{% endblock %}
 
 {% block content %}
+{% set router_ids = rule.router_ids if rule.router_ids else [rule.rule_id] %}
+{% set primary_router_id = router_ids[0] %}
 <div class="max-w-4xl space-y-6">
     <!-- 操作按鈕 -->
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3 parallax-layer parallax-layer2">
@@ -22,11 +24,18 @@
             </a>
             {% endif %}
         </div>
-        <a href="{{ url_for('views.routing_list') }}"
-           class="tech-button-outline inline-flex items-center gap-2 rounded-xl transition-all duration-300">
-            <i class="fas fa-arrow-left"></i>
-            <span>返回列表</span>
-        </a>
+        <div class="flex items-center gap-2">
+            <a href="{{ url_for('views.routing_monitor', router_id=primary_router_id) }}"
+               class="tech-button-outline inline-flex items-center gap-2 rounded-xl transition-all duration-300">
+                <i class="fas fa-desktop"></i>
+                <span>Router 監控</span>
+            </a>
+            <a href="{{ url_for('views.routing_list') }}"
+               class="tech-button-outline inline-flex items-center gap-2 rounded-xl transition-all duration-300">
+                <i class="fas fa-arrow-left"></i>
+                <span>返回列表</span>
+            </a>
+        </div>
     </div>
 
     <!-- 運作說明 -->
@@ -90,6 +99,17 @@
                         規則名稱
                     </dt>
                     <dd class="text-sm font-semibold text-gray-900">{{ rule.rule_name }}</dd>
+                </div>
+                <div class="group sm:col-span-2">
+                    <dt class="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                        <i class="fas fa-network-wired text-gray-400 text-xs"></i>
+                        Router IDs
+                    </dt>
+                    <dd class="flex flex-wrap gap-2">
+                        {% for router_id in router_ids %}
+                        <span class="px-3 py-1 rounded-full bg-gray-100 text-gray-800 font-mono text-xs">{{ router_id }}</span>
+                        {% endfor %}
+                    </dd>
                 </div>
                 <div class="group">
                     <dt class="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">

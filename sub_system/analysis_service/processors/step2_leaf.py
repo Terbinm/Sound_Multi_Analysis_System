@@ -4,8 +4,15 @@ import torch
 import torch.nn as nn
 import numpy as np
 import librosa
-from typing import List, Dict, Any, Optional
-import torchaudio.transforms as T
+from typing import List, Dict, Any, Optional, Tuple
+
+try:
+    import torchaudio.transforms as T
+    TORCHAUDIO_AVAILABLE = True
+except ImportError:  # torchaudio 可能在部分 CUDA wheel 缺席
+    T = None
+    TORCHAUDIO_AVAILABLE = False
+
 from config import UPLOAD_FOLDER
 from utils.logger import logger
 import os
@@ -18,18 +25,42 @@ class LEAFFeatureExtractor:
         """初始化 LEAF 提取器"""
         self.config = dict(leaf_config)
         self.audio_config = dict(audio_config)
-        self.device = torch.device(self.config['device'])
-        self.model = self._initialize_leaf_model()
+        self.device = self._resolve_device(self.config.get('device', 'cpu'))
+        self._window_params = self._compute_window_params()
+        self.use_torchaudio = TORCHAUDIO_AVAILABLE
+        self.model = None
+
+        if self.use_torchaudio:
+            self.model = self._initialize_leaf_model()
+        else:
+            logger.warning(
+                "torchaudio 未安裝或不支援當前 CUDA 版本，Step 2 將改用 librosa 特徵計算 (CPU)"
+            )
 
         logger.info(f"LEAF 提取器初始化成功 (device={self.device})")
+
+    def _resolve_device(self, device_name: str) -> torch.device:
+        """確認裝置可用，若 CUDA 不可用則退回 CPU"""
+        if str(device_name).startswith('cuda') and not torch.cuda.is_available():
+            logger.warning("CUDA 裝置不可用，LEAF 提取器改用 CPU")
+            return torch.device('cpu')
+        return torch.device(device_name)
+
+    def _compute_window_params(self) -> Tuple[int, int, int]:
+        """計算 MelSpectrogram 需使用的視窗參數"""
+        sample_rate = self.config['sample_rate']
+        win_length = max(1, int(sample_rate * self.config['window_len'] / 1000))
+        hop_length = max(1, int(sample_rate * self.config['window_stride'] / 1000))
+        n_fft = 512
+        return win_length, hop_length, n_fft
 
     def _initialize_leaf_model(self) -> nn.Module:
         """初始化 MelSpectrogram 模型（替代 LEAF）"""
         try:
-            # 计算窗口参数（毫秒转换为样本数）
-            win_length = int(self.config['sample_rate'] * self.config['window_len'] / 1000)
-            hop_length = int(self.config['sample_rate'] * self.config['window_stride'] / 1000)
-            n_fft = 512  # 使用 512 点 FFT
+            if not self.use_torchaudio or T is None:
+                raise RuntimeError("torchaudio 不可用，無法初始化 GPU MelSpectrogram")
+
+            win_length, hop_length, n_fft = self._window_params
 
             # 创建 MelSpectrogram 转换
             mel_spectrogram = T.MelSpectrogram(
@@ -64,9 +95,13 @@ class LEAFFeatureExtractor:
         if isinstance(audio_config, dict):
             self.audio_config.update(audio_config)
         if needs_reinit:
-            self.device = torch.device(self.config['device'])
-            self.model = self._initialize_leaf_model()
+            self.device = self._resolve_device(self.config.get('device', 'cpu'))
+            self._window_params = self._compute_window_params()
+            if self.use_torchaudio:
+                self.model = self._initialize_leaf_model()
             logger.info(f"LEAF 配置變更，已重建 MelSpectrogram (sample_rate={self.config['sample_rate']})")
+        else:
+            self._window_params = self._compute_window_params()
 
     def _count_parameters(self, model: nn.Module) -> int:
         """計算模型參數數量"""
@@ -213,24 +248,50 @@ class LEAFFeatureExtractor:
             # 轉換為 PyTorch 張量 [samples]
             audio_tensor = torch.FloatTensor(audio_segment).to(self.device)
 
-            # 提取 MelSpectrogram 特徵
-            with torch.no_grad():
-                # MelSpectrogram 輸出: (n_mels, time)
-                mel_spec = self.model(audio_tensor)
+            if self.use_torchaudio and self.model is not None:
+                return self._extract_with_torchaudio(audio_tensor)
 
-                # 對時間維度取平均，得到 (n_mels,) 的特徵向量
-                features = torch.mean(mel_spec, dim=-1)
-
-                # 應用 log 壓縮（類似 PCEN）
-                if self.config['pcen_compression']:
-                    features = torch.log(features + 1e-6)
-
-                features_np = features.cpu().numpy()
-
-                return features_np
+            return self._extract_with_librosa(audio_segment)
 
         except Exception as e:
             logger.error(f"Mel-Spectrogram 特徵提取失敗: {e}")
+            return None
+
+    def _extract_with_torchaudio(self, audio_tensor: torch.Tensor) -> Optional[np.ndarray]:
+        """使用 torchaudio 取得 MelSpectrogram 特徵"""
+        try:
+            with torch.no_grad():
+                mel_spec = self.model(audio_tensor)
+                features = torch.mean(mel_spec, dim=-1)
+                if self.config['pcen_compression']:
+                    features = torch.log(features + 1e-6)
+                return features.cpu().numpy()
+        except Exception as exc:
+            logger.error(f"torchaudio MelSpectrogram 計算失敗，將回退 librosa: {exc}")
+            return self._extract_with_librosa(audio_tensor.cpu().numpy())
+
+    def _extract_with_librosa(self, audio_segment: np.ndarray) -> Optional[np.ndarray]:
+        """使用 librosa 生成 MelSpectrogram，無需 torchaudio"""
+        try:
+            win_length, hop_length, n_fft = self._window_params
+            mel_spec = librosa.feature.melspectrogram(
+                y=audio_segment,
+                sr=self.config['sample_rate'],
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                fmin=self.config['init_min_freq'],
+                fmax=self.config['init_max_freq'],
+                n_mels=self.config['n_filters'],
+                power=2.0
+            )
+
+            features = np.mean(mel_spec, axis=-1)
+            if self.config['pcen_compression']:
+                features = np.log(features + 1e-6)
+            return features.astype(np.float32)
+        except Exception as exc:
+            logger.error(f"librosa MelSpectrogram 計算失敗: {exc}")
             return None
 
     def get_feature_info(self) -> Dict[str, Any]:
