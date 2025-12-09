@@ -219,3 +219,4 @@ __marimo__/
 /sub_system/train/RF/uuid_list.txt
 /sub_system/train/RF/models/
 /sub_system/edge_client/temp_wav/
+/core/state_management_2/
