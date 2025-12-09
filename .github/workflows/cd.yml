@@ -153,14 +153,31 @@ jobs:
       - name: 清理工作目錄（解決 Docker 產生的權限問題）
         shell: bash
         run: |
-          # 修復所有檔案權限（Docker 容器可能以 root 身份創建檔案）
-          if [ -d "${{ github.workspace }}" ]; then
-            sudo chown -R $(whoami):$(id -gn) ${{ github.workspace }} 2>/dev/null || true
-            sudo chmod -R u+rwX ${{ github.workspace }} 2>/dev/null || true
+          echo "🧹 清理工作目錄..."
+          WORKSPACE="${{ github.workspace }}"
+          
+          # 修復整個工作目錄的權限（包含子目錄）
+          if [ -d "$WORKSPACE" ]; then
+            echo "修復目錄權限: $WORKSPACE"
+            sudo chown -R $(whoami):$(id -gn) "$WORKSPACE" || true
+            sudo chmod -R u+rwX "$WORKSPACE" || true
           fi
-          # 刪除 __pycache__ 和 .pyc 檔案
-          sudo find ${{ github.workspace }} -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
-          sudo find ${{ github.workspace }} -type f -name '*.pyc' -delete 2>/dev/null || true
+          
+          # 也修復上層目錄（actions-runner/_work/repo_name/）
+          PARENT_DIR=$(dirname "$WORKSPACE")
+          if [ -d "$PARENT_DIR" ]; then
+            echo "修復上層目錄權限: $PARENT_DIR"
+            sudo chown -R $(whoami):$(id -gn) "$PARENT_DIR" || true
+            sudo chmod -R u+rwX "$PARENT_DIR" || true
+          fi
+          
+          # 強制刪除 __pycache__ 和 .pyc 檔案
+          if [ -d "$WORKSPACE" ]; then
+            sudo find "$WORKSPACE" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+            sudo find "$WORKSPACE" -type f -name '*.pyc' -delete 2>/dev/null || true
+          fi
+          
+          echo "✅ 權限修復完成"
 
       - name: 取得程式碼
         uses: actions/checkout@v4
@@ -295,14 +312,31 @@ jobs:
       - name: 清理工作目錄（解決 Docker 產生的權限問題）
         shell: bash
         run: |
-          # 修復所有檔案權限（Docker 容器可能以 root 身份創建檔案）
-          if [ -d "${{ github.workspace }}" ]; then
-            sudo chown -R $(whoami):$(id -gn) ${{ github.workspace }} 2>/dev/null || true
-            sudo chmod -R u+rwX ${{ github.workspace }} 2>/dev/null || true
+          echo "🧹 清理工作目錄..."
+          WORKSPACE="${{ github.workspace }}"
+          
+          # 修復整個工作目錄的權限（包含子目錄）
+          if [ -d "$WORKSPACE" ]; then
+            echo "修復目錄權限: $WORKSPACE"
+            sudo chown -R $(whoami):$(id -gn) "$WORKSPACE" || true
+            sudo chmod -R u+rwX "$WORKSPACE" || true
           fi
-          # 刪除 __pycache__ 和 .pyc 檔案
-          sudo find ${{ github.workspace }} -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
-          sudo find ${{ github.workspace }} -type f -name '*.pyc' -delete 2>/dev/null || true
+          
+          # 也修復上層目錄（actions-runner/_work/repo_name/）
+          PARENT_DIR=$(dirname "$WORKSPACE")
+          if [ -d "$PARENT_DIR" ]; then
+            echo "修復上層目錄權限: $PARENT_DIR"
+            sudo chown -R $(whoami):$(id -gn) "$PARENT_DIR" || true
+            sudo chmod -R u+rwX "$PARENT_DIR" || true
+          fi
+          
+          # 強制刪除 __pycache__ 和 .pyc 檔案
+          if [ -d "$WORKSPACE" ]; then
+            sudo find "$WORKSPACE" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+            sudo find "$WORKSPACE" -type f -name '*.pyc' -delete 2>/dev/null || true
+          fi
+          
+          echo "✅ 權限修復完成"
 
       - name: 取得程式碼
         uses: actions/checkout@v4
@@ -425,14 +459,31 @@ jobs:
       - name: 清理工作目錄（解決 Docker 產生的權限問題）
         shell: bash
         run: |
-          # 修復所有檔案權限（Docker 容器可能以 root 身份創建檔案）
-          if [ -d "${{ github.workspace }}" ]; then
-            sudo chown -R $(whoami):$(id -gn) ${{ github.workspace }} 2>/dev/null || true
-            sudo chmod -R u+rwX ${{ github.workspace }} 2>/dev/null || true
+          echo "🧹 清理工作目錄..."
+          WORKSPACE="${{ github.workspace }}"
+          
+          # 修復整個工作目錄的權限（包含子目錄）
+          if [ -d "$WORKSPACE" ]; then
+            echo "修復目錄權限: $WORKSPACE"
+            sudo chown -R $(whoami):$(id -gn) "$WORKSPACE" || true
+            sudo chmod -R u+rwX "$WORKSPACE" || true
           fi
-          # 刪除 __pycache__ 和 .pyc 檔案
-          sudo find ${{ github.workspace }} -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
-          sudo find ${{ github.workspace }} -type f -name '*.pyc' -delete 2>/dev/null || true
+          
+          # 也修復上層目錄（actions-runner/_work/repo_name/）
+          PARENT_DIR=$(dirname "$WORKSPACE")
+          if [ -d "$PARENT_DIR" ]; then
+            echo "修復上層目錄權限: $PARENT_DIR"
+            sudo chown -R $(whoami):$(id -gn) "$PARENT_DIR" || true
+            sudo chmod -R u+rwX "$PARENT_DIR" || true
+          fi
+          
+          # 強制刪除 __pycache__ 和 .pyc 檔案
+          if [ -d "$WORKSPACE" ]; then
+            sudo find "$WORKSPACE" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+            sudo find "$WORKSPACE" -type f -name '*.pyc' -delete 2>/dev/null || true
+          fi
+          
+          echo "✅ 權限修復完成"
 
       - name: 取得程式碼
         uses: actions/checkout@v4
