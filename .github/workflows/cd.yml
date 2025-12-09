@@ -299,6 +299,15 @@ jobs:
           sleep 10
           curl -f http://localhost:${STATE_MANAGEMENT_PORT:-55103}/health
 
+      - name: 清理 Docker 產生的檔案權限（確保下次 CI 可正常運行）
+        if: always()
+        shell: bash
+        run: |
+          echo "🧹 清理檔案權限..."
+          sudo chown -R $(whoami):$(id -gn) "${{ github.workspace }}" || true
+          sudo chown -R $(whoami):$(id -gn) "$(dirname '${{ github.workspace }}')" || true
+          echo "✅ 權限清理完成"
+
   deploy_server_production:
     name: 部署到 Server Production
     needs:
@@ -446,6 +455,15 @@ jobs:
             --password "${{ secrets.ADMIN_PASSWORD }}" \
             --email "${{ secrets.ADMIN_EMAIL }}"
 
+      - name: 清理 Docker 產生的檔案權限（確保下次 CI 可正常運行）
+        if: always()
+        shell: bash
+        run: |
+          echo "🧹 清理檔案權限..."
+          sudo chown -R $(whoami):$(id -gn) "${{ github.workspace }}" || true
+          sudo chown -R $(whoami):$(id -gn) "$(dirname '${{ github.workspace }}')" || true
+          echo "✅ 權限清理完成"
+
   deploy_edge_production:
     name: 部署到 Edge Production
     needs:
@@ -559,3 +577,12 @@ jobs:
               command: ["python", "analysis_main.py"]
           YAML
           docker compose -f core/docker-compose.edge.override.yml up -d --remove-orphans analysis_service
+
+      - name: 清理 Docker 產生的檔案權限（確保下次 CI 可正常運行）
+        if: always()
+        shell: bash
+        run: |
+          echo "🧹 清理檔案權限..."
+          sudo chown -R $(whoami):$(id -gn) "${{ github.workspace }}" || true
+          sudo chown -R $(whoami):$(id -gn) "$(dirname '${{ github.workspace }}')" || true
+          echo "✅ 權限清理完成"
