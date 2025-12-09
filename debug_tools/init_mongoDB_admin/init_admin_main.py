@@ -13,7 +13,6 @@ import sys
 import argparse
 import getpass
 from flask_bcrypt import generate_password_hash
-from models.user import User
 import logging
 
 # 配置日誌
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 def create_admin_user(username='admin', email='admin@example.com', password=None):
     """
-    建立管理員使用者（冪等操作）
+    建立管理員使用者
 
     Args:
         username: 使用者名稱（預設: admin）
@@ -34,20 +33,20 @@ def create_admin_user(username='admin', email='admin@example.com', password=None
         password: 密碼（若為 None 則互動式輸入）
 
     Returns:
-        bool: 是否建立成功（已存在視為成功）
+        bool: 是否建立成功
     """
     try:
-        # 檢查使用者是否已存在（冪等性：已存在則跳過）
+        # 檢查使用者是否已存在
         existing_user = User.find_by_username(username)
         if existing_user:
-            logger.info(f"✓ 使用者 '{username}' 已存在，跳過建立")
-            return True
+            logger.error(f"使用者 '{username}' 已存在")
+            return False
 
-        # 檢查電子郵件是否已被使用（但用戶名不同）
+        # 檢查電子郵件是否已被使用
         existing_email = User.find_by_email(email)
         if existing_email:
-            logger.warning(f"電子郵件 '{email}' 已被其他使用者使用，跳過建立")
-            return True
+            logger.error(f"電子郵件 '{email}' 已被使用")
+            return False
 
         # 取得密碼
         if password is None:

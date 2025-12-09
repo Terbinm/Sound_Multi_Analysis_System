@@ -240,6 +240,28 @@ jobs:
         run: |
           docker compose -f core/docker-compose.yml -f core/docker-compose.override.ci.yml up -d --remove-orphans mongodb rabbitmq state_management analysis_service
 
+      - name: 等待 MongoDB 就緒
+        shell: bash
+        run: |
+          echo "等待 MongoDB 啟動..."
+          for i in {1..30}; do
+            if docker exec core_mongodb mongosh --port 55101 --eval "db.adminCommand('ping')" 2>/dev/null; then
+              echo "✅ MongoDB 已就緒"
+              break
+            fi
+            echo "等待中... ($i/30)"
+            sleep 2
+          done
+
+      - name: 初始化管理員帳號
+        shell: bash
+        run: |
+          echo "初始化管理員帳號..."
+          docker exec core_state_management python init_admin.py \
+            --username admin \
+            --password "${{ secrets.ADMIN_PASSWORD }}" \
+            --email "${{ secrets.ADMIN_EMAIL }}"
+
       - name: 語法 smoke test
         shell: bash
         run: |
@@ -351,6 +373,28 @@ jobs:
         shell: bash
         run: |
           docker compose -f core/docker-compose.yml -f core/docker-compose.override.ci.yml up -d --remove-orphans mongodb rabbitmq state_management analysis_service
+
+      - name: 等待 MongoDB 就緒
+        shell: bash
+        run: |
+          echo "等待 MongoDB 啟動..."
+          for i in {1..30}; do
+            if docker exec core_mongodb mongosh --port 55101 --eval "db.adminCommand('ping')" 2>/dev/null; then
+              echo "✅ MongoDB 已就緒"
+              break
+            fi
+            echo "等待中... ($i/30)"
+            sleep 2
+          done
+
+      - name: 初始化管理員帳號
+        shell: bash
+        run: |
+          echo "初始化管理員帳號..."
+          docker exec core_state_management python init_admin.py \
+            --username admin \
+            --password "${{ secrets.ADMIN_PASSWORD }}" \
+            --email "${{ secrets.ADMIN_EMAIL }}"
 
   deploy_edge_production:
     name: 部署到 Edge Production
