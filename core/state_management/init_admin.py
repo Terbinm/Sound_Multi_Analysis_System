@@ -6,6 +6,8 @@
 
 或自訂使用者名稱與密碼:
     python init_admin.py --username admin --password admin123 --email admin@example.com
+    python init_admin.py --username staging --password admin123 --email admin@example.com
+
 """
 import sys
 import argparse
