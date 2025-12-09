@@ -1,5 +1,7 @@
 from pymongo import MongoClient
 
+
+
 MONGO = {
     'host': 'localhost',
     'port': 55101,
@@ -9,50 +11,81 @@ MONGO = {
     'collection': 'recordings'
 }
 
-MAX_RECORDS = 10
+MAX_RECORDS = 50
 
 def main():
     print("連線 MongoDB...")
     uri = f"mongodb://{MONGO['username']}:{MONGO['password']}@{MONGO['host']}:{MONGO['port']}/admin"
     client = MongoClient(uri)
+
     col = client[MONGO['database']][MONGO['collection']]
 
-    print("抓取 device_id=cpc006 的資料...")
+    print("查詢 Step2 (LEAF Features) 已完成的紀錄...")
 
-    cursor = col.find(
-        {"info_features.device_id": "cpc006"},
-        {"AnalyzeUUID": 1, "runs": 1}
-    )
+    query = {
+        "info_features.device_id": "cpc006",
+        "$expr": {
+            "$gt": [
+                {
+                    "$size": {
+                        "$filter": {
+                            "input": {"$objectToArray": "$analyze_features.runs"},
+                            "as": "run",
+                            "cond": {
+                                "$eq": [
+                                    {"$getField": {
+                                        "field": "features_state",
+                                        "input": {
+                                            "$getField": {
+                                                "field": "LEAF Features",
+                                                "input": "$$run.v.steps"
+                                            }
+                                        }
+                                    }},
+                                    "completed"
+                                ]
+                            }
+                        }
+                    }
+                },
+                0
+            ]
+        }
+    }
 
-    uuids = []
+    cursor = col.find(query, {"AnalyzeUUID": 1})
 
-    for doc in cursor:
+    if MAX_RECORDS > 0:
+        cursor = cursor.limit(MAX_RECORDS)
 
-        runs = doc.get("runs", {})
-        if not isinstance(runs, dict):
-            continue
+    uuids = [doc["AnalyzeUUID"] for doc in cursor if "AnalyzeUUID" in doc]
 
-        for run_key, run_data in runs.items():
-
-            steps = run_data.get("steps", {})
-            leaf_step = steps.get("LEAF Features")
-
-            # ← 這裡精準對應你的 screenshot
-            if leaf_step and leaf_step.get("features_state") == "completed":
-                uuids.append(doc["AnalyzeUUID"])
-                print(f"找到 Step2 完成：{doc['AnalyzeUUID']}")
-                break
-
-        if MAX_RECORDS and len(uuids) >= MAX_RECORDS:
-            break
-
-    print(f"\n找到 {len(uuids)} 筆 UUID")
+    print(f"找到 {len(uuids)} 筆 UUID")
 
     with open("uuid_list.txt", "w", encoding="utf-8") as f:
         for u in uuids:
             f.write(u + "\n")
 
     print("已輸出 uuid_list.txt")
+
+from pymongo import MongoClient
+
+client = MongoClient("mongodb://web_ui:hod2iddfsgsrl@localhost:55101/admin")
+col = client["web_db"]["recordings"]
+
+docs = col.find(
+    {
+        "analyze_features.features_step": 2
+    },
+    {
+        "AnalyzeUUID": 1,
+        "info_features.device_id": 1
+    }
+)
+
+print("=== Step2 資料 ===")
+for d in docs:
+    print(d)
 
 
 if __name__ == "__main__":

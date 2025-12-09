@@ -11,8 +11,6 @@ combine_cyclegan_rf.py
 python combine_cyclegan_rf.py --uuid_file uuid_list.txt --direction AB
 python combine_cyclegan_rf.py --uuid 1111-2222 --uuid 3333-4444
 """
-from env_loader import load_project_env
-load_project_env()
 import argparse
 import csv
 import sys
@@ -171,63 +169,56 @@ def connect_mongo(cfg: Dict):
 # -----------------------------------------------------------------------------
 def fetch_leaf_features_internal(collection, analyze_uuid: str) -> Tuple[np.ndarray, Dict]:
     """
-    從單一 record 讀取 Step2 LEAF 特徵（segments），回傳 (T, N_MELS) 與整個 record。
-    若格式不對會 raise ValueError。
+    專門讀新版 MongoDB 結構：
+    analyze_features.runs.<run_id>.steps["LEAF Features"]
     """
+
     record = collection.find_one({'AnalyzeUUID': analyze_uuid})
     if not record:
         raise ValueError(f"找不到 AnalyzeUUID={analyze_uuid}")
 
-    target_step = None
-    preferred_steps = [2, 6]  # 先找 Step2 原始特徵；若無則使用 Step6 (CycleGAN 轉換後)
-    for step_id in preferred_steps:
-        for step in record.get('analyze_features', []):
-            if step.get('features_step') == step_id and step.get('features_state') == 'completed':
-                target_step = step
+    runs = record.get("analyze_features", {}).get("runs")
+    if not isinstance(runs, dict):
+        raise ValueError("資料無 analyze_features.runs（新格式）")
+
+    leaf_step = None
+
+    # 逐一檢查每個 run
+    for run_id, run_data in runs.items():
+        steps = run_data.get("steps", {})
+        if "LEAF Features" in steps:
+            step_obj = steps["LEAF Features"]
+            if step_obj.get("features_state") == "completed":
+                leaf_step = step_obj
                 break
-        if target_step:
-            break
 
-    if target_step is None:
-        raise ValueError("缺少已完成的 Step2/Step6 LEAF 特徵 (features_step==2 或 6, features_state=='completed')")
+    if leaf_step is None:
+        raise ValueError("找不到完成的 Step2: LEAF Features (features_state='completed')")
 
-    features_data = target_step.get('features_data')
+    features_data = leaf_step.get("features_data")
     if not features_data:
-        raise ValueError("Step2 LEAF 特徵為空")
+        raise ValueError("LEAF Features: features_data 為空")
 
+    # === 建立特徵矩陣 ===
     segment_list = []
     for idx, seg in enumerate(features_data):
         if seg is None:
             raise ValueError(f"第 {idx} 段為 None")
-        if isinstance(seg, dict):
-            # 支援常見 key
-            vector = seg.get('feature_vector') or seg.get('features') or seg.get('data')
-            if vector is None:
-                raise ValueError(f"第 {idx} 段缺少 feature_vector")
-            arr = np.asarray(vector, dtype=np.float32)
+
+        if isinstance(seg, (list, tuple)):
+            vec = np.array(seg, dtype=np.float32)
         else:
-            arr = np.asarray(seg, dtype=np.float32)
+            raise ValueError(f"不支援的特徵格式：{type(seg)}")
 
-        if arr.ndim == 1:
-            if arr.shape[0] != N_MELS:
-                raise ValueError(f"第 {idx} 段維度錯誤: {arr.shape}, 預期 {N_MELS}")
-            segment_list.append(arr)
-        elif arr.ndim == 2:
-            if arr.shape[1] != N_MELS:
-                raise ValueError(f"第 {idx} 段維度錯誤: {arr.shape}, 預期 second-dim {N_MELS}")
-            for row in arr:
-                segment_list.append(row)
-        else:
-            raise ValueError(f"第 {idx} 段維度不支援: {arr.shape}")
+        if vec.ndim != 1 or vec.shape[0] != N_MELS:
+            raise ValueError(f"特徵維度錯誤 index={idx}: {vec.shape}, 預期 {N_MELS}")
 
-    if not segment_list:
-        raise ValueError("沒有有效的 segment")
+        segment_list.append(vec)
 
-    feats = np.vstack(segment_list).astype(np.float32)  # (T, N_MELS)
-    if feats.ndim != 2 or feats.shape[1] != N_MELS:
-        raise ValueError(f"最終特徵維度錯誤: {feats.shape}")
+    feats = np.vstack(segment_list)  # (T, 40)
 
     return feats, record
+
 
 def fetch_leaf_features(collection, analyze_uuid: str, external_loader=None) -> Tuple[np.ndarray, Dict]:
     """
@@ -388,8 +379,13 @@ def main():
     parser.add_argument('--cyclegan', default=str(DEFAULT_CKPT), help='CycleGAN checkpoint 路徑/檔名/資料夾')
     parser.add_argument('--rf', default=str(DEFAULT_RF))
     parser.add_argument('--scaler', default=None)
+
     parser.add_argument('--out_csv', default='cpc_normal.csv')
     parser.add_argument('--out_summary', default='cpc_normal_summary.csv')
+
+    # parser.add_argument('--out_csv', default='cpc_abnormal.csv')
+    # parser.add_argument('--out_summary', default='cpc_abnormal_summary.csv')
+
 
     # MongoDB arguments (可覆蓋 DEFAULT)
     # try to import default config
