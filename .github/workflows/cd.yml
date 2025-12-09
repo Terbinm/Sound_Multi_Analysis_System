@@ -153,7 +153,12 @@ jobs:
       - name: 清理工作目錄（解決 Docker 產生的權限問題）
         shell: bash
         run: |
-          # 刪除 Docker 容器以 root 身份創建的 __pycache__ 檔案
+          # 修復所有檔案權限（Docker 容器可能以 root 身份創建檔案）
+          if [ -d "${{ github.workspace }}" ]; then
+            sudo chown -R $(whoami):$(id -gn) ${{ github.workspace }} 2>/dev/null || true
+            sudo chmod -R u+rwX ${{ github.workspace }} 2>/dev/null || true
+          fi
+          # 刪除 __pycache__ 和 .pyc 檔案
           sudo find ${{ github.workspace }} -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
           sudo find ${{ github.workspace }} -type f -name '*.pyc' -delete 2>/dev/null || true
 
@@ -287,7 +292,12 @@ jobs:
       - name: 清理工作目錄（解決 Docker 產生的權限問題）
         shell: bash
         run: |
-          # 刪除 Docker 容器以 root 身份創建的 __pycache__ 檔案
+          # 修復所有檔案權限（Docker 容器可能以 root 身份創建檔案）
+          if [ -d "${{ github.workspace }}" ]; then
+            sudo chown -R $(whoami):$(id -gn) ${{ github.workspace }} 2>/dev/null || true
+            sudo chmod -R u+rwX ${{ github.workspace }} 2>/dev/null || true
+          fi
+          # 刪除 __pycache__ 和 .pyc 檔案
           sudo find ${{ github.workspace }} -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
           sudo find ${{ github.workspace }} -type f -name '*.pyc' -delete 2>/dev/null || true
 
@@ -409,7 +419,12 @@ jobs:
       - name: 清理工作目錄（解決 Docker 產生的權限問題）
         shell: bash
         run: |
-          # 刪除 Docker 容器以 root 身份創建的 __pycache__ 檔案
+          # 修復所有檔案權限（Docker 容器可能以 root 身份創建檔案）
+          if [ -d "${{ github.workspace }}" ]; then
+            sudo chown -R $(whoami):$(id -gn) ${{ github.workspace }} 2>/dev/null || true
+            sudo chmod -R u+rwX ${{ github.workspace }} 2>/dev/null || true
+          fi
+          # 刪除 __pycache__ 和 .pyc 檔案
           sudo find ${{ github.workspace }} -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
           sudo find ${{ github.workspace }} -type f -name '*.pyc' -delete 2>/dev/null || true
 
