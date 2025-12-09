@@ -230,6 +230,9 @@ jobs:
               environment:
                 MONGODB_HOST: ${MONGODB_HOST:-mongodb}
                 MONGODB_PORT: ${MONGODB_PORT:-55101}
+                MONGODB_USERNAME: ${MONGODB_USERNAME:-web_ui}
+                MONGODB_PASSWORD: ${MONGODB_PASSWORD:-hod2iddfsgsrl}
+                MONGODB_DATABASE: ${MONGODB_DATABASE:-web_db}
                 RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
                 RABBITMQ_PORT: ${RABBITMQ_PORT:-55102}
                 STATE_MANAGEMENT_URL: ${STATE_MANAGEMENT_URL:-http://state_management:${STATE_MANAGEMENT_PORT:-55103}}
@@ -369,6 +372,9 @@ jobs:
               environment:
                 MONGODB_HOST: ${MONGODB_HOST:-mongodb}
                 MONGODB_PORT: ${MONGODB_PORT:-55101}
+                MONGODB_USERNAME: ${MONGODB_USERNAME:-web_ui}
+                MONGODB_PASSWORD: ${MONGODB_PASSWORD:-hod2iddfsgsrl}
+                MONGODB_DATABASE: ${MONGODB_DATABASE:-web_db}
                 RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
                 RABBITMQ_PORT: ${RABBITMQ_PORT:-55102}
                 STATE_MANAGEMENT_URL: ${STATE_MANAGEMENT_URL:-http://state_management:${STATE_MANAGEMENT_PORT:-55103}}
@@ -491,6 +497,9 @@ jobs:
               environment:
                 MONGODB_HOST: ${MONGODB_HOST}
                 MONGODB_PORT: ${MONGODB_PORT}
+                MONGODB_USERNAME: ${MONGODB_USERNAME}
+                MONGODB_PASSWORD: ${MONGODB_PASSWORD}
+                MONGODB_DATABASE: ${MONGODB_DATABASE}
                 RABBITMQ_HOST: ${RABBITMQ_HOST}
                 RABBITMQ_PORT: ${RABBITMQ_PORT}
                 STATE_MANAGEMENT_URL: ${STATE_MANAGEMENT_URL}
