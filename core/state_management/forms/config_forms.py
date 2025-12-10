@@ -71,7 +71,7 @@ class MongoDBInstanceForm(FlaskForm):
                                 Length(max=100)])
     port = StringField('連接埠',
                       validators=[DataRequired(message='請輸入連接埠')],
-                      render_kw={'type': 'number', 'min': '1', 'max': '65535', 'value': '27017'})
+                      render_kw={'type': 'number', 'min': '1', 'max': '65535', 'value': '12345'})
     username = StringField('使用者名稱',
                           validators=[DataRequired(message='請輸入使用者名稱'),
                                     Length(max=100)])
