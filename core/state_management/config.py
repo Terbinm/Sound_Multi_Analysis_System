@@ -23,11 +23,11 @@ class Config:
 
     # MongoDB 配置
     MONGODB_CONFIG: Dict[str, Any] = {
-        'host': os.environ.get('MONGODB_HOST', 'localhost'),
-        'port': int(os.environ.get('MONGODB_PORT', 55101)),  # 核心服務 MongoDB 端口
-        'username': os.environ.get('MONGODB_USERNAME', 'web_ui'),
-        'password': os.environ.get('MONGODB_PASSWORD', 'hod2iddfsgsrl'),
-        'database': os.environ.get('MONGODB_DATABASE', 'web_db'),
+        'host': os.environ.get('MONGODB_HOST'),
+        'port': int(os.environ.get('MONGODB_PORT')),  # 核心服務 MongoDB 端口
+        'username': os.environ.get('MONGODB_USERNAME'),
+        'password': os.environ.get('MONGODB_PASSWORD'),
+        'database': os.environ.get('MONGODB_DATABASE'),
         'auth_source': 'admin',
         'server_selection_timeout_ms': 5000,
     }

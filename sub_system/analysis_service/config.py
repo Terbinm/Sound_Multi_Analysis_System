@@ -3,18 +3,21 @@
 import os
 import torch
 from dotenv import load_dotenv, find_dotenv
+from typing import Dict, Any
+# 強制覆蓋所有外部變數，只看 .env
+load_dotenv(find_dotenv(), override=True)
 
-# 預先載入 .env 讓所有子系統共用設定
-load_dotenv(find_dotenv())
 
+# 強制從 .env 讀取（覆蓋外部環境變數）
+load_dotenv(override=True)
 
-MONGODB_CONFIG = {
-    'host': os.getenv('MONGODB_HOST', 'localhost'),
-    'port': int(os.getenv('MONGODB_PORT', '55101')),  # 核心服務 MongoDB 端口（統一使用）
-    'username': os.getenv('MONGODB_USERNAME', 'web_ui'),
-    'password': os.getenv('MONGODB_PASSWORD', 'hod2iddfsgsrl'),
-    'database': os.getenv('MONGODB_DATABASE', 'web_db'),
-    'collection': os.getenv('MONGODB_COLLECTION', 'recordings')
+MONGODB_CONFIG: Dict[str, Any] = {
+    'host': os.getenv("MONGODB_HOST"),
+    'port': int(os.getenv("MONGODB_PORT")),
+    'username': os.getenv("MONGODB_USERNAME"),
+    'password': os.getenv("MONGODB_PASSWORD"),
+    'database': os.getenv("MONGODB_DATABASE"),
+    'collection': os.getenv("MONGODB_COLLECTION")
 }
 
 # ==================== 音訊處理配置 ====================

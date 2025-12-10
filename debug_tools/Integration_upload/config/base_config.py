@@ -7,6 +7,8 @@ import os
 from abc import ABC
 from pathlib import Path
 from typing import Dict, Any, List
+
+from dotenv import load_dotenv
 from env_loader import load_project_env
 load_project_env()
 
@@ -15,13 +17,16 @@ class BaseUploadConfig(ABC):
     """批次上傳工具的基礎配置類別"""
 
     # ==================== MongoDB 連線設定 ====================
+    # 強制從 .env 讀取（覆蓋外部環境變數）
+    load_dotenv(override=True)
+
     MONGODB_CONFIG: Dict[str, Any] = {
-        'host': '192.168.71.43',
-        'port': 55101,  # 核心服務 MongoDB 端口（統一使用）
-        'username': 'web_ui',
-        'password': 'hod2iddfsgsrl',
-        'database': 'web_db',
-        'collection': 'recordings'
+        'host': os.getenv("MONGODB_HOST"),
+        'port': int(os.getenv("MONGODB_PORT")),
+        'username': os.getenv("MONGODB_USERNAME"),
+        'password': os.getenv("MONGODB_PASSWORD"),
+        'database': os.getenv("MONGODB_DATABASE"),
+        'collection': os.getenv("MONGODB_COLLECTION")
     }
 
     # ==================== 上傳行為配置 ====================
