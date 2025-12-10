@@ -2,53 +2,72 @@
 狀態管理系統配置文件
 """
 import os
-from typing import Dict, Any
 from dotenv import load_dotenv, find_dotenv
+from typing import Dict, Any
 
-# 先行載入 .env 方便後續配置取用
-load_dotenv(find_dotenv())
+# 強制覆蓋外部環境變數，只採用 .env
+load_dotenv(find_dotenv(), override=True)
+
+
+def require_env(name: str) -> str:
+    """強制取得環境變數，沒有就直接報錯"""
+    value = os.getenv(name)
+    if value is None or value == "":
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
 
 class Config:
-    """基礎配置"""
+    """只從 .env 讀取的強制配置（無 fallback）"""
 
-    # Flask 配置
-    SECRET_KEY = os.environ.get('STATE_MANAGEMENT_SECRET_KEY') or os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-    FLASK_ENV = os.environ.get('STATE_MANAGEMENT_FLASK_ENV') or os.environ.get('FLASK_ENV', 'development')
+    # ==========================
+    # Flask
+    # ==========================
+    SECRET_KEY = require_env('STATE_MANAGEMENT_SECRET_KEY')
+    FLASK_ENV = require_env('STATE_MANAGEMENT_FLASK_ENV')
     DEBUG = FLASK_ENV == 'development'
 
-    # 服務配置
-    HOST = os.environ.get('STATE_MANAGEMENT_HOST') or os.environ.get('HOST', '0.0.0.0')
-    PORT = int(os.environ.get('STATE_MANAGEMENT_PORT') or os.environ.get('PORT', 55103))  # 核心服務狀態管理端口
-    LOG_LEVEL = os.environ.get('STATE_MANAGEMENT_LOG_LEVEL') or os.environ.get('LOG_LEVEL', 'INFO')
+    # ==========================
+    # Service
+    # ==========================
+    HOST = require_env('STATE_MANAGEMENT_HOST')
+    PORT = int(require_env('STATE_MANAGEMENT_PORT'))
+    LOG_LEVEL = require_env('STATE_MANAGEMENT_LOG_LEVEL')
 
-    # MongoDB 配置
+    # ==========================
+    # MongoDB
+    # ==========================
     MONGODB_CONFIG: Dict[str, Any] = {
-        'host': os.environ.get('MONGODB_HOST'),
-        'port': int(os.environ.get('MONGODB_PORT')),  # 核心服務 MongoDB 端口
-        'username': os.environ.get('MONGODB_USERNAME'),
-        'password': os.environ.get('MONGODB_PASSWORD'),
-        'database': os.environ.get('MONGODB_DATABASE'),
-        'auth_source': 'admin',
+        'host': require_env('MONGODB_HOST'),
+        'port': int(require_env('MONGODB_PORT')),
+        'username': require_env('MONGODB_USERNAME'),
+        'password': require_env('MONGODB_PASSWORD'),
+        'database': require_env('MONGODB_DATABASE'),
+        'auth_source': 'admin',  # 固定值才可保留
         'server_selection_timeout_ms': 5000,
     }
 
-    # RabbitMQ 配置
+    # ==========================
+    # RabbitMQ
+    # ==========================
     RABBITMQ_CONFIG: Dict[str, Any] = {
-        'host': os.environ.get('RABBITMQ_HOST', 'localhost'),
-        'port': int(os.environ.get('RABBITMQ_PORT', 55102)),  # 核心服務 RabbitMQ 端口
-        'username': os.environ.get('RABBITMQ_USERNAME', 'admin'),
-        'password': os.environ.get('RABBITMQ_PASSWORD', 'rabbitmq_admin_pass'),
-        'virtual_host': os.environ.get('RABBITMQ_VHOST', '/'),
-        'exchange': os.environ.get('RABBITMQ_EXCHANGE', 'analysis_tasks_exchange'),
-        'queue': os.environ.get('RABBITMQ_QUEUE', 'analysis_tasks_queue'),
-        'routing_key_prefix': os.environ.get('RABBITMQ_ROUTING_KEY_PREFIX', 'analysis'),
-        'routing_key_binding': os.environ.get('RABBITMQ_ROUTING_KEY_BINDING', 'analysis.#'),
-        'message_ttl_ms': int(os.environ.get('RABBITMQ_MESSAGE_TTL_MS', '86400000')),
-        'heartbeat': int(os.environ.get('RABBITMQ_HEARTBEAT', '600')),
-        'blocked_timeout': int(os.environ.get('RABBITMQ_BLOCKED_TIMEOUT', '300')),
+        'host': require_env('RABBITMQ_HOST'),
+        'port': int(require_env('RABBITMQ_PORT')),
+        'username': require_env('RABBITMQ_USERNAME'),
+        'password': require_env('RABBITMQ_PASSWORD'),
+        'virtual_host': require_env('RABBITMQ_VHOST'),
+        'exchange': require_env('RABBITMQ_EXCHANGE'),
+        'queue': require_env('RABBITMQ_QUEUE'),
+        'routing_key_prefix': require_env('RABBITMQ_ROUTING_KEY_PREFIX'),
+        'routing_key_binding': require_env('RABBITMQ_ROUTING_KEY_BINDING'),
+        'message_ttl_ms': int(require_env('RABBITMQ_MESSAGE_TTL_MS')),
+        'heartbeat': int(require_env('RABBITMQ_HEARTBEAT')),
+        'blocked_timeout': int(require_env('RABBITMQ_BLOCKED_TIMEOUT')),
     }
 
-    # MongoDB Collections
+    # ==========================
+    # Collections（這些是固定常數，可以保留）
+    # ==========================
     COLLECTIONS = {
         'recordings': 'recordings',
         'analysis_configs': 'analysis_configs',
@@ -56,6 +75,7 @@ class Config:
         'mongodb_instances': 'mongodb_instances',
         'task_execution_logs': 'task_execution_logs',
     }
+
 
     # 節點配置
     NODE_HEARTBEAT_INTERVAL = 5   # 秒 - 節點監控檢查間隔（統計更新頻率）
