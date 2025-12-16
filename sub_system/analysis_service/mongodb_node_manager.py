@@ -61,7 +61,7 @@ class MongoDBNodeManager:
             是否成功
         """
         try:
-            collection = self.mongodb_handler.get_collection('nodes_status')
+            collection = self.mongodb_handler.get_collection('node_status')
             
             now = datetime.utcnow()
 
@@ -100,7 +100,7 @@ class MongoDBNodeManager:
             是否成功
         """
         try:
-            collection = self.mongodb_handler.get_collection('nodes_status')
+            collection = self.mongodb_handler.get_collection('node_status')
 
             result = collection.delete_one({'_id': self.node_id})
 
@@ -171,7 +171,7 @@ class MongoDBNodeManager:
     def _send_heartbeat(self):
         """發送心跳到 MongoDB"""
         try:
-            collection = self.mongodb_handler.get_collection('nodes_status')
+            collection = self.mongodb_handler.get_collection('node_status')
 
             now = datetime.utcnow()
 
@@ -217,7 +217,7 @@ class MongoDBNodeManager:
             是否已註冊
         """
         try:
-            collection = self.mongodb_handler.get_collection('nodes_status')
+            collection = self.mongodb_handler.get_collection('node_status')
 
             node = collection.find_one({'_id': self.node_id})
             return node is not None
@@ -234,7 +234,7 @@ class MongoDBNodeManager:
             節點信息，失敗返回 None
         """
         try:
-            collection = self.mongodb_handler.get_collection('nodes_status')
+            collection = self.mongodb_handler.get_collection('node_status')
 
             node = collection.find_one({'_id': self.node_id})
             return node

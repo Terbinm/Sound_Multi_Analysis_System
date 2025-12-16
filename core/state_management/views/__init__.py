@@ -14,3 +14,4 @@ from . import instance_views
 from . import node_views
 from . import user_views
 from . import data_views
+from . import upload_views

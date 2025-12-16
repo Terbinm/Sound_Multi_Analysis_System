@@ -51,6 +51,18 @@
                     </a>
                 </li>
 
+                <!-- 檔案上傳 -->
+                <li>
+                    <a href="{{ url_for('views.upload_create') }}"
+                       class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint and 'upload' in request.endpoint %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
+                        <i class="fas fa-upload w-5 text-center"></i>
+                        <span class="flex-1">檔案上傳</span>
+                        {% if request.endpoint and 'upload' in request.endpoint %}
+                        <i class="fas fa-chevron-right text-xs opacity-50"></i>
+                        {% endif %}
+                    </a>
+                </li>
+
                 <!-- MongoDB 實例 -->
                 <li>
                     <a href="{{ url_for('views.instances_list') }}"

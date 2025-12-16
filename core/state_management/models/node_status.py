@@ -40,7 +40,7 @@ class NodeStatus:
     def _get_collection_name():
         """從 config 獲取集合名稱"""
         config = get_config()
-        return config.COLLECTIONS['nodes_status']
+        return config.COLLECTIONS['node_status']
 
     @staticmethod
     def register_node(node_id: str, node_info: Dict[str, Any]) -> bool:

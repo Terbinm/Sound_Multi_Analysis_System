@@ -209,7 +209,7 @@ class MongoDBHandler:
             )
 
             # nodes_status 集合索引（取代 Redis）
-            nodes_status = self._db[config.COLLECTIONS['nodes_status']]
+            nodes_status = self._db[config.COLLECTIONS['node_status']]
             # TTL Index: 自動清理超過設定時間無心跳的節點
             self._ensure_index(
                 nodes_status,
