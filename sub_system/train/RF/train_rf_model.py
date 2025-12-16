@@ -12,6 +12,15 @@ from dotenv import load_dotenv, find_dotenv
 
 load_dotenv(find_dotenv())
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from sub_system.train.py_cyclegan.utils.mongo_helpers import (
+    collect_feature_vectors,
+    find_step_across_runs,
+)
+
 # 機器學習相關
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
@@ -156,11 +165,9 @@ class DataLoader:
 
         # 查詢已完成分析的記錄
         query = {
-            'current_step': 4,  # 已完成所有步驟
             'analysis_status': 'completed',
             'info_features.label': {'$exists': True, '$ne': 'unknown'},
-            'analyze_features': {'$elemMatch': {'features_step': target_step, 'features_state': 'completed'}}
-
+            'analyze_features.runs': {'$exists': True}
         }
 
         records = list(self.collection.find(query))
@@ -199,16 +206,22 @@ class DataLoader:
                     continue
 
                 # 提取 LEAF 特徵
-                analyze_features = record.get('analyze_features', [])
-                leaf_features = None
+                leaf_step, run_id = find_step_across_runs(
+                    record,
+                    step_name='LEAF Features',
+                    step_order=ModelConfig.FEATURE_CONFIG['features_step'],
+                    require_completed=True,
+                )
 
-                # 找到 LEAF 特徵步驟
-                for step in analyze_features:
-                    if step.get('features_step') == target_step:
-                        # if step.get('features_step') == 2 and step.get('features_name') == 'LEAF Features':
-                        leaf_features = step.get('features_data', [])
-                        break
+                if not leaf_step:
+                    logger.warning(
+                        "記錄 %s 找不到完成的 LEAF Features (step %s)",
+                        record.get('AnalyzeUUID', 'UNKNOWN'),
+                        ModelConfig.FEATURE_CONFIG['features_step'],
+                    )
+                    continue
 
+                leaf_features = collect_feature_vectors(leaf_step)
                 if not leaf_features:
                     logger.warning(f"記錄 {record['AnalyzeUUID']} 缺少 LEAF 特徵")
                     continue
@@ -717,11 +730,12 @@ def main():
         trainer.save_model(output_dir)
 
         # 6. 生成視覺化
+        report_dir = ModelConfig.OUTPUT_CONFIG['report_dir']
+        os.makedirs(report_dir, exist_ok=True)
+
         if ModelConfig.OUTPUT_CONFIG['plot_confusion_matrix']:
             logger.info("\n步驟 6: 生成視覺化")
             logger.info("-" * 60)
-            report_dir = ModelConfig.OUTPUT_CONFIG['report_dir']
-            os.makedirs(report_dir, exist_ok=True)
 
             # 混淆矩陣
             cm_path = os.path.join(report_dir, 'confusion_matrix.png')

@@ -33,6 +33,12 @@ from utils import (  # noqa: E402
     get_mongodb_config,
     setup_logger,
 )
+from utils.mongo_helpers import (  # noqa: E402
+    build_step_update_path,
+    find_step_across_runs,
+    find_step_in_run,
+    get_run_by_id,
+)
 
 # 預設設定，可透過環境變數覆寫
 DEFAULT_CHECKPOINT = Path(
@@ -87,25 +93,18 @@ def load_model(checkpoint: Path, device_name: str) -> Tuple[CycleGANModule, torc
     return model, device, normalization_params
 
 
-def get_collection() -> Collection:
-    """建立 MongoDB 連線並取得目標集合。"""
+def get_collection() -> Tuple[MongoClient, Collection]:
+    """�إ� MongoDB �s�u�è��o�ؼж��X�C"""
     cfg = get_mongodb_config()
     client = MongoClient(cfg["uri"])
-    return client[cfg["database"]][cfg["collection"]]
+    return client, client[cfg["database"]][cfg["collection"]]
 
 
 def build_query(base_query: Dict[str, Any], input_step: int) -> Dict[str, Any]:
-    """組合 Domain B 查詢條件與 Step 2 條件。"""
-    step_filter = {
-        "analyze_features": {
-            "$elemMatch": {"features_step": input_step, "features_state": "completed"}
-        }
-    }
-
+    """組合 MongoDB 查詢條件（Step 條件改為程式層過濾）"""
     if base_query:
-        return {"$and": [copy.deepcopy(base_query), step_filter]}
-    return step_filter
-
+        return copy.deepcopy(base_query)
+    return {}
 
 def iter_documents(
     collection: Collection,
@@ -135,13 +134,13 @@ def iter_documents(
     return cursor
 
 
-def extract_step(data: Dict[str, Any], step: int) -> Optional[Dict[str, Any]]:
-    """從 analyze_features 中取得指定步驟資料。"""
-    return next(
-        (s for s in data.get("analyze_features", []) if s.get("features_step") == step),
-        None,
+def extract_step(data: Dict[str, Any], step: int) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """從 analyze_features.runs 中取得指定步驟資料。"""
+    return find_step_across_runs(
+        data,
+        step_order=step,
+        require_completed=True,
     )
-
 
 def parse_features(step_data: Dict[str, Any]) -> List[np.ndarray]:
     """將步驟中的 features_data 轉換為 numpy 陣列列表並驗證形狀。"""
@@ -202,33 +201,31 @@ def convert_features(
 def upsert_step(
     collection: Collection,
     analyze_uuid: str,
+    run_id: str,
     step_id: int,
+    step_label: str,
     converted: List[List[List[float]]],
     metadata: Dict[str, Any],
-    overwrite: bool,
 ) -> None:
-    """將轉換結果寫入指定步驟。"""
+    """將轉換結果寫入指定 run 的步驟。"""
+    now = datetime.utcnow()
     step_doc = {
-        "features_step": step_id,
+        "display_order": step_id,
+        "step_name": step_label,
         "features_state": "completed",
         "features_data": converted,
-        "metadata": metadata,
+        "processor_metadata": metadata,
+        "error_message": None,
+        "started_at": now,
+        "completed_at": now,
     }
-
-    if overwrite:
-        result = collection.update_one(
-            {"AnalyzeUUID": analyze_uuid, "analyze_features.features_step": step_id},
-            {"$set": {"analyze_features.$": step_doc}},
-        )
-        if result.matched_count:
-            return
-
-    collection.update_one(
+    update_path = build_step_update_path(run_id, step_label)
+    result = collection.update_one(
         {"AnalyzeUUID": analyze_uuid},
-        {"$push": {"analyze_features": step_doc}},
-        upsert=True,
+        {"": {update_path: step_doc}},
     )
-
+    if not result.matched_count:
+        raise RuntimeError(f"無法更新 AnalyzeUUID={analyze_uuid}")
 
 def main() -> None:
     data_cfg = get_data_config()
@@ -248,72 +245,99 @@ def main() -> None:
     if args.device_id:
         domain_b_cfg["mongo_query"]["info_features.device_id"] = args.device_id
 
-    mongo_query = build_query(domain_b_cfg["mongo_query"], args.input_step)
-    collection = get_collection()
+    mongo_query = build_query(domain_b_cfg['mongo_query'], args.input_step)
+    client, collection = get_collection()
     model, device, normalization_params = load_model(args.checkpoint, args.device)
 
     total = converted = skipped = failures = 0
     last_uuid: Optional[str] = None
 
-    for doc in iter_documents(collection, mongo_query, args.limit):
-        total += 1
-        analyze_uuid = doc.get("AnalyzeUUID")
-        last_uuid = analyze_uuid
+    try:
+        for doc in iter_documents(collection, mongo_query, args.limit):
+            total += 1
+            analyze_uuid = doc.get('AnalyzeUUID')
+            last_uuid = analyze_uuid
 
-        input_step_data = extract_step(doc, args.input_step)
-        if not input_step_data:
-            logger.warning("分析任務 %s 缺少步驟 %s，跳過", analyze_uuid, args.input_step)
-            skipped += 1
-            continue
+            input_step_data, run_id = extract_step(doc, args.input_step)
+            if not input_step_data or not run_id:
+                logger.warning(
+                    '記錄 %s 缺少步驟 %s，略過',
+                    analyze_uuid,
+                    args.input_step,
+                )
+                skipped += 1
+                continue
 
-        output_step_data = extract_step(doc, args.output_step)
-        if output_step_data and not args.overwrite:
-            logger.info("分析任務 %s 已有步驟 %s，使用 --overwrite 可重新寫入", analyze_uuid, args.output_step)
-            skipped += 1
-            continue
+            run_doc = get_run_by_id(doc, run_id)
+            if not run_doc:
+                logger.warning('記錄 %s 缺少 runs 結構，略過', analyze_uuid)
+                skipped += 1
+                continue
 
-        try:
-            features_list = parse_features(input_step_data)
-            converted_features = convert_features(model, device, features_list, normalization_params)
-        except Exception as exc:
-            logger.exception("分析任務 %s 轉換失敗：%s", analyze_uuid, exc)
-            failures += 1
-            continue
+            step_label = f"CycleGAN Step {args.output_step}"
+            existing_output = find_step_in_run(
+                run_doc,
+                step_name=step_label,
+                step_order=args.output_step,
+                require_completed=False,
+            )
+            if existing_output and not args.overwrite:
+                logger.info(
+                    '記錄 %s 已存在步驟 %s，使用 --overwrite 才會覆寫',
+                    analyze_uuid,
+                    args.output_step,
+                )
+                skipped += 1
+                continue
 
-        metadata = {
-            "source_step": args.input_step,
-            "direction": "B→A",
-            "checkpoint": str(args.checkpoint),
-            "device": str(device),
-            "converted_at": datetime.utcnow(),
-            "num_samples": len(converted_features),
-        }
+            try:
+                features_list = parse_features(input_step_data)
+                converted_features = convert_features(
+                    model, device, features_list, normalization_params
+                )
+            except Exception as exc:
+                logger.exception('記錄 %s 轉換失敗: %s', analyze_uuid, exc)
+                failures += 1
+                continue
 
-        if args.dry_run:
+            metadata = {
+                'source_step': args.input_step,
+                'direction': 'B->A',
+                'checkpoint': str(args.checkpoint),
+                'device': str(device),
+                'converted_at': datetime.utcnow(),
+                'num_samples': len(converted_features),
+                'analysis_run_id': run_id,
+            }
+
+            if args.dry_run:
+                logger.info(
+                    '[DRY RUN] 記錄 %s 將寫入步驟 %s，共 %s 筆樣本',
+                    analyze_uuid,
+                    args.output_step,
+                    len(converted_features),
+                )
+                converted += 1
+                continue
+
+            upsert_step(
+                collection,
+                analyze_uuid,
+                run_id,
+                args.output_step,
+                step_label,
+                converted_features,
+                metadata,
+            )
             logger.info(
-                "[DRY RUN] 分析任務 %s 將寫入步驟 %s，共 %s 筆樣本",
+                '記錄 %s 已寫入步驟 %s，共 %s 筆樣本',
                 analyze_uuid,
                 args.output_step,
                 len(converted_features),
             )
             converted += 1
-            continue
-
-        upsert_step(
-            collection,
-            analyze_uuid,
-            args.output_step,
-            converted_features,
-            metadata,
-            args.overwrite,
-        )
-        logger.info(
-            "分析任務 %s 已寫入步驟 %s，共 %s 筆樣本",
-            analyze_uuid,
-            args.output_step,
-            len(converted_features),
-        )
-        converted += 1
+    finally:
+        client.close()
 
     logger.info(
         "批次轉換完成：處理 %s 筆，成功 %s，跳過 %s，失敗 %s。最後處理 UUID：%s",

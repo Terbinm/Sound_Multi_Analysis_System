@@ -1,6 +1,8 @@
 # a_sub_system/train/py_cyclegan/config.py - CycleGAN 訓練系統統一配置
 
 import os
+import sys
+from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 
 load_dotenv(find_dotenv())
@@ -8,26 +10,25 @@ load_dotenv(find_dotenv())
 # ==================== MongoDB 配置 ====================
 # 用於從 analysis_service 讀取 LEAF 特徵
 
-_train_mongo_port = os.getenv('TRAIN_MONGODB_PORT')
-_mongo_port = int(_train_mongo_port or os.getenv('MONGODB_PORT', '55101'))
-_mongo_host = os.getenv('MONGODB_HOST', 'localhost')
-_mongo_username = os.getenv('MONGODB_USERNAME', 'web_ui')
-_mongo_password = os.getenv('MONGODB_PASSWORD', 'hod2iddfsgsrl')
+_mongo_host = os.getenv('MONGODB_HOST')
+_mongo_port = os.getenv('MONGODB_PORT')
+_mongo_username = os.getenv('MONGODB_USERNAME')
+_mongo_password = os.getenv('MONGODB_PASSWORD')
 
 MONGODB_CONFIG = {
     'host': _mongo_host,
-    'port': _mongo_port,
+    'port': int(_mongo_port) if _mongo_port else None,
     'username': _mongo_username,
     'password': _mongo_password,
-    'database': os.getenv('MONGODB_DATABASE', 'web_db'),
-    'collection': os.getenv('MONGODB_COLLECTION', 'recordings'),
+    'database': os.getenv('MONGODB_DATABASE'),
+    'collection': os.getenv('MONGODB_COLLECTION'),
 
-    # MongoDB URI（自動組合）
     'uri': os.getenv(
         'MONGODB_URI',
         f'mongodb://{_mongo_username}:{_mongo_password}@{_mongo_host}:{_mongo_port}'
     )
 }
+
 
 # ==================== 數據配置 ====================
 
@@ -106,6 +107,7 @@ TRAINING_CONFIG = {
     # 損失權重
     'lambda_cycle': float(os.getenv('LAMBDA_CYCLE', '10.0')),
     'lambda_identity': float(os.getenv('LAMBDA_IDENTITY', '5.0')),
+    'lambda_fm': float(os.getenv('LAMBDA_FM', '5.0')),
     'use_identity_loss': True,
 
     # 學習率調度器
@@ -178,12 +180,71 @@ EVALUATION_CONFIG = {
     'mmd_gamma': 1.0
 }
 
+# ==================== Runtime / Service Settings ====================
+
+SERVER_METADATA = {
+    'server_name': os.getenv('SERVER_NAME', 'customer_R_slice_Extract_Features'),
+    'server_version': os.getenv('SERVER_VISION', '1.0.0'),
+    'instance_id': os.getenv('INSTANCE_ID', os.getenv('STATE_MANAGEMENT_NODE_ID', 'py_cyclegan_node'))
+}
+
+PROCESSING_STEP_CONFIG = {
+    'target_step': int(os.getenv('THE_STEP', '4'))
+}
+
+WORKER_CONFIG = {
+    'chunk_size': int(os.getenv('ANALYZE_CHUNK_SIZE', '1000')),
+    'max_retries': int(os.getenv('ANALYZE_MAX_RETRIES', '3')),
+    'timeout_seconds': int(os.getenv('ANALYZE_TIMEOUT', '3600'))
+}
+
+FILE_STORAGE_CONFIG = {
+    'temp_dir': os.getenv('TEMP_DIR', str((Path(__file__).parent / "temp").resolve())),
+    'upload_limit_bytes': int(os.getenv('FILE_UPLOAD_MAX_SIZE', str(100 * 1024 * 1024))),
+    'allowed_extensions': [
+        ext.strip().lower()
+        for ext in os.getenv('ALLOWED_EXTENSIONS', 'wav').split(',')
+        if ext.strip()
+    ]
+}
+
+RABBITMQ_CONFIG = {
+    'host': os.getenv('RABBITMQ_HOST', 'localhost'),
+    'port': int(os.getenv('RABBITMQ_PORT', '5672')),
+    'username': os.getenv('RABBITMQ_USERNAME', os.getenv('RABBITMQ_USER', 'guest')),
+    'password': os.getenv('RABBITMQ_PASSWORD', os.getenv('RABBITMQ_PASS', 'guest')),
+    'virtual_host': os.getenv('RABBITMQ_VHOST', '/'),
+    'exchange': os.getenv('EXCHANGE_NAME', os.getenv('RABBITMQ_EXCHANGE', 'analysis_tasks_exchange')),
+    'queue': os.getenv('QUEUE_NAME', os.getenv('RABBITMQ_QUEUE', 'analysis_tasks_queue')),
+    'routing_key': os.getenv('ROUTING_KEY', os.getenv('RABBITMQ_ROUTING_KEY', 'analysis.#')),
+    'heartbeat': int(os.getenv('RABBITMQ_HEARTBEAT', '60')),
+    'blocked_connection_timeout': int(os.getenv('RABBITMQ_BLOCKED_TIMEOUT', '300'))
+}
+
+FLASK_CONFIG = {
+    'host': os.getenv('FLASK_HOST', '0.0.0.0'),
+    'port': int(os.getenv('FLASK_PORT', '57122')),
+    'debug': os.getenv('DEBUG', 'false').lower() == 'true'
+}
+
+SERVICE_LOGGING_CONFIG = {
+    'level': os.getenv('SERVICE_LOG_LEVEL', os.getenv('LOG_LEVEL', 'INFO')),
+    'format': os.getenv('SERVICE_LOG_FORMAT', '%(asctime)s - %(levelname)s - %(message)s')
+}
+
+RUNTIME_CONFIG = {
+    'server': SERVER_METADATA,
+    'worker': WORKER_CONFIG,
+    'processing_step': PROCESSING_STEP_CONFIG,
+    'file_storage': FILE_STORAGE_CONFIG,
+    'rabbitmq': RABBITMQ_CONFIG,
+    'flask': FLASK_CONFIG,
+    'logging': SERVICE_LOGGING_CONFIG
+}
+
 # ==================== 路徑配置 ====================
 
 # 項目根目錄
-import sys
-from pathlib import Path
-
 PROJECT_ROOT = Path(__file__).parent
 DATA_DIR = PROJECT_ROOT / 'data'
 MODELS_DIR = PROJECT_ROOT / 'models'
@@ -207,6 +268,7 @@ CONFIG = {
     'hardware': HARDWARE_CONFIG,
     'inference': INFERENCE_CONFIG,
     'evaluation': EVALUATION_CONFIG,
+    'runtime': RUNTIME_CONFIG,
 }
 
 

@@ -48,8 +48,9 @@ class CycleGANModule(pl.LightningModule):
         lr_d: float = 0.0001,
         beta1: float = 0.5,
         beta2: float = 0.999,
-        lambda_cycle: float = 10.0,##
-        lambda_identity: float = 5.0,####
+        lambda_cycle: float = 10.0,
+        lambda_identity: float = 7.0,
+        lambda_fm: float = 5.0,
         use_identity_loss: bool = True,
     ):
         super().__init__()
@@ -87,12 +88,9 @@ class CycleGANModule(pl.LightningModule):
         self.criterion_cycle = nn.L1Loss()  # 循環一致損失(生成器)
         self.criterion_identity = nn.L1Loss() # 身份損失(生成器)(保留音色等結構)
 
-        # ----- 新增的 loss 與超參數（保守、可由 hparams 覆蓋） -----
+        # ----- 新增的 loss 與超參數 -----
         self.criterion_fm = nn.L1Loss()  # Feature-Matching L1
-
-        # 如果你用 hparams 的話會自動被 save_hyperparameters() 捕捉
-        self.lambda_fm = getattr(self, "lambda_fm", 1.0)  # 建議起始值 5
-
+        self.lambda_fm = lambda_fm
 
         # 参数
         self.beta1 = beta1

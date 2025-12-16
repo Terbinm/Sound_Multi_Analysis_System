@@ -65,30 +65,30 @@ def main():
     data_config = config['data']
     mongodb_config = config['mongodb']
 
-    if data_config['source'] == 'mongodb':
-        loader = MongoDBLEAFLoader(
-            mongo_uri=mongodb_config['uri'],
-            db_name=mongodb_config['database'],
-            collection_name=mongodb_config['collection']
-        )
+    loader = None
+    try:
+        if data_config['source'] == 'mongodb':
+            loader = MongoDBLEAFLoader(mongodb_config)
+            data = loader.load_dual_domain(
+                domain_a_query=data_config['domain_a']['mongo_query'],
+                domain_b_query=data_config['domain_b']['mongo_query'],
+                max_samples_a=data_config['domain_a'].get('max_samples'),
+                max_samples_b=data_config['domain_b'].get('max_samples')
+            )
 
-        data = loader.load_dual_domain(
-            domain_a_query=data_config['domain_a']['mongo_query'],
-            domain_b_query=data_config['domain_b']['mongo_query'],
-            max_samples_per_domain=data_config['domain_a'].get('max_samples')
-        )
-
-        domain_a_features = data['domain_a']
-        domain_b_features = data['domain_b']
-        loader.close()
-    else:
-        # 從文件加載
-        domain_a_features = FileLEAFLoader.load_from_json(
-            data_config['domain_a']['file_path']
-        )
-        domain_b_features = FileLEAFLoader.load_from_json(
-            data_config['domain_b']['file_path']
-        )
+            domain_a_features = data['domain_a']
+            domain_b_features = data['domain_b']
+        else:
+            # 從檔案載入
+            domain_a_features = FileLEAFLoader.load_from_json(
+                data_config['domain_a']['file_path']
+            )
+            domain_b_features = FileLEAFLoader.load_from_json(
+                data_config['domain_b']['file_path']
+            )
+    finally:
+        if loader is not None:
+            loader.close()
 
     logger.info(f"Loaded {len(domain_a_features)} samples from Domain A")
     logger.info(f"Loaded {len(domain_b_features)} samples from Domain B")
@@ -144,6 +144,7 @@ def main():
         beta2=train_config['beta2'],
         lambda_cycle=train_config['lambda_cycle'],
         lambda_identity=train_config['lambda_identity'],
+        lambda_fm=train_config['lambda_fm'],
         use_identity_loss=train_config['use_identity_loss']
     )
 
