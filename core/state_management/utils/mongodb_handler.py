@@ -209,8 +209,8 @@ class MongoDBHandler:
             )
 
             # nodes_status 集合索引（取代 Redis）
-            nodes_status = self._db['nodes_status']
-            # TTL Index: 自動清理超過 60 秒無心跳的節點
+            nodes_status = self._db[config.COLLECTIONS['nodes_status']]
+            # TTL Index: 自動清理超過設定時間無心跳的節點
             self._ensure_index(
                 nodes_status,
                 [('last_heartbeat', ASCENDING)],
@@ -224,7 +224,7 @@ class MongoDBHandler:
             )
 
             # system_metadata 集合索引
-            system_metadata = self._db['system_metadata']
+            system_metadata = self._db[config.COLLECTIONS['system_metadata']]
             self._ensure_index(
                 system_metadata,
                 [('_id', ASCENDING)],
@@ -269,11 +269,16 @@ class MultiMongoDBHandler:
                 client = self._connections[instance_id]
                 return client[instance_config['database']]
 
+            # 從 config 獲取超時設定
+            from config import get_config
+            config = get_config()
+            timeout_ms = config.MONGODB_CONFIG.get('server_selection_timeout_ms', 5000)
+
             # 建立新連接
             uri = f"mongodb://{instance_config['username']}:{instance_config['password']}@" \
                   f"{instance_config['host']}:{instance_config['port']}/admin"
 
-            client = MongoClient(uri, serverSelectionTimeoutMS=5000)
+            client = MongoClient(uri, serverSelectionTimeoutMS=timeout_ms)
 
             # 測試連接
             client.admin.command('ping')

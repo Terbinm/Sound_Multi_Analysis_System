@@ -445,7 +445,10 @@ document.addEventListener('DOMContentLoaded', function() {
     techMotion?.showToast(message, type, duration);
   };
 
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+  // 透過 meta tag 從後端傳遞配置，控制是否替換 alert 為 toast
+  const useToastForAlerts = document.querySelector('meta[name="use-toast-alerts"]')?.content === 'true';
+
+  if (useToastForAlerts) {
     const originalAlert = window.alert;
     window.alert = function(message) {
       if (techMotion) {

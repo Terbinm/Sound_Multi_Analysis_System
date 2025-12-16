@@ -5,6 +5,7 @@ from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, TextAreaField, BooleanField, SubmitField, HiddenField
 from wtforms.validators import DataRequired, Length, Optional
+from config import get_config
 
 
 class ConfigForm(FlaskForm):
@@ -27,14 +28,23 @@ class ConfigForm(FlaskForm):
 
 class ModelUploadForm(FlaskForm):
     """模型檔案上傳表單"""
-    file = FileField('模型檔案',
-                    validators=[
-                        DataRequired(message='請選擇檔案'),
-                        FileAllowed(['pkl', 'pth', 'h5', 'onnx', 'pb'],
-                                  message='僅支援 .pkl、.pth、.h5、.onnx、.pb 格式檔案')
-                    ])
+    
+    file = FileField('模型檔案')
     config_id = HiddenField('設定 ID')
     submit = SubmitField('上傳')
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 從 config 獲取允許的副檔名
+        config = get_config()
+        allowed_extensions = [ext.lstrip('.') for ext in config.UPLOAD_EXTENSIONS]
+        
+        # 動態設定 file 欄位的驗證器
+        self.file.validators = [
+            DataRequired(message='請選擇檔案'),
+            FileAllowed(allowed_extensions,
+                       message=f'僅支援 {", ".join(config.UPLOAD_EXTENSIONS)} 格式檔案')
+        ]
 
 
 class RoutingRuleForm(FlaskForm):
@@ -71,7 +81,7 @@ class MongoDBInstanceForm(FlaskForm):
                                 Length(max=100)])
     port = StringField('連接埠',
                       validators=[DataRequired(message='請輸入連接埠')],
-                      render_kw={'type': 'number', 'min': '1', 'max': '65535', 'value': '12345'})
+                      render_kw={'type': 'number', 'min': '1', 'max': '65535', 'value': '27017'})
     username = StringField('使用者名稱',
                           validators=[DataRequired(message='請輸入使用者名稱'),
                                     Length(max=100)])

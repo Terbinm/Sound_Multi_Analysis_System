@@ -136,8 +136,8 @@ def create_app():
         """健康檢查"""
         return jsonify({
             'status': 'healthy',
-            'service': 'state_management',
-            'version': '1.0.0'
+            'service': config.SERVICE_NAME,
+            'version': config.VERSION
         }), 200
 
     # 首頁 - 重定向到儀表板或登錄頁
@@ -155,7 +155,7 @@ def create_app():
         """API 信息"""
         return jsonify({
             'service': '狀態管理系統',
-            'version': '1.0.0',
+            'version': config.VERSION,
             'endpoints': {
                 'configs': '/api/configs',
                 'routing': '/api/routing',

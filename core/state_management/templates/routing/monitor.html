@@ -6,29 +6,7 @@
 {% block page_title %}Router 監控儀表板{% endblock %}
 
 {% block extra_css %}
-<style>
-    .stat-card {
-        @apply bg-gradient-to-br from-white to-gray-50 rounded-xl p-6 shadow-lg border border-gray-100;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .stat-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    }
-
-    .stat-value {
-        @apply text-4xl font-bold mb-2;
-    }
-
-    .stat-label {
-        @apply text-sm text-gray-500 uppercase tracking-wide;
-    }
-
-    .progress-ring {
-        transform: rotate(-90deg);
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/monitor.css') }}">
 {% endblock %}
 
 {% block content %}

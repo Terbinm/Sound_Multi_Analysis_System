@@ -32,8 +32,8 @@ class WebSocketManager:
         """
         preferred_async_mode = app.config.get('WEBSOCKET_ASYNC_MODE', 'threading')
         async_mode = self._resolve_async_mode(preferred_async_mode)
-        ping_timeout = app.config.get('WEBSOCKET_PING_TIMEOUT', 60)
-        ping_interval = app.config.get('WEBSOCKET_PING_INTERVAL', 25)
+        ping_timeout = app.config.get('WEBSOCKET_PING_TIMEOUT', 6)  # 與 config.py 一致
+        ping_interval = app.config.get('WEBSOCKET_PING_INTERVAL', 2)  # 與 config.py 一致
         cors_allowed_origins = app.config.get('WEBSOCKET_CORS_ALLOWED_ORIGINS', "*")
 
         self.socketio = SocketIO(
