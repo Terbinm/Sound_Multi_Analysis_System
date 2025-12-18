@@ -2,11 +2,19 @@
 狀態管理系統配置文件
 """
 import os
+import sys
+from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 from typing import Dict, Any
 
-# 強制覆蓋外部環境變數，只採用 .env
-load_dotenv(find_dotenv(), override=True)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from dotenv import load_dotenv
+from env_loader import load_project_env
+
+load_project_env()
 
 
 def require_env(name: str) -> str:

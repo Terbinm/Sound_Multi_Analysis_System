@@ -56,11 +56,11 @@ class ModelEvaluator:
             logger.info(f"✓ 模型載入成功: {model_path}")
             
             # 載入 Scaler
-            scaler_path = self.model_dir / 'feature_scaler.pkl'
-            if scaler_path.exists():
-                with open(scaler_path, 'rb') as f:
-                    self.scaler = pickle.load(f)
-                logger.info(f"✓ Scaler 載入成功")
+            # scaler_path = self.model_dir / 'feature_scaler.pkl'
+            # if scaler_path.exists():
+            #     with open(scaler_path, 'rb') as f:
+            #         self.scaler = pickle.load(f)
+            #     logger.info(f"✓ Scaler 載入成功")
             
             # 載入元資料
             metadata_path = self.model_dir / 'model_metadata.json'

@@ -49,8 +49,8 @@ services:
   # 狀態管理系統
   state_management:
     build:
-      context: ./state_management
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: core/state_management/Dockerfile
     container_name: core_state_management
     restart: unless-stopped
     env_file:
@@ -59,6 +59,7 @@ services:
       - "${STATE_MANAGEMENT_PORT:-55103}:${STATE_MANAGEMENT_PORT:-55103}"   # 狀態管理系統端口
     volumes:
       - ./state_management:/app
+      - ../env_loader.py:/app/env_loader.py:ro
       - logs:/app/logs
     environment:
       # MongoDB 配置（連接宿主機）

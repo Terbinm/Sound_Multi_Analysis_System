@@ -6,6 +6,13 @@ import os
 import sys
 import logging
 import threading
+from pathlib import Path
+
+# 確保可以從任何入口載入 core/state_management 內的模組
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
 from flask import Flask, jsonify, redirect, url_for
 from flask_cors import CORS
 from flask_login import LoginManager

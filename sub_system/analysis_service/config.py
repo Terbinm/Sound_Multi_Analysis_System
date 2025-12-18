@@ -2,14 +2,16 @@
 
 import os
 import torch
-from dotenv import load_dotenv, find_dotenv
+from dotenv import load_dotenv
 from typing import Dict, Any
-# 強制覆蓋所有外部變數，只看 .env
-load_dotenv(find_dotenv(), override=True)
 
+BASE_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..")
+)
+ENV_PATH = os.path.join(BASE_DIR, ".env")
 
-# 強制從 .env 讀取（覆蓋外部環境變數）
-load_dotenv(override=True)
+print(">>> loading env from:", ENV_PATH)
+load_dotenv(ENV_PATH, override=True)
 
 MONGODB_CONFIG: Dict[str, Any] = {
     'host': os.getenv("MONGODB_HOST"),
