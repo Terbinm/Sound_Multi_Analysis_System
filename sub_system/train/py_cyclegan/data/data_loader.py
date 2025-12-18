@@ -91,7 +91,7 @@ class MongoDBLEAFLoader:
         return np.asarray(vectors, dtype=np.float32)
 
     def _fetch_records(self, query: Dict[str, Any], limit: Optional[int]) -> List[Dict[str, Any]]:
-        if not self.collection:
+        if self.collection is None:
             raise RuntimeError("MongoDBLEAFLoader 尚未連線")
 
         cursor = self.collection.find(query).sort('created_at', -1)

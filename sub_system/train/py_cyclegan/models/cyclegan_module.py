@@ -44,13 +44,13 @@ class CycleGANModule(pl.LightningModule):
         input_dim: int = 40,
         generator_config: Optional[Dict[str, Any]] = None,
         discriminator_config: Optional[Dict[str, Any]] = None,
-        lr_g: float = 0.0004,
+        lr_g: float = 0.0001,
         lr_d: float = 0.0001,
         beta1: float = 0.5,
         beta2: float = 0.999,
         lambda_cycle: float = 10.0,
-        lambda_identity: float = 7.0,
-        lambda_fm: float = 5.0,
+        lambda_identity: float = 1.0,
+        lambda_fm: float = 1.0,
         use_identity_loss: bool = True,
     ):
         super().__init__()
@@ -192,7 +192,7 @@ class CycleGANModule(pl.LightningModule):
                 + loss_GAN_BA
                 + self.lambda_cycle * (loss_cycle_A + loss_cycle_B)
                 + self.lambda_identity * loss_identity
-                + self.lambda_fm * loss_fm  # 你有用 FM → 需保留
+                + self.lambda_fm * loss_fm
         )
 
 

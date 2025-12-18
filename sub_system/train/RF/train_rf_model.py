@@ -8,13 +8,12 @@ import json
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional
 from pathlib import Path
-from dotenv import load_dotenv, find_dotenv
-
-load_dotenv(find_dotenv())
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+from env_loader import load_project_env
+load_project_env()
 
 from sub_system.train.py_cyclegan.utils.mongo_helpers import (
     collect_feature_vectors,
@@ -51,17 +50,26 @@ logger = logging.getLogger(__name__)
 target_step = 2
 
 
+def require_env(name: str) -> str:
+    """強制讀取環境變數"""
+    value = os.getenv(name)
+    if value is None or value == '':
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
 class ModelConfig:
     """模型訓練配置"""
     # MongoDB 配置
-    _port = os.getenv('TRAIN_MONGODB_PORT') or os.getenv('MONGODB_PORT', '55101')
+    _port_override = os.getenv('TRAIN_MONGODB_PORT')
+    _port = _port_override or require_env('MONGODB_PORT')
     MONGODB_CONFIG = {
-        'host': os.getenv('MONGODB_HOST', 'localhost'),
+        'host': require_env('MONGODB_HOST'),
         'port': int(_port),
-        'username': os.getenv('MONGODB_USERNAME', 'web_ui'),
-        'password': os.getenv('MONGODB_PASSWORD', 'hod2iddfsgsrl'),
-        'database': os.getenv('MONGODB_DATABASE', 'web_db'),
-        'collection': os.getenv('MONGODB_COLLECTION', 'recordings')
+        'username': require_env('MONGODB_USERNAME'),
+        'password': require_env('MONGODB_PASSWORD'),
+        'database': require_env('MONGODB_DATABASE'),
+        'collection': require_env('MONGODB_COLLECTION')
     }
 
     # 特徵配置

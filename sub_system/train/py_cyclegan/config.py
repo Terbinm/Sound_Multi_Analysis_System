@@ -3,9 +3,13 @@
 import os
 import sys
 from pathlib import Path
-from dotenv import load_dotenv, find_dotenv
 
-load_dotenv(find_dotenv())
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from env_loader import load_project_env
+load_project_env()
 
 # ==================== MongoDB 配置 ====================
 # 用於從 analysis_service 讀取 LEAF 特徵
@@ -39,24 +43,18 @@ DATA_CONFIG = {
     'domain_a': {
         'mongo_query': {
             'info_features.device_id': os.getenv('DOMAIN_A_DEVICE_ID', 'cpc006'),
-            'analysis_status': 'completed'
         },
-        'max_samples': int(os.getenv('DOMAIN_A_MAX_SAMPLES', '50000')),  # 增加到 10000
+        'max_samples': int(os.getenv('DOMAIN_A_MAX_SAMPLES', '3100')),
         'file_path': os.getenv('DOMAIN_A_FILE_PATH', 'data/domain_cpc006.json')  # 當使用 file source 時
     },
 
     # Domain B 配置（設備 B）
     'domain_b': {
         'mongo_query': {
-            'info_features.device_id': {
-                '$in': [
-                    os.getenv('DOMAIN_B_DEVICE_ID_NORMAL', 'BATCH_UPLOAD_NORMAL')
-                ]
-            },
-            'analysis_status': 'completed','info_features.label': 'normal'
-
+            'info_features.device_id': os.getenv('DOMAIN_B_DEVICE_ID_NORMAL', 'Mimii_NORMAL'),
+            'info_features.label': 'normal'
         },
-        'max_samples': int(os.getenv('DOMAIN_B_MAX_SAMPLES', '50000')),
+        'max_samples': int(os.getenv('DOMAIN_B_MAX_SAMPLES', '3100')),
         #'file_path': os.getenv('DOMAIN_B_FILE_PATH', 'data/domain_mimii.json')
         'file_path': os.getenv('DOMAIN_B_PROD_FILE_PATH', 'data/domain_mimii_prod.json') # <-- 訓練專用
     },
@@ -94,20 +92,20 @@ MODEL_CONFIG = {
 
 TRAINING_CONFIG = {
     # 基本參數
-    'max_epochs': int(os.getenv('MAX_EPOCHS', '200')),
+    'max_epochs': int(os.getenv('MAX_EPOCHS', '150')),
     'batch_size': int(os.getenv('BATCH_SIZE', '32')),
     'num_workers': int(os.getenv('NUM_WORKERS', '0')),
 
     # 優化器參數（新增分離學習率）
-    'lr_g': float(os.getenv('LR_G', '0.0004')),
+    'lr_g': float(os.getenv('LR_G', '0.0001')),
     'lr_d': float(os.getenv('LR_D', '0.0001')),
     'beta1': 0.5,
     'beta2': 0.999,
 
     # 損失權重
     'lambda_cycle': float(os.getenv('LAMBDA_CYCLE', '10.0')),
-    'lambda_identity': float(os.getenv('LAMBDA_IDENTITY', '5.0')),
-    'lambda_fm': float(os.getenv('LAMBDA_FM', '5.0')),
+    'lambda_identity': float(os.getenv('LAMBDA_IDENTITY', '1.0')),
+    'lambda_fm': float(os.getenv('LAMBDA_FM', '1.0')),
     'use_identity_loss': True,
 
     # 學習率調度器
