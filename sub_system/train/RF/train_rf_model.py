@@ -165,8 +165,8 @@ class DataLoader:
 
         # 查詢已完成分析的記錄
         query = {
-            'analysis_status': 'completed',
-            'info_features.label': {'$exists': True, '$ne': 'unknown'},
+            # 新版資料架構不一定會更新 analysis_status，因此僅檢查標籤與 features
+            'info_features.label': {'$exists': True, '$nin': [None, '', 'unknown']},
             'analyze_features.runs': {'$exists': True}
         }
 
