@@ -1,4 +1,5 @@
 # a_sub_system/train/py_cyclegan/config.py - CycleGAN 訓練系統統一配置
+# python sub_system/train/py_cyclegan/scripts/train.py --resume "sub_system/train/py_cyclegan/checkpoints/cyclegan-epoch=85-val/cycle_A=0.6066.ckpt"
 
 import os
 import sys
@@ -97,14 +98,14 @@ TRAINING_CONFIG = {
     'num_workers': int(os.getenv('NUM_WORKERS', '0')),
 
     # 優化器參數（新增分離學習率）
-    'lr_g': float(os.getenv('LR_G', '0.0001')),
-    'lr_d': float(os.getenv('LR_D', '0.0001')),
+    'lr_g': float(os.getenv('LR_G', '0.00002')),
+    'lr_d': float(os.getenv('LR_D', '0.00002')),
     'beta1': 0.5,
     'beta2': 0.999,
 
     # 損失權重
-    'lambda_cycle': float(os.getenv('LAMBDA_CYCLE', '10.0')),
-    'lambda_identity': float(os.getenv('LAMBDA_IDENTITY', '1.0')),
+    'lambda_cycle': float(os.getenv('LAMBDA_CYCLE', '14.0')),
+    'lambda_identity': float(os.getenv('LAMBDA_IDENTITY', '7.0')),
     'lambda_fm': float(os.getenv('LAMBDA_FM', '1.0')),
     'use_identity_loss': True,
 
@@ -114,18 +115,18 @@ TRAINING_CONFIG = {
         'warmup_epochs': int(os.getenv('WARMUP_EPOCHS', '10'))
     },
 
-    # 檢查點配置
+    # *******檢查點配置*******
     'checkpoint': {
         'save_dir': os.getenv('CHECKPOINT_DIR', 'checkpoints'),
-        'save_top_k': 3,
+        'save_top_k': -1,
         'monitor': 'val/cycle_A',
         'mode': 'min'
     },
 
-    # 早停配置（你目前是關掉的）
+    # 早停配置（目前是關）
     'early_stopping': {
         'enabled': os.getenv('EARLY_STOPPING', 'false').lower() == 'true',
-        'patience': int(os.getenv('EARLY_STOPPING_PATIENCE', '80')),
+        'patience': int(os.getenv('EARLY_STOPPING_PATIENCE', '20')),
         'monitor': 'val/cycle_A',
         'mode': 'min'
     }

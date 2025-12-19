@@ -120,7 +120,7 @@ class ModelConfig:
     # 輸出配置
     OUTPUT_CONFIG = {
         'model_dir': 'models',
-        'model_filename': 'rf_classifier.pkl',
+        'model_filename': 'mimii_fan_rf_classifier.pkl',
         #'scaler_filename': 'feature_scaler.pkl',
         'metadata_filename': 'model_metadata.json',
         'report_dir': 'training_reports',

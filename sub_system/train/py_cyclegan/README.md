@@ -121,10 +121,10 @@ python scripts/train.py
 
 ```bash
 # 從檢查點恢復訓練
-python scripts/train.py --resume checkpoints/last.ckpt
+python scripts/train.py --resume checkpoints/cyclegan-epoch=85-val/cycle_A=0.6260.ckpt
 
 # 使用環境變量覆蓋配置
-BATCH_SIZE=16 MAX_EPOCHS=100 python scripts/train.py
+#BATCH_SIZE=16 MAX_EPOCHS=100 python scripts/train.py
 ```
 
 ### 5. 監控訓練
