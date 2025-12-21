@@ -70,15 +70,20 @@ LEAF_CONFIG = {
 
 # ==================== 分類配置 ====================
 CLASSIFICATION_CONFIG = {
-    'method': 'rf_model',  # 目前使用隨機分類/模型
-    'support_list': ['rf_model', 'random'],
-    'use_model': True,  # True 則嘗試載入模型，False 則走隨機
+    'method': 'cyclegan_rf',  # 預設採用 RF 模型
+    'support_list': ['rf_model', 'cyclegan_rf', 'random'],
+    'use_model': True,
     'classes': ['normal', 'abnormal'],
-    'normal_probability': 0.7,  # 隨機分類時正常的機率
-
-    # 未來模型配置（預留）
-    'model_path': r'D:\D_PycharmProjects\Sound_Multi_Analysis_System\sub_system\train\RF\models',
-    'threshold': 0.5
+    'normal_probability': 0.7,
+    'model_path': os.path.join(BASE_DIR, 'train', 'RF', 'models'),
+    'threshold': 0.5,
+    'cyclegan_checkpoint': os.path.join(BASE_DIR, 'train', 'py_cyclegan', 'checkpoints', 'cycle_A=0.6066.ckpt'),
+    'cyclegan_direction': 'AB',
+    'cyclegan_device': 'cpu',
+    'cyclegan_normalization_path': os.path.join(BASE_DIR, 'train', 'py_cyclegan', 'checkpoints', 'normalization_params.json'),
+    'apply_normalization': True,
+    'scaler_path': None,
+    'rf_aggregation': None,
 }
 
 # ==================== 服務配置 ====================

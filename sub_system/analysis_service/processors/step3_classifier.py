@@ -1,23 +1,38 @@
-# processors/step3_classifier.py - 分類器（適配簡化格式）
+﻿# processors/step3_classifier.py - ??????????蝛???????
+
+import json
+import os
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pickle
-import json
-import os
-from typing import List, Dict, Any, Optional
-from pathlib import Path
+
+from sub_system.train.py_cyclegan.inference import CycleGANConverter
+from sub_system.train.RF.inference import RFClassifier
 from utils.logger import logger
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_RF_MODEL_DIR = PROJECT_ROOT / "sub_system" / "train" / "RF" / "models"
+DEFAULT_CYCLEGAN_CKPT = (
+    PROJECT_ROOT / "sub_system" / "train" / "py_cyclegan" / "checkpoints" / "last.ckpt"
+)
 
 
 class AudioClassifier:
-    """音訊分類器（支援 RF 模型）"""
+    """音訊分類器（支援 RF、CycleGAN模型）"""
 
     def __init__(self, classification_config: Dict[str, Any]):
         """初始化分類器"""
         self.config = dict(classification_config)
+        if 'model_path' not in self.config:
+            self.config['model_path'] = str(DEFAULT_RF_MODEL_DIR)
         self.method = self.config['method']
         self.scaler = None
         self.metadata = None
+        self.cyclegan_converter: Optional[CycleGANConverter] = None
+        self.rf_classifier: Optional[RFClassifier] = None
+        self.rf_aggregation: Optional[str] = None
 
         logger.info(f"分類器初始化: method={self.method}")
 
@@ -30,14 +45,12 @@ class AudioClassifier:
         if not isinstance(classification_config, dict):
             return
         self.config.update(classification_config)
-        #  寫死RF 模型，忽略前端傳來的 model_path
-        self.config["model_path"] = (
-            r"D:\D_PycharmProjects\Sound_Multi_Analysis_System\sub_system\train\RF\models"
-        )
+        if 'model_path' not in self.config:
+            self.config['model_path'] = str(DEFAULT_RF_MODEL_DIR)
         self._apply_method_and_model()
 
     # def apply_config(self, classification_config: Dict[str, Any]):
-    #     """更新分類配置並視需要重新載入模型"""
+        """更新分類配置並視需要重新載入模型"""
     #     if not isinstance(classification_config, dict):
     #         return
     #     self.config.update(classification_config)
@@ -47,8 +60,7 @@ class AudioClassifier:
 
 
     def _apply_method_and_model(self):
-        """根據 use_model/support_list 決定實際使用的分類策略並載入模型"""
-        support_list = self.config.get('support_list') or ['random', 'rf_model']
+        support_list = self.config.get('support_list') or ['random', 'rf_model', 'cyclegan_rf']
         requested_method = self.config.get('method') or support_list[0]
         if requested_method not in support_list:
             logger.warning(f"不支援的分類方法 {requested_method}，改用 {support_list[0]}")
@@ -56,8 +68,19 @@ class AudioClassifier:
 
         use_model = bool(self.config.get('use_model'))
         model_path = self.config.get('model_path')
+        self.cyclegan_converter = None
+        self.rf_classifier = None
+        self.rf_aggregation = None
 
-        # 如果要求模型且路徑有效，載入模型；否則退回隨機
+        if requested_method == 'cyclegan_rf' and use_model:
+            try:
+                self._load_cyclegan_rf()
+                self.method = 'cyclegan_rf'
+                return
+            except Exception as exc:
+                logger.error(f'CycleGAN+RF initialization failed: {exc}')
+                requested_method = 'rf_model'
+
         if use_model and model_path and os.path.exists(model_path):
             self._load_model(model_path)
             self.method = 'rf_model'
@@ -69,28 +92,79 @@ class AudioClassifier:
         else:
             self.scaler = None
             self.metadata = None
-            # 未啟用模型但要求 rf_model，直接改用隨機並提示
-            if requested_method == 'rf_model':
-                logger.warning(f"未啟用模型，分類將改用隨機模式{self.method}")
+            if requested_method in ('rf_model', 'cyclegan_rf'):
+                logger.warning(f'未啟用模型，分類將改用隨機模式{requested_method})')
                 self.method = 'random'
             else:
                 self.method = requested_method if requested_method in support_list else 'random'
 
-        # 若最終使用隨機模式，給出明確警告以便觀察
         if self.method == 'random':
             random_reason = None
             if use_model and model_path and not os.path.exists(model_path):
-                random_reason = f"模型路徑無效: {model_path}"
+                random_reason = f'模型路徑無效: {model_path}'
             elif use_model and not model_path:
-                random_reason = "未提供模型路徑"
-            elif use_model and requested_method == 'rf_model' and not getattr(self, 'model', None):
-                random_reason = "模型未載入成功"
-            elif not use_model and requested_method == 'rf_model':
-                random_reason = "未啟用模型 (use_model=False)"
+                random_reason = '未提供模型路徑'
+            elif requested_method == 'rf_model' and not getattr(self, 'model', None):
+                random_reason = 'RF 模型未載入成功'
+            elif requested_method == 'cyclegan_rf' and (not self.cyclegan_converter or not self.rf_classifier):
+                random_reason = 'CycleGAN 模型未載入成功'
+            elif not use_model and requested_method in ('rf_model', 'cyclegan_rf'):
+                random_reason = '配置指定隨機模式'
             elif requested_method == 'random':
-                random_reason = "配置指定隨機模式"
+                random_reason = 'configuration requested random mode'
+            logger.warning(f'Random classifier is used: {random_reason or "unknown reason"}')
 
-            logger.warning(f"分類器使用隨機模式：{random_reason or '未載入模型'}")
+    def _load_cyclegan_rf(self):
+        model_dir = self.config.get('model_path') or str(DEFAULT_RF_MODEL_DIR)
+        cyclegan_cfg = self.config.get('cyclegan', {}) or {}
+        rf_cfg = self.config.get('rf', {}) or {}
+
+        checkpoint = (
+            self.config.get('cyclegan_checkpoint')
+            or cyclegan_cfg.get('checkpoint')
+            or str(DEFAULT_CYCLEGAN_CKPT)
+        )
+        normalization_path = (
+            self.config.get('cyclegan_normalization_path')
+            or cyclegan_cfg.get('normalization_path')
+        )
+        direction = (
+            self.config.get('cyclegan_direction')
+            or cyclegan_cfg.get('direction')
+            or 'AB'
+        )
+        apply_norm = self.config.get('apply_normalization')
+        if apply_norm is None:
+            apply_norm = cyclegan_cfg.get('apply_normalization', True)
+        else:
+            apply_norm = bool(apply_norm)
+        device = (
+            self.config.get('cyclegan_device')
+            or cyclegan_cfg.get('device')
+            or 'cpu'
+        )
+
+        scaler_path = (
+            self.config.get('scaler_path')
+            or rf_cfg.get('scaler_path')
+        )
+        aggregation_override = (
+            self.config.get('rf_aggregation')
+            or rf_cfg.get('aggregation')
+        )
+
+        self.cyclegan_converter = CycleGANConverter(
+            checkpoint_path=checkpoint,
+            direction=direction,
+            normalization_path=normalization_path,
+            apply_normalization=bool(apply_norm),
+            device=device,
+        )
+        self.rf_classifier = RFClassifier(model_dir, scaler_path=scaler_path)
+        self.metadata = getattr(self.rf_classifier, 'metadata', None)
+        self.model = None
+        self.scaler = None
+        self.rf_aggregation = aggregation_override
 
     def _load_model(self, model_dir: str):
         """
@@ -101,14 +175,11 @@ class AudioClassifier:
         """
         try:
             model_dir = Path(model_dir)
-
-            # 載入模型
             model_path = model_dir / 'mimii_fan_rf_classifier.pkl'
             with open(model_path, 'rb') as f:
                 self.model = pickle.load(f)
             logger.info(f"✓ 模型載入成功: {model_path}")
 
-            # 載入元資料
             metadata_path = model_dir / 'model_metadata.json'
             if metadata_path.exists():
                 with open(metadata_path, 'r', encoding='utf-8') as f:
@@ -116,7 +187,6 @@ class AudioClassifier:
                 logger.info(f"✓ 元資料載入成功")
                 logger.info(f"  - 訓練日期: {self.metadata.get('training_date', 'Unknown')}")
                 logger.info(f"  - 特徵聚合: {self.metadata.get('aggregation', 'Unknown')}")
-
         except Exception as e:
             logger.error(f"模型載入失敗: {e}")
             logger.warning("將使用隨機分類模式")
@@ -136,6 +206,13 @@ class AudioClassifier:
         """
         try:
             logger.debug(f"開始分類: {len(features_data)} 個切片")
+
+            if (
+                self.method == 'cyclegan_rf'
+                and self.cyclegan_converter is not None
+                and self.rf_classifier is not None
+            ):
+                return self._cyclegan_rf_classify(features_data)
 
             model = getattr(self, 'model', None)
             if self.method == 'rf_model' and model is not None:
@@ -228,7 +305,7 @@ class AudioClassifier:
             # 統計結果
             summary = self._calculate_summary(predictions)
 
-            # processor_metadata（統一格式）
+            # pprocessor_metadata（統一格式）
             processor_metadata = {
                 'method': 'rf_model',
                 'model_type': 'RandomForest',
@@ -257,6 +334,77 @@ class AudioClassifier:
             logger.error(f"模型分類失敗: {e}")
             logger.warning("降級至隨機分類")
             return self._random_classify_all(features_data)
+
+
+    def _cyclegan_rf_classify(self, features_data: List[List[float]]) -> Dict[str, Any]:
+        if not self.cyclegan_converter or not self.rf_classifier:
+            logger.error("CycleGAN+RF 管線尚未初始化")
+            return self._random_classify_all(features_data)
+
+        feature_matrix = self._prepare_feature_matrix(features_data)
+        if feature_matrix.size == 0:
+            logger.error("無法取得有效特徵，無法執行 CycleGAN+RF 推論")
+            return self._random_classify_all(features_data)
+
+        converted_features = self.cyclegan_converter.convert(feature_matrix)
+        aggregation = self.rf_aggregation or getattr(self.rf_classifier, 'aggregation', None)
+        rf_result = self.rf_classifier.predict(converted_features, aggregation=aggregation)
+        predictions = rf_result['predictions']
+        summary = rf_result['summary']
+
+        processor_metadata = {
+            'method': 'cyclegan_rf',
+            'model_type': 'CycleGAN+RF',
+            'rf_model_path': self.config.get('model_path'),
+            'aggregation': aggregation,
+            'cycle_direction': getattr(self.cyclegan_converter, 'direction', None),
+            'cyclegan_checkpoint': str(getattr(self.cyclegan_converter, 'checkpoint_path', '')),
+            'apply_normalization': getattr(self.cyclegan_converter, 'apply_normalization', True),
+            'total_segments': summary['total_segments'],
+            'normal_count': summary['normal_count'],
+            'abnormal_count': summary['abnormal_count'],
+            'unknown_count': summary['unknown_count'],
+            'normal_percentage': summary['normal_percentage'],
+            'abnormal_percentage': summary['abnormal_percentage'],
+            'final_prediction': summary['final_prediction'],
+            'average_confidence': summary['average_confidence'],
+        }
+
+        logger.info(
+            f"CycleGAN+RF 分類完成: {summary['final_prediction']} "
+            f"(avg_信心度:={summary['average_confidence']:.3f})"
+        )
+
+        return {
+            'features_data': predictions,
+            'processor_metadata': processor_metadata
+        }
+
+    def _prepare_feature_matrix(self, features_data: List[List[float]]) -> np.ndarray:
+        feature_dim = 0
+        if self.metadata:
+            feature_dim = int(self.metadata.get('feature_dim', 0) or 0)
+        if feature_dim <= 0:
+            for vec in features_data:
+                if isinstance(vec, (list, tuple, np.ndarray)) and len(vec) > 0:
+                    feature_dim = len(vec)
+                    break
+        if feature_dim <= 0:
+            feature_dim = 40
+
+        rows = []
+        for feature_vector in features_data:
+            arr = np.zeros(feature_dim, dtype=np.float32)
+            if isinstance(feature_vector, (list, tuple, np.ndarray)):
+                vec = np.asarray(feature_vector, dtype=np.float32).flatten()
+                length = min(feature_dim, vec.size)
+                if length > 0:
+                    arr[:length] = vec[:length]
+            rows.append(arr)
+
+        if not rows:
+            return np.zeros((0, feature_dim), dtype=np.float32)
+        return np.vstack(rows)
 
     def _aggregate_features(self, features: np.ndarray, method: str) -> np.ndarray:
         """
@@ -426,3 +574,6 @@ class AudioClassifier:
         if getattr(self, 'model', None) is not None:
             self.method = 'rf_model'
         logger.info(f"模型已更新: {model_path}")
+
+
+

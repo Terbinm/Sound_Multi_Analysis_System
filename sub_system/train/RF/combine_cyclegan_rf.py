@@ -16,16 +16,19 @@ import argparse
 import csv
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-from urllib.parse import quote_plus
+from typing import Any, Dict, List, Optional, Tuple
 import warnings
 import os
 
 import numpy as np
-import torch
-import pickle
-from pymongo import MongoClient
-from sklearn.preprocessing import StandardScaler
+
+from sub_system.train.py_cyclegan.inference import CycleGANConverter
+from sub_system.train.RF.inference import RFClassifier
+from sub_system.train.RF.mongo_helpers import (
+    load_default_mongo_config,
+    merge_mongo_overrides,
+    connect_mongo,
+)
 
 # -----------------------------------------------------------------------------
 # 常數
@@ -44,11 +47,12 @@ CHECKPOINT_DIR = (Path(ROOT) / "sub_system/train/py_cyclegan/checkpoints").resol
 
 # --- 預設檔案路徑設定（確保不用額外傳參數也能執行） ---
 DEFAULT_CKPT = (CHECKPOINT_DIR / "last.ckpt").resolve()
-DEFAULT_RF = (Path(ROOT) / "sub_system/train/RF/models/mimii_fan_rf_classifier.pkl").resolve()
+DEFAULT_RF = (Path(ROOT) / "sub_system/train/RF/models").resolve()
 #DEFAULT_SCALER = (Path(ROOT) / "a_sub_system/train/RF/models/feature_scaler.pkl").resolve()
 DEFAULT_UUID_FILE = (Path(ROOT) / "sub_system/train/RF/uuid_list.txt").resolve()
+DEFAULT_MONGO_CONFIG = load_default_mongo_config()
 
-# 嘗試從 train_rf_model import DataLoader（優先使用）
+# ���ձq train_rf_model import DataLoader�]�u���ϥΡ^
 DataLoader = None
 ModelConfig = None
 try:
@@ -56,18 +60,12 @@ try:
     DataLoader = TF_DataLoader
     ModelConfig = TF_ModelConfig
     _USE_EXTERNAL_DATALOADER = True
-    print("[DEBUG] Using DataLoader from train_rf_model.py")
+    print('[DEBUG] Using DataLoader from train_rf_model.py')
 except Exception:
     DataLoader = None
     ModelConfig = None
     _USE_EXTERNAL_DATALOADER = False
-    print("[DEBUG] train_rf_model.DataLoader not importable -> fallback to internal fetch")
-
-# 嘗試 import CycleGANModule（project path）
-try:
-    from sub_system.train.py_cyclegan.models.cyclegan_module import CycleGANModule
-except Exception:
-    CycleGANModule = None
+    print('[DEBUG] train_rf_model.DataLoader not importable -> fallback to internal fetch')
 
 # -----------------------------------------------------------------------------
 # Helpers: load models
@@ -108,61 +106,28 @@ def resolve_checkpoint_path(path_str: str) -> Path:
         f"找不到指定的 CycleGAN checkpoint ({path_str})。嘗試過: {', '.join(str(p) for p in tried)}"
     )
 
-def load_cyclegan(ckpt_path: Path):
-    ckpt = ckpt_path
-    if not ckpt.exists():
-        raise FileNotFoundError(f"找不到 CycleGAN checkpoint: {ckpt}")
-    if CycleGANModule is None:
-        raise RuntimeError("CycleGANModule not importable. 確認專案路徑或改用可 import 的路徑。")
-    model = CycleGANModule.load_from_checkpoint(str(ckpt), map_location="cpu")
-    model.eval()
-    return model
 
-def load_rf_and_scaler(rf_path: str, scaler_path: Optional[str] = None):
-    rf_file = Path(rf_path)
-    print(f"models:{rf_file}")
-    if not rf_file.exists():
-        raise FileNotFoundError(f"找不到 RF 模型: {rf_file}")
-    with open(rf_file, "rb") as f:
-        rf = pickle.load(f)
-    scaler = None
-    if scaler_path and Path(scaler_path).exists():
-        with open(scaler_path, "rb") as f:
-            scaler = pickle.load(f)
-    return rf, scaler
+def resolve_rf_model_dir(path_str: str) -> Path:
+    """RF 模型參數可以是檔案或資料夾，統一回傳資料夾路徑。"""
+    candidate = Path(path_str).expanduser()
+    if candidate.is_file():
+        return candidate.parent.resolve()
+    return candidate.resolve()
+
 
 # -----------------------------------------------------------------------------
 # MongoDB helper (same as previous)
 # -----------------------------------------------------------------------------
-def build_mongo_config(args, default_cfg: Dict) -> Dict:
-    cfg = default_cfg.copy()
-    if args.mongo_host:
-        cfg['host'] = args.mongo_host
-    if args.mongo_port:
-        cfg['port'] = args.mongo_port
-    if args.mongo_username is not None:
-        cfg['username'] = args.mongo_username
-    if args.mongo_password is not None:
-        cfg['password'] = args.mongo_password
-    if args.mongo_db:
-        cfg['database'] = args.mongo_db
-    if args.mongo_collection:
-        cfg['collection'] = args.mongo_collection
-    return cfg
-
-def connect_mongo(cfg: Dict):
-    username = cfg.get('username')
-    password = cfg.get('password')
-    host = cfg.get('host', 'localhost')
-    port = cfg.get('port', 27017)
-    if username:
-        uri = f"mongodb://{quote_plus(username)}:{quote_plus(password or '')}@{host}:{port}/admin"
-    else:
-        uri = f"mongodb://{host}:{port}/admin"
-    client = MongoClient(uri)
-    client.admin.command('ping')
-    collection = client[cfg['database']][cfg['collection']]
-    return client, collection
+def build_mongo_config(args) -> Dict[str, Any]:
+    overrides = {
+        'host': args.mongo_host,
+        'port': args.mongo_port,
+        'username': args.mongo_username,
+        'password': args.mongo_password,
+        'database': args.mongo_db,
+        'collection': args.mongo_collection,
+    }
+    return merge_mongo_overrides(DEFAULT_MONGO_CONFIG, overrides)
 
 # -----------------------------------------------------------------------------
 # Fetch features: 優先使用 external DataLoader 的 load_data（若可用）；
@@ -244,88 +209,59 @@ def fetch_leaf_features(collection, analyze_uuid: str, external_loader=None) -> 
     return fetch_leaf_features_internal(collection, analyze_uuid)
 
 
+LABEL_TO_INT = {'normal': 0, 'abnormal': 1}
+
+
+def _pad_predictions(predictions: List[Dict[str, Any]], total_segments: int) -> List[Dict[str, Any]]:
+    padded = list(predictions or [])
+    unknown = {'prediction': 'unknown', 'prediction_index': None, 'confidence': 0.0}
+    if len(padded) < total_segments:
+        padded.extend([unknown.copy() for _ in range(total_segments - len(padded))])
+    return padded[:total_segments]
+
+
+def _prediction_to_int(prediction: Optional[Dict[str, Any]]) -> int:
+    if not prediction:
+        return -1
+    idx = prediction.get('prediction_index')
+    if idx is not None and idx in (0, 1):
+        return int(idx)
+    label = prediction.get('prediction')
+    if label in LABEL_TO_INT:
+        return LABEL_TO_INT[label]
+    return -1
+
+
+def _majority_vote(predictions: List[Dict[str, Any]]) -> int:
+    values = [_prediction_to_int(p) for p in predictions]
+    valid = [v for v in values if v in (0, 1)]
+    if not valid:
+        return -1
+    return int(np.round(float(np.mean(valid))))
+
 # -----------------------------------------------------------------------------
 # process_record - 主要推論流程（per AnalyzeUUID）
 # -----------------------------------------------------------------------------
 def process_record(
         analyze_uuid: str,
-        cyclegan,
-        rf_model,
-        scaler: Optional[StandardScaler],
+        converter: CycleGANConverter,
+        classifier: RFClassifier,
         collection,
-        direction: str,
+        aggregation: Optional[str] = None,
         external_loader=None
 ):
     feats, record = fetch_leaf_features(collection, analyze_uuid, external_loader=external_loader)
     T = feats.shape[0]
 
-    # --- 1. CycleGAN 轉換特徵 ---
-    x = torch.tensor(feats, dtype=torch.float32).unsqueeze(0)
-    with torch.no_grad():
-        if direction == "AB":
-            # CPC -> Mimii
-            converted = cyclegan.convert_A_to_B(x)
-        else:
-            # Mimii -> CPC
-            converted = cyclegan.convert_B_to_A(x)
+    converted_np = converter.convert(feats)
+    converted = classifier.predict(converted_np, aggregation=aggregation)
+    raw = classifier.predict(feats, aggregation=aggregation)
 
-    converted_np = converted.squeeze(0).cpu().numpy()
+    raw_predictions = _pad_predictions(raw.get('predictions') or [], T)
+    converted_predictions = _pad_predictions(converted.get('predictions') or [], T)
 
-    # === 反標準化（必做！）===
-    norm_path = CHECKPOINT_DIR / "normalization_params.json"
-    if norm_path.exists():
-        import json
-        with open(norm_path, "r", encoding="utf-8") as f:
-            norm = json.load(f)
-
-        if direction == "AB":
-            # CycleGAN 輸出的是 domain B 的 normalized features
-            mean = np.array(norm["mean_b"])
-            std = np.array(norm["std_b"])
-        else:
-            mean = np.array(norm["mean_a"])
-            std = np.array(norm["std_a"])
-
-        # 反標準化
-        converted_np = converted_np * std + mean
-
-        print("[DEBUG] 反標準化後 mean/std =", converted_np.mean(), converted_np.std())
-    else:
-        print("[WARNING] 沒找到 normalization_params.json，無法反標準化")
-
-    print(f"[DEBUG] 原始 CPC mean/std = {feats.mean():.4f} / {feats.std():.4f}")
-    print(f"[DEBUG] G_AB 後 mean/std = {converted_np.mean():.4f} / {converted_np.std():.4f}")
-
-    # 如果你有 scaler，就印出 scaler 轉換後
-    if scaler is not None:
-        X_target = scaler.transform(converted_np)
-        print(f"[DEBUG] G_AB + scaler mean/std = {X_target.mean():.4f} / {X_target.std():.4f}")
-
-    # --- 2. 準備 RF 輸入特徵 ---
-    X_target = converted_np
-    X_raw_40d = feats
-    print("[TEST] no-scaler mean/std =", X_target.mean(), X_target.std())
-
-    # 檢查維度是否一致 (確保是 T x 40)
-    try:
-        rf_expected_features = rf_model.n_features_in_
-    except AttributeError:
-        rf_expected_features = rf_model.n_features_
-
-    if X_target.shape[1] != rf_expected_features:
-        raise ValueError(
-            f"RF 特徵維度不符！ RF 訓練時預期: {rf_expected_features} 維，"
-            f"但實際輸入為: {X_target.shape[1]} 維。請檢查 LEAF 特徵維度 (N_MELS=40)。"
-        )
-
-    # --- 3. 執行預測與標籤翻轉 ---
-
-    # a. 原始特徵預測 (RF 訓練領域，預期 0=Normal, 1=Abnormal)
-    preds_raw = rf_model.predict(X_raw_40d)
-
-    preds_final = rf_model.predict(X_target)
-
-
+    print(f"[DEBUG] 原始 mean/std = {feats.mean():.4f} / {feats.std():.4f}")
+    print(f"[DEBUG] CycleGAN mean/std = {converted_np.mean():.4f} / {converted_np.std():.4f}")
 
     source_name = record.get('files', {}).get('raw', {}).get('filename', analyze_uuid)
 
@@ -335,16 +271,16 @@ def process_record(
             "AnalyzeUUID": analyze_uuid,
             "來源檔名": source_name,
             "片段索引": idx,
-            "原始預測": int(preds_raw[idx]),
-            "轉換後預測": int(preds_final[idx]),
+            "原始預測": _prediction_to_int(raw_predictions[idx]),
+            "轉換後預測": _prediction_to_int(converted_predictions[idx]),
         })
 
     summary = {
         "AnalyzeUUID": analyze_uuid,
         "來源檔名": source_name,
         "片段數": int(T),
-        "原始投票": int(np.round(preds_raw.mean())),
-        "轉換後投票": int(np.round(preds_final.mean())),
+        "原始投票": _majority_vote(raw_predictions),
+        "轉換後投票": _majority_vote(converted_predictions),
     }
 
     return rows, summary
@@ -378,8 +314,11 @@ def main():
     parser.add_argument('--uuid_file', default=str(DEFAULT_UUID_FILE), help='列有 AnalyzeUUID 的文字檔 (一行一筆)')
     parser.add_argument('--direction', choices=['AB', 'BA'], default='AB')
     parser.add_argument('--cyclegan', default=str(DEFAULT_CKPT), help='CycleGAN checkpoint 路徑/檔名/資料夾')
-    parser.add_argument('--rf', default=str(DEFAULT_RF))
-    parser.add_argument('--scaler', default=None)
+    parser.add_argument('--normalization', default=None, help='Normalization 參數檔 (預設為 checkpoint 目錄下的 normalization_params.json)')
+    parser.add_argument('--skip_normalization', action='store_true', help='不要在轉換後套回 normalization 參數')
+    parser.add_argument('--rf', default=str(DEFAULT_RF), help='RF 模型目錄或 pkl 檔')
+    parser.add_argument('--scaler', default=None, help='可選的 scaler pkl')
+    parser.add_argument('--rf_aggregation', default=None, help='覆寫 RF metadata aggregator (segments/mean/...)')
 
     parser.add_argument('--out_csv', default='cpc_normal.csv')
     parser.add_argument('--out_summary', default='cpc_normal_summary.csv')
@@ -388,19 +327,13 @@ def main():
     # parser.add_argument('--out_summary', default='cpc_abnormal_summary.csv')
 
 
-    # MongoDB arguments (可覆蓋 DEFAULT)
-    # try to import default config
-    try:
-        from sub_system.analysis_service.config import MONGODB_CONFIG as DEFAULT_MONGO_CONFIG
-    except Exception:
-        DEFAULT_MONGO_CONFIG = {'host': 'localhost', 'port': 27017, 'username': None, 'password': None, 'database': 'web_db', 'collection': 'recordings'}
-
     parser.add_argument('--mongo_host', default=DEFAULT_MONGO_CONFIG.get('host'))
     parser.add_argument('--mongo_port', type=int, default=DEFAULT_MONGO_CONFIG.get('port'))
     parser.add_argument('--mongo_username', default=DEFAULT_MONGO_CONFIG.get('username'))
     parser.add_argument('--mongo_password', default=DEFAULT_MONGO_CONFIG.get('password'))
     parser.add_argument('--mongo_db', default=DEFAULT_MONGO_CONFIG.get('database'))
     parser.add_argument('--mongo_collection', default=DEFAULT_MONGO_CONFIG.get('collection'))
+
 
     args = parser.parse_args()
 
@@ -412,12 +345,18 @@ def main():
         warnings.warn(f"收到 {len(uuid_list)} 筆 UUID，僅處理前 {MAX_RECORDS} 筆")
         uuid_list = uuid_list[:MAX_RECORDS]
 
-    print("載入模型...")
+    print("���J�ҫ�...")
     ckpt_path = resolve_checkpoint_path(args.cyclegan)
-    cyclegan = load_cyclegan(ckpt_path)
-    rf_model, scaler = load_rf_and_scaler(args.rf, args.scaler if args.scaler else None)
+    rf_model_dir = resolve_rf_model_dir(args.rf)
+    converter = CycleGANConverter(
+        checkpoint_path=str(ckpt_path),
+        direction=args.direction,
+        normalization_path=args.normalization,
+        apply_normalization=not args.skip_normalization,
+    )
+    classifier = RFClassifier(model_dir=rf_model_dir, scaler_path=args.scaler)
 
-    mongo_cfg = build_mongo_config(args, DEFAULT_MONGO_CONFIG)
+    mongo_cfg = build_mongo_config(args)
     client = None
     try:
         client, collection = connect_mongo(mongo_cfg)
@@ -431,7 +370,14 @@ def main():
         for uid in uuid_list:
             print(f"處理 {uid} ...")
             try:
-                rows, summary = process_record(uid, cyclegan, rf_model, scaler, collection, args.direction, external_loader=external_loader)
+                rows, summary = process_record(
+                    uid,
+                    converter,
+                    classifier,
+                    collection,
+                    aggregation=args.rf_aggregation,
+                    external_loader=external_loader,
+                )
                 segment_rows.extend(rows)
                 summary_rows.append(summary)
                 print(f" -> 完成: {summary['片段數']} 片段， 原始投票={summary['原始投票']} 轉換後投票={summary['轉換後投票']}")

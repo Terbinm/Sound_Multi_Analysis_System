@@ -1,91 +1,58 @@
-from pymongo import MongoClient
+import argparse
+from pathlib import Path
 
-
-
-MONGO = {
-    'host': 'localhost',
-    'port': 55101,
-    'username': 'web_ui',
-    'password': 'hod2iddfsgsrl',
-    'database': 'web_db',
-    'collection': 'recordings'
-}
-
-MAX_RECORDS = 50
-
-def main():
-    print("連線 MongoDB...")
-    uri = f"mongodb://{MONGO['username']}:{MONGO['password']}@{MONGO['host']}:{MONGO['port']}/admin"
-    client = MongoClient(uri)
-
-    col = client[MONGO['database']][MONGO['collection']]
-
-    print("查詢 Step2 (LEAF Features) 已完成的紀錄...")
-
-    query = {
-        "info_features.device_id": "cpc006",
-        "$expr": {
-            "$gt": [
-                {
-                    "$size": {
-                        "$filter": {
-                            "input": {"$objectToArray": "$analyze_features.runs"},
-                            "as": "run",
-                            "cond": {
-                                "$eq": [
-                                    {"$getField": {
-                                        "field": "features_state",
-                                        "input": {
-                                            "$getField": {
-                                                "field": "LEAF Features",
-                                                "input": "$$run.v.steps"
-                                            }
-                                        }
-                                    }},
-                                    "completed"
-                                ]
-                            }
-                        }
-                    }
-                },
-                0
-            ]
-        }
-    }
-
-    cursor = col.find(query, {"AnalyzeUUID": 1})
-
-    if MAX_RECORDS > 0:
-        cursor = cursor.limit(MAX_RECORDS)
-
-    uuids = [doc["AnalyzeUUID"] for doc in cursor if "AnalyzeUUID" in doc]
-
-    print(f"找到 {len(uuids)} 筆 UUID")
-
-    with open("uuid_list.txt", "w", encoding="utf-8") as f:
-        for u in uuids:
-            f.write(u + "\n")
-
-    print("已輸出 uuid_list.txt")
-
-from pymongo import MongoClient
-
-client = MongoClient("mongodb://web_ui:hod2iddfsgsrl@localhost:55101/admin")
-col = client["web_db"]["recordings"]
-
-docs = col.find(
-    {
-        "analyze_features.features_step": 2
-    },
-    {
-        "AnalyzeUUID": 1,
-        "info_features.device_id": 1
-    }
+from sub_system.train.RF.mongo_helpers import (
+    load_default_mongo_config,
+    merge_mongo_overrides,
+    connect_mongo,
+    fetch_step2_completed_uuids,
 )
 
-print("=== Step2 資料 ===")
-for d in docs:
-    print(d)
+DEFAULT_MONGO = load_default_mongo_config()
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="�q MongoDB ��X Step2 ������� AnalyzeUUID ����r��")
+    parser.add_argument('--output', default='uuid_list.txt', help='���X txt �ɮצW�٬�')
+    parser.add_argument('--device', default='cpc006', help='��ܾ� info_features.device_id (�w�] cpc006)')
+    parser.add_argument('--limit', type=int, default=50, help='�̦h�o�X���ƶq (0 �N�L�� LIMIT)')
+    parser.add_argument('--mongo_host', default=DEFAULT_MONGO.get('host'))
+    parser.add_argument('--mongo_port', type=int, default=DEFAULT_MONGO.get('port'))
+    parser.add_argument('--mongo_username', default=DEFAULT_MONGO.get('username'))
+    parser.add_argument('--mongo_password', default=DEFAULT_MONGO.get('password'))
+    parser.add_argument('--mongo_db', default=DEFAULT_MONGO.get('database'))
+    parser.add_argument('--mongo_collection', default=DEFAULT_MONGO.get('collection'))
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    overrides = {
+        'host': args.mongo_host,
+        'port': args.mongo_port,
+        'username': args.mongo_username,
+        'password': args.mongo_password,
+        'database': args.mongo_db,
+        'collection': args.mongo_collection,
+    }
+    mongo_cfg = merge_mongo_overrides(DEFAULT_MONGO, overrides)
+
+    print("���s MongoDB ...")
+    client = None
+    try:
+        client, collection = connect_mongo(mongo_cfg)
+        uuids = fetch_step2_completed_uuids(
+            collection,
+            max_records=args.limit,
+            device_id=args.device,
+        )
+    finally:
+        if client:
+            client.close()
+
+    output_path = Path(args.output)
+    output_path.write_text("\n".join(uuids), encoding='utf-8')
+    print(f"���o {len(uuids)} �쪺 AnalyzeUUID �A��J {output_path.resolve()}")
 
 
 if __name__ == "__main__":
