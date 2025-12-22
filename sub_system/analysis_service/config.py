@@ -75,12 +75,16 @@ CLASSIFICATION_CONFIG = {
     'use_model': True,
     'classes': ['normal', 'abnormal'],
     'normal_probability': 0.7,
-    'model_path': os.path.join(BASE_DIR, 'train', 'RF', 'models'),
+    'model_path': os.path.join(BASE_DIR, 'sub_system', 'train', 'RF', 'models'),
     'threshold': 0.5,
-    'cyclegan_checkpoint': os.path.join(BASE_DIR, 'train', 'py_cyclegan', 'checkpoints', 'cycle_A=0.6066.ckpt'),
+    'cyclegan_checkpoint': os.path.join(
+        BASE_DIR, 'sub_system', 'train', 'py_cyclegan', 'checkpoints', 'cycle_A=0.6066.ckpt'
+    ),
     'cyclegan_direction': 'AB',
     'cyclegan_device': 'cpu',
-    'cyclegan_normalization_path': os.path.join(BASE_DIR, 'train', 'py_cyclegan', 'checkpoints', 'normalization_params.json'),
+    'cyclegan_normalization_path': os.path.join(
+        BASE_DIR, 'sub_system', 'train', 'py_cyclegan', 'checkpoints', 'normalization_params.json'
+    ),
     'apply_normalization': True,
     'scaler_path': None,
     'rf_aggregation': None,

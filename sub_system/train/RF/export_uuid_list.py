@@ -15,7 +15,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="�q MongoDB ��X Step2 ������� AnalyzeUUID ����r��")
     parser.add_argument('--output', default='uuid_list.txt', help='���X txt �ɮצW�٬�')
     parser.add_argument('--device', default='cpc006', help='��ܾ� info_features.device_id (�w�] cpc006)')
-    parser.add_argument('--limit', type=int, default=50, help='�̦h�o�X���ƶq (0 �N�L�� LIMIT)')
+    parser.add_argument('--limit', type=int, default=0, help='�̦h�o�X���ƶq (0 �N�L�� LIMIT)')
     parser.add_argument('--mongo_host', default=DEFAULT_MONGO.get('host'))
     parser.add_argument('--mongo_port', type=int, default=DEFAULT_MONGO.get('port'))
     parser.add_argument('--mongo_username', default=DEFAULT_MONGO.get('username'))

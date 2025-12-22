@@ -17,6 +17,14 @@ DEFAULT_RF_MODEL_DIR = PROJECT_ROOT / "sub_system" / "train" / "RF" / "models"
 DEFAULT_CYCLEGAN_CKPT = (
     PROJECT_ROOT / "sub_system" / "train" / "py_cyclegan" / "checkpoints" / "last.ckpt"
 )
+DEFAULT_CYCLEGAN_NORMALIZATION = (
+    PROJECT_ROOT
+    / "sub_system"
+    / "train"
+    / "py_cyclegan"
+    / "checkpoints"
+    / "normalization_params.json"
+)
 
 
 class AudioClassifier:
@@ -67,7 +75,12 @@ class AudioClassifier:
             requested_method = support_list[0]
 
         use_model = bool(self.config.get('use_model'))
-        model_path = self.config.get('model_path')
+        model_path = self._normalize_training_path(
+            self.config.get('model_path'),
+            DEFAULT_RF_MODEL_DIR
+        )
+        if model_path:
+            self.config['model_path'] = model_path
         self.cyclegan_converter = None
         self.rf_classifier = None
         self.rf_aggregation = None
@@ -115,7 +128,11 @@ class AudioClassifier:
             logger.warning(f'Random classifier is used: {random_reason or "unknown reason"}')
 
     def _load_cyclegan_rf(self):
-        model_dir = self.config.get('model_path') or str(DEFAULT_RF_MODEL_DIR)
+        model_dir = self._normalize_training_path(
+            self.config.get('model_path'),
+            DEFAULT_RF_MODEL_DIR
+        ) or str(DEFAULT_RF_MODEL_DIR)
+        self.config['model_path'] = model_dir
         cyclegan_cfg = self.config.get('cyclegan', {}) or {}
         rf_cfg = self.config.get('rf', {}) or {}
 
@@ -124,10 +141,20 @@ class AudioClassifier:
             or cyclegan_cfg.get('checkpoint')
             or str(DEFAULT_CYCLEGAN_CKPT)
         )
+        checkpoint = self._normalize_training_path(checkpoint, DEFAULT_CYCLEGAN_CKPT)
+        if checkpoint:
+            self.config['cyclegan_checkpoint'] = checkpoint
         normalization_path = (
             self.config.get('cyclegan_normalization_path')
             or cyclegan_cfg.get('normalization_path')
+            or str(DEFAULT_CYCLEGAN_NORMALIZATION)
         )
+        normalization_path = self._normalize_training_path(
+            normalization_path,
+            DEFAULT_CYCLEGAN_NORMALIZATION
+        )
+        if normalization_path:
+            self.config['cyclegan_normalization_path'] = normalization_path
         direction = (
             self.config.get('cyclegan_direction')
             or cyclegan_cfg.get('direction')
@@ -148,6 +175,7 @@ class AudioClassifier:
             self.config.get('scaler_path')
             or rf_cfg.get('scaler_path')
         )
+        scaler_path = self._normalize_training_path(scaler_path, None)
         aggregation_override = (
             self.config.get('rf_aggregation')
             or rf_cfg.get('aggregation')
@@ -575,5 +603,55 @@ class AudioClassifier:
             self.method = 'rf_model'
         logger.info(f"模型已更新: {model_path}")
 
+    def _normalize_training_path(
+        self,
+        path_value: Optional[str],
+        default: Optional[Path] = None
+    ) -> Optional[str]:
+        """
+        確保訓練資源路徑存在；若使用舊的 /train/... 實際會自動插入 sub_system。
+        """
+        candidate = self._prepare_candidate_path(path_value)
+        resolved = self._try_resolve_training_path(candidate)
+        if resolved:
+            return str(resolved)
 
+        if default is not None:
+            default_candidate = self._prepare_candidate_path(str(default))
+            resolved_default = self._try_resolve_training_path(default_candidate)
+            if resolved_default:
+                if candidate and resolved_default != candidate:
+                    logger.warning(
+                        f"路徑不存在 {candidate}，改用預設: {resolved_default}"
+                    )
+                return str(resolved_default)
+
+        return str(candidate) if candidate else None
+
+    def _prepare_candidate_path(self, value: Optional[str]) -> Optional[Path]:
+        if not value:
+            return None
+        candidate = Path(value)
+        if not candidate.is_absolute():
+            candidate = (PROJECT_ROOT / candidate).absolute()
+        return candidate
+
+    def _try_resolve_training_path(self, candidate: Optional[Path]) -> Optional[Path]:
+        if candidate is None:
+            return None
+        if candidate.exists():
+            return candidate
+
+        parts_lower = {part.lower() for part in candidate.parts}
+        if 'sub_system' not in parts_lower:
+            try:
+                rel = candidate.relative_to(PROJECT_ROOT)
+            except ValueError:
+                rel = None
+            if rel:
+                patched = (PROJECT_ROOT / 'sub_system' / rel).absolute()
+                if patched.exists():
+                    logger.warning(f"自動修正路徑: {candidate} -> {patched}")
+                    return patched
+        return None
 
