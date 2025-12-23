@@ -24,6 +24,7 @@ class MIMIIUploadConfig(BaseUploadConfig):
         'normal': 'normal',
         'abnormal': 'abnormal',
     }
+    ALLOWED_LABELS = ['normal']############
 
     # 支援的機器類型
     MACHINE_TYPES = ['fan']

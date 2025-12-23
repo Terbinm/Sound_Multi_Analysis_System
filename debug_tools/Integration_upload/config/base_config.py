@@ -38,7 +38,7 @@ class BaseUploadConfig(ABC):
         'retry_delay': 2,               # 重試延遲（秒）
         # 'per_label_limit': 0,           # 限制每個 label 上傳數量，0 為不限制
         # 'per_label_limit': 2,           # 限制每個 label 上傳數量，0 為不限制
-        'per_label_limit': 3004,           # 限制每個 label 上傳數量，0 為不限制
+        'per_label_limit': 2900,           # 限制每個 label 上傳數量，0 為不限制
         # 'per_label_limit': 200,           # 限制每個 label 上傳數量，0 為不限制
     }
 

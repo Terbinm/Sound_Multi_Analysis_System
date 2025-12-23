@@ -26,8 +26,14 @@ class MIMIIBatchUploader(BaseBatchUploader):
             logger=logger,
             dataset_name="MIMII"
         )
+        allowed_labels = getattr(self.config, 'ALLOWED_LABELS', None)
+        self.allowed_labels = {
+            label.lower() for label in allowed_labels
+            if isinstance(label, str)
+        } if allowed_labels else set()
         # 額外統計
         self.stats['filtered_invalid_label'] = 0
+        self.stats['filtered_disallowed_label'] = 0
 
     def scan_directory(self) -> List[Tuple[Path, str, Optional[Dict[str, Any]]]]:
         """
@@ -59,6 +65,13 @@ class MIMIIBatchUploader(BaseBatchUploader):
                         f"忽略未在 LABEL_FOLDERS 設定中的子資料夾檔案：{rel_path}"
                     )
                     self.stats['filtered_invalid_label'] += 1
+                    continue
+
+                if self.allowed_labels and label.lower() not in self.allowed_labels:
+                    self.logger.info(
+                        f"忽略不在允許標籤中的檔案（{label}）：{file_path}"
+                    )
+                    self.stats['filtered_disallowed_label'] += 1
                     continue
 
                 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

@@ -93,19 +93,19 @@ MODEL_CONFIG = {
 
 TRAINING_CONFIG = {
     # 基本參數
-    'max_epochs': int(os.getenv('MAX_EPOCHS', '150')),
+    'max_epochs': int(os.getenv('MAX_EPOCHS', '100')),
     'batch_size': int(os.getenv('BATCH_SIZE', '32')),
     'num_workers': int(os.getenv('NUM_WORKERS', '0')),
 
     # 優化器參數（新增分離學習率）
-    'lr_g': float(os.getenv('LR_G', '0.00002')),
-    'lr_d': float(os.getenv('LR_D', '0.00002')),
+    'lr_g': float(os.getenv('LR_G', '0.0001')),#0.00002
+    'lr_d': float(os.getenv('LR_D', '0.0001')),#0.00002
     'beta1': 0.5,
     'beta2': 0.999,
 
     # 損失權重
-    'lambda_cycle': float(os.getenv('LAMBDA_CYCLE', '14.0')),
-    'lambda_identity': float(os.getenv('LAMBDA_IDENTITY', '7.0')),
+    'lambda_cycle': float(os.getenv('LAMBDA_CYCLE', '12.0')),  # 14.0
+    'lambda_identity': float(os.getenv('LAMBDA_IDENTITY', '6.0')),  # 7.0
     'lambda_fm': float(os.getenv('LAMBDA_FM', '1.0')),
     'use_identity_loss': True,
 

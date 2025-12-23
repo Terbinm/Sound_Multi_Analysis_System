@@ -320,8 +320,8 @@ def main():
     parser.add_argument('--scaler', default=None, help='可選的 scaler pkl')
     parser.add_argument('--rf_aggregation', default=None, help='覆寫 RF metadata aggregator (segments/mean/...)')
 
-    parser.add_argument('--out_csv', default='cpc_normal.csv')
-    parser.add_argument('--out_summary', default='cpc_normal_summary.csv')
+    parser.add_argument('--out_csv', default='cpc_abnormal.csv')
+    parser.add_argument('--out_summary', default='cpc_abnormal_summary.csv')
 
     # parser.add_argument('--out_csv', default='cpc_abnormal.csv')
     # parser.add_argument('--out_summary', default='cpc_abnormal_summary.csv')

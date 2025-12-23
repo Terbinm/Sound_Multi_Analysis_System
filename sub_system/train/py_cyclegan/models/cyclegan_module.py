@@ -46,11 +46,16 @@ class CycleGANModule(pl.LightningModule):
         discriminator_config: Optional[Dict[str, Any]] = None,
         lr_g: float = 0.0001,
         lr_d: float = 0.0001,
+
         beta1: float = 0.5,
         beta2: float = 0.999,
-        lambda_cycle: float = 14.0,
-        lambda_identity: float = 7.0,
+
+        lambda_cycle: float = 12.0,
+
+        lambda_identity: float = 6.0,
+
         lambda_fm: float = 1.0,
+
         use_identity_loss: bool = True,
     ):
         super().__init__()

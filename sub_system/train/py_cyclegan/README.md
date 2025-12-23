@@ -131,7 +131,7 @@ python scripts/train.py --resume checkpoints/cyclegan-epoch=85-val/cycle_A=0.626
 
 ```bash
 # 啟動 TensorBoard
-tensorboard --logdir logs --host 0.0.0.0 --port 6006
+tensorboard --logdir sub_system/train/py_cyclegan/logs --host 0.0.0.0 --port 6006
 
 # 在瀏覽器中訪問
 # http://localhost:6006
