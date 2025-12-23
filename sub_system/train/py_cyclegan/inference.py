@@ -3,8 +3,9 @@ from __future__ import annotations
 """
 py_cyclegan.inference
 
-提供 CycleGANConverter 讓其他模組�ܦ�載入 checkpoint �N (T, F) �S�x�ഫ������ domain。
-�Ϊ̤��󭥻� numpy / torch tensor��A���� CLI ���M DB �����C
+提供 CycleGANConverter，讓其他模組可以載入 CycleGAN checkpoint，
+並將 (T, F) 特徵轉換到目標 domain，輸出 numpy 或 torch tensor，
+方便 CLI 與資料庫流程使用。
 """
 
 import json
@@ -17,17 +18,17 @@ import torch
 
 try:
     from sub_system.train.py_cyclegan.models.cyclegan_module import CycleGANModule
-except Exception:  # pragma: no cover - import ʧ���ɮצ�N�X
+except Exception:  # pragma: no cover - import 失敗時僅記錄
     CycleGANModule = None  # type: ignore
 
 
 def _default_project_root() -> Path:
-    """�^�Ǭ����w���ܼƧ�A�ΨӤj�ٳ]�w�K�ܡC"""
+    """回傳預設專案根目錄，用於統一尋找共用資源。"""
     return Path(__file__).resolve().parents[3]
 
 
 def _load_normalization(path: Optional[Path]) -> Optional[Dict[str, Any]]:
-    """�g�J normalization_params.json�A�S��?�^ None�C"""
+    """載入 normalization_params.json，失敗時回傳 None。"""
     if not path:
         return None
     try:
@@ -39,7 +40,7 @@ def _load_normalization(path: Optional[Path]) -> Optional[Dict[str, Any]]:
 
 @dataclass
 class CycleGANConverter:
-    """�B�z CycleGAN checkpoint ���J�P�S�x�ഫ���ܡC"""
+    """負責 CycleGAN checkpoint 的載入與特徵轉換。"""
 
     checkpoint_path: Path | str
     direction: str = "AB"
@@ -49,11 +50,11 @@ class CycleGANConverter:
 
     def __post_init__(self) -> None:
         if CycleGANModule is None:
-            raise RuntimeError("�L�k�ϥ� CycleGANModule�A�ЦT�{ PyTorch Lightning �洫�����")
+            raise RuntimeError("無法載入 CycleGANModule，請確認 PyTorch Lightning 依賴是否已安裝。")
 
         self.checkpoint_path = Path(self.checkpoint_path).resolve()
         if not self.checkpoint_path.exists():
-            raise FileNotFoundError(f"�䤣�� CycleGAN checkpoint: {self.checkpoint_path}")
+            raise FileNotFoundError(f"找不到 CycleGAN checkpoint: {self.checkpoint_path}")
 
         self.device = self._resolve_device(self.device)
         self.model = CycleGANModule.load_from_checkpoint(
@@ -74,7 +75,7 @@ class CycleGANConverter:
         return "cpu"
 
     def _auto_find_normalization(self) -> Optional[Path]:
-        """�۰ʰ����_ normalization_params.json�A�N�X�ûܪ���."""
+        """自動尋找 normalization_params.json，找到時回傳路徑。"""
         candidates = [
             self.checkpoint_path.parent / "normalization_params.json",
             _default_project_root()
@@ -90,9 +91,9 @@ class CycleGANConverter:
         return None
 
     def convert(self, features: np.ndarray) -> np.ndarray:
-        """�N (T, F) numpy array �ഫ��ؼе��@ domain."""
+        """將 (T, F) numpy array 轉換到另一個 domain。"""
         if features.ndim != 2:
-            raise ValueError(f"features �����O (T, F) �榡�A�ثe shape={features.shape}")
+            raise ValueError(f"features 必須是 (T, F) 形狀，實際 shape={features.shape}")
 
         tensor = torch.tensor(features, dtype=torch.float32, device=self.device).unsqueeze(0)
         with torch.no_grad():
@@ -113,4 +114,3 @@ class CycleGANConverter:
                 converted_np = converted_np * std + mean
 
         return converted_np
-
