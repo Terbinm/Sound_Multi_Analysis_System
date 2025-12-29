@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from flask_login import UserMixin
 from utils.mongodb_handler import MongoDBHandler
+from config import get_config
 import logging
 
 logger = logging.getLogger(__name__)
@@ -73,9 +74,10 @@ class User(UserMixin):
 
     @staticmethod
     def get_collection():
-        """获取用户集合"""
+        """獲取用戶集合"""
+        config = get_config()
         db_handler = MongoDBHandler()
-        return db_handler.get_collection('users')
+        return db_handler.get_collection(config.COLLECTIONS['users'])
 
     @classmethod
     def find_by_username(cls, username: str) -> Optional['User']:

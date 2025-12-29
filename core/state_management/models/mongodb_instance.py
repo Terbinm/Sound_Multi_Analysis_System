@@ -60,17 +60,18 @@ class MongoDBInstance:
         if data:
             self.from_dict(data)
         else:
-            # 默認值
+            # 不提供預設值，必須透過 from_dict 或明確賦值
+            config = get_config()
             self.instance_id = ""
             self.instance_name = ""
             self.description = ""
             self.host = ""
-            self.port = 27017
+            self.port = None  # 必須明確指定
             self.username = ""
             self.password = ""
             self.database = ""
-            self.collection = "recordings"
-            self.auth_source = "admin"
+            self.collection = ""  # 必須明確指定
+            self.auth_source = ""  # 必須明確指定
             self.enabled = True
             self.created_at = datetime.utcnow()
             self.updated_at = datetime.utcnow()
@@ -78,16 +79,17 @@ class MongoDBInstance:
 
     def from_dict(self, data: Dict[str, Any]):
         """從字典加載"""
+        config = get_config()
         self.instance_id = data.get('instance_id', '')
         self.instance_name = data.get('instance_name', '')
         self.description = data.get('description', '')
         self.host = data.get('host', '')
-        self.port = data.get('port', 27017)
+        self.port = data.get('port')  # 不提供預設值
         self.username = data.get('username', '')
         self.password = data.get('password', '')
         self.database = data.get('database', '')
-        self.collection = data.get('collection', 'recordings')
-        self.auth_source = data.get('auth_source', 'admin')
+        self.collection = data.get('collection')  # 不提供預設值
+        self.auth_source = data.get('auth_source')  # 不提供預設值
         self.enabled = data.get('enabled', True)
         self.created_at = data.get('created_at', datetime.utcnow())
         self.updated_at = data.get('updated_at', datetime.utcnow())
@@ -167,6 +169,7 @@ class MongoDBInstance:
             collection = MongoDBInstance._get_collection()
 
             # 創建實例對象
+            config = get_config()
             instance = MongoDBInstance()
             instance.instance_id = instance_data.get('instance_id', str(uuid.uuid4()))
             if instance.instance_id == MongoDBInstance.DEFAULT_INSTANCE_ID:
@@ -175,12 +178,12 @@ class MongoDBInstance:
             instance.instance_name = instance_data['instance_name']
             instance.description = instance_data.get('description', '')
             instance.host = instance_data['host']
-            instance.port = instance_data.get('port', 27017)
+            instance.port = instance_data.get('port')  # 必須明確提供
             instance.username = instance_data['username']
             instance.password = instance_data['password']
             instance.database = instance_data['database']
-            instance.collection = instance_data.get('collection', 'recordings')
-            instance.auth_source = instance_data.get('auth_source', 'admin')
+            instance.collection = instance_data.get('collection')  # 必須明確提供
+            instance.auth_source = instance_data.get('auth_source')  # 必須明確提供
             instance.enabled = instance_data.get('enabled', True)
             instance.created_at = datetime.utcnow()
             instance.updated_at = datetime.utcnow()

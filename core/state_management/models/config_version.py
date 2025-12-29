@@ -1,10 +1,11 @@
 """
 配置版本管理
-使用 MongoDB 存儲配置版本號，取代 Redis
+使用 MongoDB 存儲配置版本號,取代 Redis
 """
 import logging
 from datetime import datetime
 from utils.mongodb_handler import get_db
+from config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -12,8 +13,13 @@ logger = logging.getLogger(__name__)
 class ConfigVersion:
     """配置版本管理類 - 使用 MongoDB 存儲"""
 
-    COLLECTION_NAME = 'system_metadata'
     VERSION_KEY = 'config_version'
+
+    @staticmethod
+    def _get_collection_name():
+        """從 config 獲取集合名稱"""
+        config = get_config()
+        return config.COLLECTIONS['system_metadata']
 
     @staticmethod
     def get_version() -> int:
@@ -25,7 +31,7 @@ class ConfigVersion:
         """
         try:
             db = get_db()
-            collection = db[ConfigVersion.COLLECTION_NAME]
+            collection = db[ConfigVersion._get_collection_name()]
 
             doc = collection.find_one({'_id': ConfigVersion.VERSION_KEY})
 
@@ -55,7 +61,7 @@ class ConfigVersion:
         """
         try:
             db = get_db()
-            collection = db[ConfigVersion.COLLECTION_NAME]
+            collection = db[ConfigVersion._get_collection_name()]
 
             # 使用 findOneAndUpdate + $inc 確保原子性
             result = collection.find_one_and_update(
@@ -91,7 +97,7 @@ class ConfigVersion:
         """
         try:
             db = get_db()
-            collection = db[ConfigVersion.COLLECTION_NAME]
+            collection = db[ConfigVersion._get_collection_name()]
 
             collection.update_one(
                 {'_id': ConfigVersion.VERSION_KEY},

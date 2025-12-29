@@ -3,6 +3,11 @@
 {% block title %}{% if mode == 'create' %}新增實例{% else %}編輯實例{% endif %}{% endblock %}
 {% block page_title %}{% if mode == 'create' %}新增 MongoDB 實例{% else %}編輯 MongoDB 實例{% endif %}{% endblock %}
 
+{% block head %}
+{{ super() }}
+<meta name="use-toast-alerts" content="{{ config.get('USE_TOAST_FOR_ALERTS', 'false') }}">
+{% endblock %}
+
 {% block content %}
 <div class="max-w-4xl space-y-4">
     <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900">

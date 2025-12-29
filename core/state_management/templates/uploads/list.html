@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}上傳記錄{% endblock %}
+
+{% block page_title %}檔案上傳記錄{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto parallax-container" x-data="uploadList()">
+
+    {# 頂部操作列 #}
+    <div class="tech-card parallax-layer parallax-layer1 mb-6">
+        <div class="px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-history mr-2 text-blue-600"></i>上傳記錄
+                </h3>
+                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium" x-text="'共 ' + uploads.length + ' 筆'"></span>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                {# 篩選選項 #}
+                <label class="flex items-center text-sm">
+                    <input type="checkbox" 
+                           x-model="userOnly" 
+                           @change="loadUploads"
+                           class="mr-2">
+                    僅顯示我的上傳
+                </label>
+
+                {# 重新整理按鈕 #}
+                <button type="button" 
+                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                        @click="loadUploads">
+                    <i class="fas fa-sync-alt mr-2" :class="{ 'fa-spin': isLoading }"></i>重新整理
+                </button>
+
+                {# 新增上傳按鈕 #}
+                <a href="{{ url_for('views.upload_create') }}" 
+                   class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    <i class="fas fa-plus mr-2"></i>新增上傳
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {# 載入中 #}
+    <div x-show="isLoading && uploads.length === 0" class="tech-card parallax-layer parallax-layer2">
+        <div class="px-6 py-12 text-center">
+            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
+            <p class="text-gray-600">載入中...</p>
+        </div>
+    </div>
+
+    {# 上傳記錄列表 #}
+    <div x-show="!isLoading || uploads.length > 0" class="tech-card parallax-layer parallax-layer2">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            檔案名稱
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            分析 UUID
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            上傳者
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            上傳時間
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            路由規則
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            狀態
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            操作
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <template x-for="upload in uploads" :key="upload.AnalyzeUUID">
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <i class="fas fa-file-audio text-blue-600 mr-2"></i>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-900" x-text="upload.files?.raw?.filename || 'N/A'"></div>
+                                        <div class="text-xs text-gray-500" x-text="upload.files?.raw?.type?.toUpperCase() || ''"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <code class="text-xs bg-gray-100 px-2 py-1 rounded" x-text="upload.AnalyzeUUID.substring(0, 13) + '...'"></code>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900" x-text="upload.info_features?.uploaded_by || 'N/A'"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900" x-text="formatDate(upload.info_features?.uploaded_at || upload.created_at)"></div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-wrap gap-1">
+                                    <template x-for="routerId in (upload.assigned_router_ids || [])" :key="routerId">
+                                        <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded" x-text="routerId.substring(0, 8) + '...'"></span>
+                                    </template>
+                                    <span x-show="!upload.assigned_router_ids || upload.assigned_router_ids.length === 0" class="text-xs text-gray-500">無</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs rounded font-medium"
+                                      :class="getStatusClass(upload)">
+                                    <i :class="getStatusIcon(upload)" class="mr-1"></i>
+                                    <span x-text="getStatusText(upload)"></span>
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <a :href="'/data/' + upload.AnalyzeUUID" 
+                                   class="text-blue-600 hover:text-blue-800 mr-3">
+                                    <i class="fas fa-eye mr-1"></i>查看
+                                </a>
+                            </td>
+                        </tr>
+                    </template>
+
+                    <tr x-show="uploads.length === 0 && !isLoading">
+                        <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                            <i class="fas fa-inbox text-4xl mb-2"></i>
+                            <p>目前沒有上傳記錄</p>
+                            <a href="{{ url_for('views.upload_create') }}" 
+                               class="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                                <i class="fas fa-plus mr-2"></i>立即上傳
+                            </a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function uploadList() {
+    return {
+        uploads: [],
+        isLoading: false,
+        userOnly: false,
+
+        async init() {
+            await this.loadUploads();
+            this.startAutoRefresh();
+        },
+
+        async loadUploads() {
+            this.isLoading = true;
+            try {
+                const params = new URLSearchParams({
+                    limit: '50',
+                    user_only: this.userOnly.toString()
+                });
+
+                const response = await fetch(`/api/uploads/recent?${params}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    this.uploads = data.data;
+                }
+            } catch (error) {
+                console.error('載入上傳記錄失敗:', error);
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        startAutoRefresh() {
+            // 每 30 秒自動重新整理
+            setInterval(() => {
+                this.loadUploads();
+            }, 30000);
+        },
+
+        formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleString('zh-TW', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch {
+                return dateString;
+            }
+        },
+
+        getStatusClass(upload) {
+            const routerCount = upload.assigned_router_ids?.length || 0;
+            if (routerCount === 0) {
+                return 'bg-yellow-100 text-yellow-800';
+            }
+            return 'bg-green-100 text-green-800';
+        },
+
+        getStatusIcon(upload) {
+            const routerCount = upload.assigned_router_ids?.length || 0;
+            if (routerCount === 0) {
+                return 'fas fa-clock';
+            }
+            return 'fas fa-check-circle';
+        },
+
+        getStatusText(upload) {
+            const routerCount = upload.assigned_router_ids?.length || 0;
+            if (routerCount === 0) {
+                return '待處理';
+            }
+            return '已派送';
+        }
+    };
+}
+</script>
+{% endblock %}

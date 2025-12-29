@@ -57,9 +57,6 @@ services:
       - ../.env
     ports:
       - "${STATE_MANAGEMENT_PORT:-55103}:${STATE_MANAGEMENT_PORT:-55103}"   # 狀態管理系統端口
-    volumes:
-      - ./state_management:/app
-      - logs:/app/logs
     environment:
       # MongoDB 配置（連接宿主機）
       - MONGODB_HOST=${DOCKER_MONGODB_HOST:-host.docker.internal}
@@ -84,4 +81,3 @@ services:
 volumes:
   mongodb_data:
   rabbitmq_data:
-  logs:

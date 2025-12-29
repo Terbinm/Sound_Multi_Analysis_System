@@ -7,8 +7,6 @@
 - `staging_v*`：部署到 `[self-hosted, staging]` runner，並在容器內執行 `python -m compileall` + `/health` 檢查。
 - `server_production_v*`：部署到 `[self-hosted, server_production]` runner。
 - `edge_production_v*` / `edge_productio_v*`：部署到 `[self-hosted, edge_production]` runner（僅 Analysis Service）。
- 
-## 哈哈
 
 ## 主要內容
 - `staging_onboarding.md`：Staging 首次接入、.env 建立、流程測試。

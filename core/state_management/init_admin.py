@@ -10,10 +10,12 @@
 
 """
 import sys
+import os
 import argparse
 import getpass
 from flask_bcrypt import generate_password_hash
 from models.user import User
+from config import get_config
 import logging
 
 # 配置日誌
@@ -24,19 +26,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def create_admin_user(username='admin', email='admin@example.com', password=None):
+def create_admin_user(username=None, email=None, password=None):
     """
     建立管理員使用者（冪等操作）
 
     Args:
-        username: 使用者名稱（預設: admin）
-        email: 電子郵件（預設: admin@example.com）
+        username: 使用者名稱（若為 None 則從環境變數讀取）
+        email: 電子郵件（若為 None 則從環境變數讀取）
         password: 密碼（若為 None 則互動式輸入）
 
     Returns:
         bool: 是否建立成功（已存在視為成功）
     """
     try:
+        # 從 config 讀取預設值
+        config = get_config()
+        if username is None:
+            username = os.getenv('INIT_ADMIN_USERNAME')
+            if not username:
+                raise ValueError("未設定 INIT_ADMIN_USERNAME 環境變數")
+        if email is None:
+            email = os.getenv('INIT_ADMIN_EMAIL')
+            if not email:
+                raise ValueError("未設定 INIT_ADMIN_EMAIL 環境變數")
+        
         # 檢查使用者是否已存在（冪等性：已存在則跳過）
         existing_user = User.find_by_username(username)
         if existing_user:
@@ -79,7 +92,7 @@ def create_admin_user(username='admin', email='admin@example.com', password=None
             logger.info(f"  電子郵件: {email}")
             logger.info("  角色: 管理員")
             logger.info("\n請使用以下資訊登入:")
-            logger.info(f"  URL: http://localhost:8000/auth/login")
+            logger.info(f"  URL: http://{config.HOST}:{config.PORT}/auth/login")
             logger.info(f"  使用者名稱: {username}")
             return True
         else:
@@ -105,12 +118,17 @@ def create_indexes():
 
 def main():
     """主函式"""
+    # 從環境變數讀取預設值
+    default_username = os.getenv('INIT_ADMIN_USERNAME', 'admin')
+    default_email = os.getenv('INIT_ADMIN_EMAIL', 'admin@example.com')
+    default_password = os.getenv('INIT_ADMIN_PASSWORD')  # 不建議在 .env 設定密碼
+    
     parser = argparse.ArgumentParser(description='初始化管理員帳戶')
-    parser.add_argument('--username', type=str, default='admin',
-                      help='管理員使用者名稱（預設: admin）')
-    parser.add_argument('--email', type=str, default='admin@example.com',
-                      help='管理員電子郵件（預設: admin@example.com）')
-    parser.add_argument('--password', type=str, default=None,
+    parser.add_argument('--username', type=str, default=default_username,
+                      help=f'管理員使用者名稱（預設: {default_username}）')
+    parser.add_argument('--email', type=str, default=default_email,
+                      help=f'管理員電子郵件（預設: {default_email}）')
+    parser.add_argument('--password', type=str, default=default_password,
                       help='管理員密碼（未提供則互動式輸入）')
     parser.add_argument('--skip-indexes', action='store_true',
                       help='略過建立資料庫索引')

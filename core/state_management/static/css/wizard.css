@@ -1,0 +1,33 @@
+/* 路由規則嚮導專用樣式 */
+
+.wizard-step {
+    @apply hidden;
+}
+
+.wizard-step.active {
+    @apply block;
+}
+
+.step-indicator {
+    @apply flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-white text-gray-500 font-semibold transition-all;
+}
+
+.step-indicator.active {
+    @apply border-blue-500 bg-blue-500 text-white;
+}
+
+.step-indicator.completed {
+    @apply border-green-500 bg-green-500 text-white;
+}
+
+.step-connector {
+    @apply flex-1 h-0.5 bg-gray-300 mx-2;
+}
+
+.step-connector.completed {
+    @apply bg-green-500;
+}
+
+.json-editor {
+    @apply font-mono text-sm;
+}

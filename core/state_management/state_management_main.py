@@ -120,14 +120,16 @@ def create_app():
     from api.routing_api import routing_bp
     from api.node_api import node_bp
     from api.instance_api import instance_bp
+    from api.upload_api import upload_bp
 
     app.register_blueprint(config_bp, url_prefix='/api/configs')
     app.register_blueprint(routing_bp, url_prefix='/api/routing')
     app.register_blueprint(node_bp, url_prefix='/api/nodes')
     app.register_blueprint(instance_bp, url_prefix='/api/instances')
+    app.register_blueprint(upload_bp, url_prefix='/api/uploads')
 
     # API 僅透過 JSON 驗證，移除 CSRF 限制
-    for bp in (config_bp, routing_bp, node_bp, instance_bp):
+    for bp in (config_bp, routing_bp, node_bp, instance_bp, upload_bp):
         csrf.exempt(bp)
 
     # 註冊 Web UI 藍圖
@@ -143,8 +145,8 @@ def create_app():
         """健康檢查"""
         return jsonify({
             'status': 'healthy',
-            'service': 'state_management',
-            'version': '1.0.0'
+            'service': config.SERVICE_NAME,
+            'version': config.VERSION
         }), 200
 
     # 首頁 - 重定向到儀表板或登錄頁
@@ -162,7 +164,7 @@ def create_app():
         """API 信息"""
         return jsonify({
             'service': '狀態管理系統',
-            'version': '1.0.0',
+            'version': config.VERSION,
             'endpoints': {
                 'configs': '/api/configs',
                 'routing': '/api/routing',

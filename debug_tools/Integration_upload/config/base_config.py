@@ -73,7 +73,7 @@ class BaseUploadConfig(ABC):
     # ==================== 路由規則觸發配置 ====================
     ROUTING_TRIGGER: Dict[str, Any] = {
         'enabled': True,                    # 是否啟用自動觸發
-        'state_management_url': 'http://192.168.71.43:55103',  # 狀態管理系統 URL
+        'state_management_url': os.getenv('STATE_MANAGEMENT_URL', 'http://localhost:55103'),  # 狀態管理系統 URL（從環境變數讀取）
         'router_ids': [],                   # 預設 router_ids（可在子類別中覆蓋）
         'sequential': True,                 # 是否依序執行
         'trigger_on_completion': True,      # 上傳完成後是否觸發

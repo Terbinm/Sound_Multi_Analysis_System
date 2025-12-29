@@ -36,7 +36,11 @@ class NodeRecord:
 class NodeStatus:
     """節點狀態類 - 使用 MongoDB 存儲"""
 
-    COLLECTION_NAME = 'nodes_status'
+    @staticmethod
+    def _get_collection_name():
+        """從 config 獲取集合名稱"""
+        config = get_config()
+        return config.COLLECTIONS['node_status']
 
     @staticmethod
     def register_node(node_id: str, node_info: Dict[str, Any]) -> bool:
@@ -52,7 +56,7 @@ class NodeStatus:
         """
         try:
             db = get_db()
-            collection = db[NodeStatus.COLLECTION_NAME]
+            collection = db[NodeStatus._get_collection_name()]
 
             now = datetime.utcnow()
 
@@ -94,7 +98,7 @@ class NodeStatus:
         """
         try:
             db = get_db()
-            collection = db[NodeStatus.COLLECTION_NAME]
+            collection = db[NodeStatus._get_collection_name()]
 
             update_data = {
                 'last_heartbeat': datetime.utcnow(),
@@ -134,7 +138,7 @@ class NodeStatus:
         """
         try:
             db = get_db()
-            collection = db[NodeStatus.COLLECTION_NAME]
+            collection = db[NodeStatus._get_collection_name()]
             config = get_config()
             timeout = timeout_seconds or config.NODE_HEARTBEAT_TIMEOUT
 
@@ -169,7 +173,7 @@ class NodeStatus:
         """
         try:
             db = get_db()
-            collection = db[NodeStatus.COLLECTION_NAME]
+            collection = db[NodeStatus._get_collection_name()]
 
             node = collection.find_one({'_id': node_id})
 
@@ -203,7 +207,7 @@ class NodeStatus:
         """
         try:
             db = get_db()
-            collection = db[NodeStatus.COLLECTION_NAME]
+            collection = db[NodeStatus._get_collection_name()]
 
             nodes = []
 
@@ -242,7 +246,7 @@ class NodeStatus:
         """
         try:
             db = get_db()
-            collection = db[NodeStatus.COLLECTION_NAME]
+            collection = db[NodeStatus._get_collection_name()]
 
             result = collection.delete_one({'_id': node_id})
 
@@ -291,7 +295,7 @@ class NodeStatus:
         """統計節點總數"""
         try:
             db = get_db()
-            collection = db[NodeStatus.COLLECTION_NAME]
+            collection = db[NodeStatus._get_collection_name()]
             return collection.count_documents({})
         except Exception as e:
             logger.error(f"統計節點總數失敗: {e}")
@@ -302,7 +306,7 @@ class NodeStatus:
         """統計在線節點數"""
         try:
             db = get_db()
-            collection = db[NodeStatus.COLLECTION_NAME]
+            collection = db[NodeStatus._get_collection_name()]
             config = get_config()
             timeout = timeout_seconds or config.NODE_HEARTBEAT_TIMEOUT
             threshold = datetime.utcnow() - timedelta(seconds=timeout)
@@ -320,7 +324,7 @@ class NodeStatus:
         """獲取在線節點清單"""
         try:
             db = get_db()
-            collection = db[NodeStatus.COLLECTION_NAME]
+            collection = db[NodeStatus._get_collection_name()]
             config = get_config()
             threshold = datetime.utcnow() - timedelta(seconds=config.NODE_HEARTBEAT_TIMEOUT)
 
