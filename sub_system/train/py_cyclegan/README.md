@@ -98,6 +98,9 @@ export MAX_EPOCHS=200
 export BATCH_SIZE=32
 export LEARNING_RATE=0.0002
 export LAMBDA_CYCLE=10.0
+# 可選：分開覆寫 A/B cycle 權重
+# export LAMBDA_CYCLE_A=10.0
+# export LAMBDA_CYCLE_B=12.0
 export LAMBDA_IDENTITY=5.0
 
 # 硬件配置
@@ -121,8 +124,7 @@ python scripts/train.py
 
 ```bash
 # 從檢查點恢復訓練
-python scripts/train.py --resume checkpoints/cyclegan-epoch=85-val/cycle_A=0.6260.ckpt
-
+python scripts/train.py --resume checkpoints/cyclegan-epoch=08-val/cycle_A=0.4336.ckpt
 # 使用環境變量覆蓋配置
 #BATCH_SIZE=16 MAX_EPOCHS=100 python scripts/train.py
 ```
@@ -131,7 +133,7 @@ python scripts/train.py --resume checkpoints/cyclegan-epoch=85-val/cycle_A=0.626
 
 ```bash
 # 啟動 TensorBoard
-tensorboard --logdir sub_system/train/py_cyclegan/logs --host 0.0.0.0 --port 6006
+tensorboard --logdir logs --host 0.0.0.0 --port 6006
 
 # 在瀏覽器中訪問
 # http://localhost:6006
@@ -195,9 +197,13 @@ TRAINING_CONFIG = {
     'batch_size': 32,          # 批次大小
     'learning_rate': 0.0002,   # 學習率
     'lambda_cycle': 10.0,      # Cycle Loss 權重
+    'lambda_cycle_a': 10.0,    # 可選：覆寫 A->B->A cycle 權重
+    'lambda_cycle_b': 12.0,    # 可選：覆寫 B->A->B cycle 權重
     'lambda_identity': 5.0,    # Identity Loss 權重
 }
 ```
+> Note: leaving `lambda_cycle_a`/`lambda_cycle_b` unset will fall back to `lambda_cycle`.
+
 
 #### 硬件配置
 
@@ -223,6 +229,8 @@ HARDWARE_CONFIG = {
 | `BATCH_SIZE` | 批次大小 | 32 |
 | `LEARNING_RATE` | 學習率 | 0.0002 |
 | `LAMBDA_CYCLE` | Cycle Loss 權重 | 10.0 |
+| `LAMBDA_CYCLE_A` | 覆寫 A->B->A cycle 權重（可選） | 同 `LAMBDA_CYCLE` |
+| `LAMBDA_CYCLE_B` | 覆寫 B->A->B cycle 權重（可選） | 同 `LAMBDA_CYCLE` |
 | `LAMBDA_IDENTITY` | Identity Loss 權重 | 5.0 |
 | `ACCELERATOR` | 加速器類型 | gpu |
 

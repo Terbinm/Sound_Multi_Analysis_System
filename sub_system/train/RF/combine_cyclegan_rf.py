@@ -46,7 +46,7 @@ if str(ROOT) not in sys.path:
 CHECKPOINT_DIR = (Path(ROOT) / "sub_system/train/py_cyclegan/checkpoints").resolve()
 
 # --- 預設檔案路徑設定（確保不用額外傳參數也能執行） ---
-DEFAULT_CKPT = (CHECKPOINT_DIR / "cycle_A=0.6066.ckpt").resolve()
+DEFAULT_CKPT = (CHECKPOINT_DIR / "cycle_A=0.5269.ckpt").resolve()
 DEFAULT_RF = (Path(ROOT) / "sub_system/train/RF/models").resolve()
 #DEFAULT_SCALER = (Path(ROOT) / "a_sub_system/train/RF/models/feature_scaler.pkl").resolve()
 DEFAULT_UUID_FILE = (Path(ROOT) / "sub_system/train/RF/uuid_list.txt").resolve()
@@ -320,8 +320,8 @@ def main():
     parser.add_argument('--scaler', default=None, help='可選的 scaler pkl')
     parser.add_argument('--rf_aggregation', default=None, help='覆寫 RF metadata aggregator (segments/mean/...)')
 
-    parser.add_argument('--out_csv', default='cpc_abnormal.csv')
-    parser.add_argument('--out_summary', default='cpc_abnormal_summary.csv')
+    parser.add_argument('--out_csv', default='cpc_normal.csv')
+    parser.add_argument('--out_summary', default='cpc_normal_summary.csv')
 
     # parser.add_argument('--out_csv', default='cpc_abnormal.csv')
     # parser.add_argument('--out_summary', default='cpc_abnormal_summary.csv')

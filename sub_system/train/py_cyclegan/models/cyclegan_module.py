@@ -35,6 +35,8 @@ class CycleGANModule(pl.LightningModule):
         beta1: Adam 优化器的 beta1
         beta2: Adam 优化器的 beta2
         lambda_cycle: Cycle consistency loss 权重
+        lambda_cycle_a: Cycle loss 权重 (A→B→A)，默认等同 lambda_cycle
+        lambda_cycle_b: Cycle loss 权重 (B→A→B)，默认等同 lambda_cycle
         lambda_identity: Identity loss 权重
         use_identity_loss: 是否使用 Identity loss
     """
@@ -51,7 +53,8 @@ class CycleGANModule(pl.LightningModule):
         beta2: float = 0.999,
 
         lambda_cycle: float = 12.0,
-
+        lambda_cycle_a: Optional[float] = None,
+        lambda_cycle_b: Optional[float] = None,
         lambda_identity: float = 6.0,
 
         lambda_fm: float = 1.0,
@@ -101,6 +104,12 @@ class CycleGANModule(pl.LightningModule):
         self.beta1 = beta1
         self.beta2 = beta2
         self.lambda_cycle = lambda_cycle
+        self.lambda_cycle_A = (
+            lambda_cycle_a if lambda_cycle_a is not None else lambda_cycle
+        )
+        self.lambda_cycle_B = (
+            lambda_cycle_b if lambda_cycle_b is not None else lambda_cycle
+        )
         self.lambda_identity = lambda_identity
         self.use_identity_loss = use_identity_loss
 
@@ -193,11 +202,12 @@ class CycleGANModule(pl.LightningModule):
 
         # 總生成器損失相加##
         loss_G = (
-                loss_GAN_AB
-                + loss_GAN_BA
-                + self.lambda_cycle * (loss_cycle_A + loss_cycle_B)
-                + self.lambda_identity * loss_identity
-                + self.lambda_fm * loss_fm
+            loss_GAN_AB
+            + loss_GAN_BA
+            + self.lambda_cycle_A * loss_cycle_A
+            + self.lambda_cycle_B * loss_cycle_B
+            + self.lambda_identity * loss_identity
+            + self.lambda_fm * loss_fm
         )
 
 

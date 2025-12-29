@@ -143,6 +143,8 @@ def main():
         beta1=train_config['beta1'],
         beta2=train_config['beta2'],
         lambda_cycle=train_config['lambda_cycle'],
+        lambda_cycle_a=train_config.get('lambda_cycle_a'),
+        lambda_cycle_b=train_config.get('lambda_cycle_b'),
         lambda_identity=train_config['lambda_identity'],
         lambda_fm=train_config['lambda_fm'],
         use_identity_loss=train_config['use_identity_loss']
@@ -200,7 +202,12 @@ def main():
     logger.info(f"  - Batch size: {train_config['batch_size']}")
     logger.info(f"  - Learning rate G (lr_g): {train_config['lr_g']}")
     logger.info(f"  - Learning rate D (lr_d): {train_config['lr_d']}")
-    logger.info(f"  - Lambda cycle: {train_config['lambda_cycle']}")
+    lambda_cycle_a = train_config.get('lambda_cycle_a', train_config['lambda_cycle'])
+    lambda_cycle_b = train_config.get('lambda_cycle_b', train_config['lambda_cycle'])
+    logger.info(
+        "  - Lambda cycle (base/A/B): "
+        f"{train_config['lambda_cycle']} / {lambda_cycle_a} / {lambda_cycle_b}"
+    )
     logger.info(f"  - Lambda identity: {train_config['lambda_identity']}")
     logger.info(f"  - Device: {hardware_config['accelerator']}")
 
