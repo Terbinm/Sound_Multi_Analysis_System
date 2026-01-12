@@ -294,3 +294,193 @@ class AnalysisConfig:
         except Exception as e:
             logger.error(f"統計啟用配置數失敗: {e}")
             return 0
+
+    # ==================== 模型檔案管理方法 ====================
+
+    @staticmethod
+    def get_classification_method(config_id: str) -> str:
+        """
+        取得配置的分類方法
+
+        Args:
+            config_id: 配置 ID
+
+        Returns:
+            分類方法名稱，預設為 'random'
+        """
+        config = AnalysisConfig.get_by_id(config_id)
+        if not config or not config.model_files:
+            return 'random'
+        return config.model_files.get('classification_method', 'random')
+
+    @staticmethod
+    def get_model_file(config_id: str, file_key: str) -> Optional[Dict[str, Any]]:
+        """
+        取得特定配置的模型檔案資訊
+
+        Args:
+            config_id: 配置 ID
+            file_key: 檔案鍵值（如 'rf_model', 'cyclegan_checkpoint'）
+
+        Returns:
+            檔案資訊字典，或 None
+        """
+        config = AnalysisConfig.get_by_id(config_id)
+        if not config or not config.model_files:
+            return None
+        return config.model_files.get('files', {}).get(file_key)
+
+    @staticmethod
+    def set_model_file(config_id: str, file_key: str, file_info: Dict[str, Any]) -> bool:
+        """
+        設定模型檔案資訊
+
+        Args:
+            config_id: 配置 ID
+            file_key: 檔案鍵值
+            file_info: 檔案資訊（包含 file_id, filename, uploaded_at, size）
+
+        Returns:
+            是否成功
+        """
+        try:
+            collection = AnalysisConfig._get_collection()
+
+            # 確保 model_files 結構存在
+            result = collection.update_one(
+                {'config_id': config_id},
+                {
+                    '$set': {
+                        f'model_files.files.{file_key}': file_info,
+                        'updated_at': datetime.utcnow()
+                    }
+                }
+            )
+
+            if result.modified_count > 0:
+                logger.info(f"已設定模型檔案: {config_id}.{file_key}")
+
+                # 更新配置版本
+                from models.config_version import ConfigVersion
+                ConfigVersion.increment()
+
+                return True
+
+            return False
+
+        except Exception as e:
+            logger.error(f"設定模型檔案失敗: {e}")
+            return False
+
+    @staticmethod
+    def remove_model_file(config_id: str, file_key: str) -> bool:
+        """
+        移除模型檔案資訊
+
+        Args:
+            config_id: 配置 ID
+            file_key: 檔案鍵值
+
+        Returns:
+            是否成功
+        """
+        try:
+            collection = AnalysisConfig._get_collection()
+
+            result = collection.update_one(
+                {'config_id': config_id},
+                {
+                    '$unset': {f'model_files.files.{file_key}': ''},
+                    '$set': {'updated_at': datetime.utcnow()}
+                }
+            )
+
+            if result.modified_count > 0:
+                logger.info(f"已移除模型檔案: {config_id}.{file_key}")
+
+                # 更新配置版本
+                from models.config_version import ConfigVersion
+                ConfigVersion.increment()
+
+                return True
+
+            return False
+
+        except Exception as e:
+            logger.error(f"移除模型檔案失敗: {e}")
+            return False
+
+    @staticmethod
+    def set_classification_method(config_id: str, method: str) -> bool:
+        """
+        設定配置的分類方法
+
+        Args:
+            config_id: 配置 ID
+            method: 分類方法名稱
+
+        Returns:
+            是否成功
+        """
+        try:
+            collection = AnalysisConfig._get_collection()
+
+            result = collection.update_one(
+                {'config_id': config_id},
+                {
+                    '$set': {
+                        'model_files.classification_method': method,
+                        'updated_at': datetime.utcnow()
+                    }
+                }
+            )
+
+            if result.modified_count > 0:
+                logger.info(f"已設定分類方法: {config_id} -> {method}")
+
+                # 更新配置版本
+                from models.config_version import ConfigVersion
+                ConfigVersion.increment()
+
+                return True
+
+            return False
+
+        except Exception as e:
+            logger.error(f"設定分類方法失敗: {e}")
+            return False
+
+    @staticmethod
+    def validate_model_files(config_id: str, model_requirements: Dict[str, Any]) -> tuple[bool, str]:
+        """
+        驗證配置的模型檔案是否完整
+
+        Args:
+            config_id: 配置 ID
+            model_requirements: MODEL_REQUIREMENTS 字典
+
+        Returns:
+            (是否有效, 錯誤訊息)
+        """
+        config = AnalysisConfig.get_by_id(config_id)
+        if not config:
+            return False, "配置不存在"
+
+        model_files = config.model_files or {}
+        method = model_files.get('classification_method', 'random')
+        files = model_files.get('files', {})
+
+        # 取得該方法的需求
+        requirements = model_requirements.get(method, {})
+        required_files = requirements.get('required_files', [])
+
+        missing = []
+        for req in required_files:
+            file_key = req['key']
+            if file_key not in files or not files[file_key].get('file_id'):
+                missing.append(req.get('description', file_key))
+
+        if missing:
+            return False, f"缺少必要檔案：{', '.join(missing)}"
+
+        return True, ""

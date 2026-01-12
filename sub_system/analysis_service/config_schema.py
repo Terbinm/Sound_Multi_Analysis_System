@@ -66,7 +66,7 @@ def get_config_schema() -> Dict[str, Any]:
     - device: {LEAF_CONFIG['device']}
 
     ## CLASSIFICATION_CONFIG
-    - method: {CLASSIFICATION_CONFIG['method']} (支援: {CLASSIFICATION_CONFIG.get('support_list', [])})
+    - default_method: {CLASSIFICATION_CONFIG['default_method']} (支援: {CLASSIFICATION_CONFIG.get('support_list', [])})
     - use_model: {CLASSIFICATION_CONFIG.get('use_model', False)}
     - classes: {CLASSIFICATION_CONFIG['classes']}
     - normal_probability: {CLASSIFICATION_CONFIG['normal_probability']}
@@ -108,7 +108,7 @@ def get_config_schema() -> Dict[str, Any]:
             "title": "CLASSIFICATION_CONFIG",
             "fields": _section_fields(
                 CLASSIFICATION_CONFIG,
-                ["method", "support_list", "use_model", "classes", "normal_probability", "model_path", "threshold"],
+                ["default_method", "support_list", "use_model", "classes", "normal_probability", "model_path", "threshold"],
                 "classification"
             )
         }

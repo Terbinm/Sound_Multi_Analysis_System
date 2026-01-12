@@ -70,24 +70,93 @@ LEAF_CONFIG = {
 
 # ==================== 分類配置 ====================
 CLASSIFICATION_CONFIG = {
-    'method': 'cyclegan_rf',  # 預設採用 RF 模型
-    'support_list': ['rf_model', 'cyclegan_rf', 'random'],
-    'use_model': True,
+    'default_method': 'random',  # 預設採用隨機分類（安全模式，不需要模型）
+    'support_list': ['random', 'rf_model', 'cyclegan_rf'],
+    'use_model': False,  # 預設不啟用模型
     'classes': ['normal', 'abnormal'],
     'normal_probability': 0.7,
-    'model_path': os.path.join(BASE_DIR, 'sub_system', 'train', 'RF', 'models'),
+    'model_path': None,  # 預設不指定本地路徑，由配置決定
     'threshold': 0.5,
-    'cyclegan_checkpoint': os.path.join(
-        BASE_DIR, 'sub_system', 'train', 'py_cyclegan', 'checkpoints', 'cycle_A=0.6066.ckpt'
-    ),
+    'cyclegan_checkpoint': None,  # 由配置決定
     'cyclegan_direction': 'AB',
     'cyclegan_device': 'cpu',
-    'cyclegan_normalization_path': os.path.join(
-        BASE_DIR, 'sub_system', 'train', 'py_cyclegan', 'checkpoints', 'normalization_params.json'
-    ),
+    'cyclegan_normalization_path': None,  # 由配置決定
     'apply_normalization': True,
     'scaler_path': None,
     'rf_aggregation': None,
+}
+
+# ==================== 模型需求定義 ====================
+# 定義每個分類方法需要的模型檔案
+MODEL_REQUIREMENTS = {
+    'random': {
+        'description': '隨機分類（不需要模型）',
+        'required_files': [],
+        'optional_files': [],
+    },
+    'rf_model': {
+        'description': 'Random Forest 分類器',
+        'required_files': [
+            {
+                'key': 'rf_model',
+                'filename': 'mimii_fan_rf_classifier.pkl',
+                'description': 'RF 分類模型 (.pkl)',
+                'extensions': ['.pkl'],
+            }
+        ],
+        'optional_files': [
+            {
+                'key': 'rf_metadata',
+                'filename': 'model_metadata.json',
+                'description': '模型元資料 (.json)',
+                'extensions': ['.json'],
+            },
+            {
+                'key': 'rf_scaler',
+                'filename': 'scaler.pkl',
+                'description': '特徵標準化器 (.pkl)',
+                'extensions': ['.pkl'],
+            }
+        ],
+    },
+    'cyclegan_rf': {
+        'description': 'CycleGAN + Random Forest 組合',
+        'required_files': [
+            {
+                'key': 'cyclegan_checkpoint',
+                'filename': 'last.ckpt',
+                'description': 'CycleGAN 檢查點 (.ckpt)',
+                'extensions': ['.ckpt', '.pth'],
+            },
+            {
+                'key': 'rf_model',
+                'filename': 'mimii_fan_rf_classifier.pkl',
+                'description': 'RF 分類模型 (.pkl)',
+                'extensions': ['.pkl'],
+            }
+        ],
+        'optional_files': [
+            {
+                'key': 'cyclegan_normalization',
+                'filename': 'normalization_params.json',
+                'description': 'CycleGAN 正規化參數 (.json)',
+                'extensions': ['.json'],
+            },
+            {
+                'key': 'rf_metadata',
+                'filename': 'model_metadata.json',
+                'description': 'RF 模型元資料 (.json)',
+                'extensions': ['.json'],
+            }
+        ],
+    },
+}
+
+# ==================== 模型快取配置 ====================
+MODEL_CACHE_CONFIG = {
+    'cache_dir': os.path.join(BASE_DIR, 'sub_system', 'analysis_service', 'model_cache'),
+    'auto_download': True,  # 啟動時自動下載缺失模型
+    'max_cache_size_mb': 2048,  # 最大快取大小 (MB)
 }
 
 # ==================== 服務配置 ====================

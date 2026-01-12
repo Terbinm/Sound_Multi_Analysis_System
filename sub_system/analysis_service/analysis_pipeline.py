@@ -102,6 +102,63 @@ class AnalysisPipeline:
         self.current_config = merged
         logger.info("✓ 已套用 runtime 配置到處理器")
 
+    def apply_runtime_config_with_models(self, full_config: Dict[str, Any], local_paths: Dict[str, Any] = None):
+        """
+        套用配置並處理模型載入
+
+        Args:
+            full_config: 完整的分析配置，包含 parameters 和 model_files
+            local_paths: ModelCacheManager.ensure_models_for_config() 返回的本地路徑映射
+        """
+        parameters = full_config.get('parameters', {})
+
+        # 先套用基礎配置
+        merged = {
+            "audio": dict(AUDIO_CONFIG),
+            "conversion": dict(CONVERSION_CONFIG),
+            "leaf": dict(LEAF_CONFIG),
+            "classification": dict(CLASSIFICATION_CONFIG)
+        }
+
+        def merge_section(target: Dict[str, Any], incoming: Dict[str, Any]):
+            if not isinstance(incoming, dict):
+                return target
+            for k, v in incoming.items():
+                if k not in target:
+                    continue
+                if isinstance(target[k], dict) and isinstance(v, dict):
+                    target[k] = merge_section(dict(target[k]), v)
+                elif isinstance(target[k], list):
+                    if isinstance(v, list):
+                        target[k] = v
+                elif isinstance(target[k], bool):
+                    target[k] = bool(v)
+                elif isinstance(target[k], (int, float)):
+                    try:
+                        target[k] = type(target[k])(v)
+                    except Exception:
+                        target[k] = target[k]
+                else:
+                    target[k] = v
+            return target
+
+        if isinstance(parameters, dict):
+            merge_section(merged["audio"], parameters.get("audio", {}))
+            merge_section(merged["conversion"], parameters.get("conversion", {}))
+            merge_section(merged["leaf"], parameters.get("leaf", {}))
+            merge_section(merged["classification"], parameters.get("classification", {}))
+
+        # 套用到音訊處理器
+        self.converter.apply_config(merged["audio"], merged["conversion"])
+        self.slicer.apply_config(merged["audio"])
+        self.leaf_extractor.apply_config(merged["leaf"], merged["audio"])
+
+        # 套用到分類器（包含模型路徑）
+        self.classifier.apply_config_with_models(full_config, local_paths)
+
+        self.current_config = merged
+        logger.info("✓ 已套用 runtime 配置和模型到處理器")
+
     def process_record(self, record: Dict[str, Any], task_context: Optional[Dict[str, Any]] = None) -> bool:
         """
         處理單一記錄的完整流程

@@ -18,13 +18,17 @@ from config import (
     AUDIO_CONFIG,
     CONVERSION_CONFIG,
     LEAF_CONFIG,
-    CLASSIFICATION_CONFIG
+    CLASSIFICATION_CONFIG,
+    MODEL_CACHE_CONFIG,
+    MODEL_REQUIREMENTS
 )
 from utils.logger import logger, analyze_uuid_context
 from utils.mongodb_handler import MongoDBHandler
 from analysis_pipeline import AnalysisPipeline
 from rabbitmq_consumer import RetryableConsumer
 from mongodb_node_manager import MongoDBNodeManager
+from gridfs_handler import AnalysisGridFSHandler
+from model_cache_manager import ModelCacheManager, ModelCacheError
 from pymongo.collection import Collection
 
 class AnalysisServiceV2:
@@ -43,6 +47,8 @@ class AnalysisServiceV2:
         self.node_manager = None  # MongoDB 節點管理器（取代 heartbeat_sender 和 state_client）
         self.node_registered = False
         self.analysis_configs_collection: Optional[Collection] = None
+        self.gridfs_handler: Optional[AnalysisGridFSHandler] = None
+        self.model_cache: Optional[ModelCacheManager] = None
 
         # 任務追蹤
         self.processing_tasks = set()
@@ -113,6 +119,18 @@ class AnalysisServiceV2:
             self.mongodb_handler = MongoDBHandler()
             # 分析配置集合
             self.analysis_configs_collection = self.mongodb_handler.get_collection('analysis_configs')
+
+            # 初始化 GridFS Handler
+            logger.info("初始化 GridFS Handler...")
+            self.gridfs_handler = AnalysisGridFSHandler(self.mongodb_handler.mongo_client)
+
+            # 初始化模型快取管理器
+            logger.info("初始化模型快取管理器...")
+            self.model_cache = ModelCacheManager(
+                cache_dir=MODEL_CACHE_CONFIG['cache_dir'],
+                gridfs_handler=self.gridfs_handler
+            )
+            logger.info(f"模型快取目錄: {MODEL_CACHE_CONFIG['cache_dir']}")
 
             # 初始化分析流程
             logger.info("初始化分析流程...")
@@ -273,7 +291,26 @@ class AnalysisServiceV2:
                     logger.warning(
                         f"未找到啟用的配置 (config_id={config_id or 'None'} / capability={analysis_method_id})，使用預設值"
                     )
-                self.pipeline.apply_runtime_config(runtime_config.get('parameters') if runtime_config else None)
+                    self.pipeline.apply_runtime_config(None)
+                else:
+                    # 確保模型已下載（如果需要）
+                    local_paths = {}
+                    model_files = runtime_config.get('model_files', {})
+                    classification_method = model_files.get('classification_method', 'random')
+
+                    if classification_method != 'random' and self.model_cache:
+                        try:
+                            logger.info(f"準備模型檔案 (method={classification_method})...")
+                            local_paths = self.model_cache.ensure_models_for_config(runtime_config)
+                            logger.info(f"模型檔案已準備: {list(local_paths.keys())}")
+                        except ModelCacheError as e:
+                            err_msg = f"模型下載失敗: {e}"
+                            logger.error(err_msg)
+                            self._update_task_status(task_id, 'failed', err_msg)
+                            return False
+
+                    # 套用配置和模型路徑
+                    self.pipeline.apply_runtime_config_with_models(runtime_config, local_paths)
 
                 # 準備任務上下文，提供給 analyze_features.runs 記錄路由/配置/節點資訊
                 metadata = task_data.get('metadata', {}) if isinstance(task_data, dict) else {}
@@ -338,7 +375,7 @@ class AnalysisServiceV2:
         return re.sub(r'[^a-zA-Z0-9]+', '_', str(capability)).strip('_').lower()
 
     def _ensure_capability_defaults(self, capabilities: list):
-        """若缺少預設，為每個 capability 建立系統設定"""
+        """若缺少預設，為每個 capability 建立系統設定（使用 random 作為預設方法）"""
         if self.analysis_configs_collection is None:
             return
         for cap in capabilities or []:
@@ -356,23 +393,33 @@ class AnalysisServiceV2:
             if self.analysis_configs_collection.find_one({'config_id': config_id}):
                 logger.info(f"略過建立預設，config_id 已存在: {config_id}")
                 continue
+
+            # 建立預設配置（使用 random 方法，不需要模型）
+            default_classification = dict(CLASSIFICATION_CONFIG)
+            default_classification['method'] = default_classification.get('default_method', 'random')
+            default_classification['use_model'] = False
+
             payload = {
                 'analysis_method_id': cap,
                 'config_id': config_id,
                 'config_name': f"{cap} 系統預設",
-                'description': f"依 capability {cap} 自動建立的系統預設",
+                'description': f"依 capability {cap} 自動建立的系統預設（使用隨機分類）",
                 'parameters': {
                     'audio': dict(AUDIO_CONFIG),
                     'conversion': dict(CONVERSION_CONFIG),
                     'leaf': dict(LEAF_CONFIG),
-                    'classification': dict(CLASSIFICATION_CONFIG)
+                    'classification': default_classification
+                },
+                'model_files': {
+                    'classification_method': 'random',
+                    'files': {}
                 },
                 'enabled': True,
                 'is_system': True
             }
             try:
                 self.analysis_configs_collection.insert_one(payload)
-                logger.info(f"已為 {cap} 建立預設設定: {config_id}")
+                logger.info(f"已為 {cap} 建立預設設定: {config_id} (method=random)")
             except Exception as exc:
                 logger.warning(f"建立預設設定失敗 ({cap}): {exc}")
 

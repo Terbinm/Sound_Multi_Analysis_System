@@ -14,6 +14,71 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# 模型需求定義（與 config_api.py 保持同步）
+MODEL_REQUIREMENTS = {
+    'random': {
+        'description': '隨機分類（不需要模型）',
+        'required_files': [],
+        'optional_files': [],
+    },
+    'rf_model': {
+        'description': 'Random Forest 分類器',
+        'required_files': [
+            {
+                'key': 'rf_model',
+                'filename': 'mimii_fan_rf_classifier.pkl',
+                'description': 'RF 分類模型 (.pkl)',
+                'extensions': ['.pkl'],
+            }
+        ],
+        'optional_files': [
+            {
+                'key': 'rf_metadata',
+                'filename': 'model_metadata.json',
+                'description': '模型元資料 (.json)',
+                'extensions': ['.json'],
+            },
+            {
+                'key': 'rf_scaler',
+                'filename': 'scaler.pkl',
+                'description': '特徵標準化器 (.pkl)',
+                'extensions': ['.pkl'],
+            }
+        ],
+    },
+    'cyclegan_rf': {
+        'description': 'CycleGAN + Random Forest 組合',
+        'required_files': [
+            {
+                'key': 'cyclegan_checkpoint',
+                'filename': 'last.ckpt',
+                'description': 'CycleGAN 檢查點 (.ckpt)',
+                'extensions': ['.ckpt', '.pth'],
+            },
+            {
+                'key': 'rf_model',
+                'filename': 'mimii_fan_rf_classifier.pkl',
+                'description': 'RF 分類模型 (.pkl)',
+                'extensions': ['.pkl'],
+            }
+        ],
+        'optional_files': [
+            {
+                'key': 'cyclegan_normalization',
+                'filename': 'normalization_params.json',
+                'description': 'CycleGAN 正規化參數 (.json)',
+                'extensions': ['.json'],
+            },
+            {
+                'key': 'rf_metadata',
+                'filename': 'model_metadata.json',
+                'description': 'RF 模型元資料 (.json)',
+                'extensions': ['.json'],
+            }
+        ],
+    },
+}
+
 
 def _collect_capabilities():
     caps = set()
@@ -99,7 +164,13 @@ def config_create():
             logger.error(f"建立設定失敗: {str(e)}")
             flash(f'建立設定失敗: {str(e)}', 'danger')
 
-    return render_template('configs/edit.html', form=form, mode='create', capability_options=capability_options)
+    return render_template(
+        'configs/edit.html',
+        form=form,
+        mode='create',
+        capability_options=capability_options,
+        model_requirements=MODEL_REQUIREMENTS
+    )
 
 
 @views_bp.route('/configs/<config_id>/edit', methods=['GET', 'POST'])
@@ -168,7 +239,8 @@ def config_edit(config_id):
         form=form,
         mode='edit',
         config=config,
-        capability_options=capability_options
+        capability_options=capability_options,
+        model_requirements=MODEL_REQUIREMENTS
     )
 
 

@@ -30,12 +30,22 @@ DEFAULT_CYCLEGAN_NORMALIZATION = (
 class AudioClassifier:
     """音訊分類器（支援 RF、CycleGAN模型）"""
 
-    def __init__(self, classification_config: Dict[str, Any]):
-        """初始化分類器"""
+    def __init__(self, classification_config: Dict[str, Any], model_cache=None):
+        """
+        初始化分類器
+
+        Args:
+            classification_config: 分類配置字典
+            model_cache: ModelCacheManager 實例（可選）
+        """
         self.config = dict(classification_config)
+        self.model_cache = model_cache
+
         if 'model_path' not in self.config:
             self.config['model_path'] = str(DEFAULT_RF_MODEL_DIR)
-        self.method = self.config['method']
+
+        # 支援 default_method 和 method 兩種配置方式
+        self.method = self.config.get('method') or self.config.get('default_method', 'random')
         self.scaler = None
         self.metadata = None
         self.cyclegan_converter: Optional[CycleGANConverter] = None
@@ -57,19 +67,62 @@ class AudioClassifier:
             self.config['model_path'] = str(DEFAULT_RF_MODEL_DIR)
         self._apply_method_and_model()
 
-    # def apply_config(self, classification_config: Dict[str, Any]):
-        """更新分類配置並視需要重新載入模型"""
-    #     if not isinstance(classification_config, dict):
-    #         return
-    #     self.config.update(classification_config)
-    #     self._apply_method_and_model()
+    def apply_config_with_models(self, full_config: Dict[str, Any], local_paths: Dict[str, Any] = None):
+        """
+        使用完整配置和已下載的模型路徑套用設定
+
+        Args:
+            full_config: 完整的分析配置，包含 model_files
+            local_paths: ModelCacheManager.ensure_models_for_config() 返回的本地路徑映射
+        """
+        if not isinstance(full_config, dict):
+            return
+
+        model_files = full_config.get('model_files', {})
+        classification_method = model_files.get('classification_method', 'random')
+        parameters = full_config.get('parameters', {})
+        classification_params = parameters.get('classification', {})
+
+        # 更新配置
+        self.config.update(classification_params)
+        self.config['method'] = classification_method
+
+        # 如果是 random 方法，不需要模型
+        if classification_method == 'random':
+            self.config['use_model'] = False
+            self._apply_method_and_model()
+            logger.info("Using random classification (no model required)")
+            return
+
+        # 使用已下載的模型路徑
+        if local_paths:
+            self.config['use_model'] = True
+
+            if classification_method == 'cyclegan_rf':
+                if 'cyclegan_checkpoint' in local_paths:
+                    self.config['cyclegan_checkpoint'] = str(local_paths['cyclegan_checkpoint'])
+                if 'rf_model' in local_paths:
+                    self.config['model_path'] = str(local_paths['rf_model'].parent)
+                if 'cyclegan_normalization' in local_paths:
+                    self.config['cyclegan_normalization_path'] = str(local_paths['cyclegan_normalization'])
+
+            elif classification_method == 'rf_model':
+                if 'rf_model' in local_paths:
+                    self.config['model_path'] = str(local_paths['rf_model'].parent)
+                if 'rf_scaler' in local_paths:
+                    self.config['scaler_path'] = str(local_paths['rf_scaler'])
+
+            logger.info(f"Applied model paths for method={classification_method}: {list(local_paths.keys())}")
+
+        self._apply_method_and_model()
 
 
 
 
     def _apply_method_and_model(self):
         support_list = self.config.get('support_list') or ['random', 'rf_model', 'cyclegan_rf']
-        requested_method = self.config.get('method') or support_list[0]
+        # 支援 method 和 default_method 兩種配置方式
+        requested_method = self.config.get('method') or self.config.get('default_method') or support_list[0]
         if requested_method not in support_list:
             logger.warning(f"不支援的分類方法 {requested_method}，改用 {support_list[0]}")
             requested_method = support_list[0]
