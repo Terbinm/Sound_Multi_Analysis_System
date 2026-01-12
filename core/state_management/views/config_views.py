@@ -1,6 +1,9 @@
 """
 設定管理視圖
 處理分析設定的 CRUD 操作
+
+注意：模型需求和配置 Schema 現在統一由 config_schema.py 管理，
+前端透過 /api/configs/schema API 取得完整 Schema。
 """
 from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
@@ -13,71 +16,6 @@ import json
 import logging
 
 logger = logging.getLogger(__name__)
-
-# 模型需求定義（與 config_api.py 保持同步）
-MODEL_REQUIREMENTS = {
-    'random': {
-        'description': '隨機分類（不需要模型）',
-        'required_files': [],
-        'optional_files': [],
-    },
-    'rf_model': {
-        'description': 'Random Forest 分類器',
-        'required_files': [
-            {
-                'key': 'rf_model',
-                'filename': 'mimii_fan_rf_classifier.pkl',
-                'description': 'RF 分類模型 (.pkl)',
-                'extensions': ['.pkl'],
-            }
-        ],
-        'optional_files': [
-            {
-                'key': 'rf_metadata',
-                'filename': 'model_metadata.json',
-                'description': '模型元資料 (.json)',
-                'extensions': ['.json'],
-            },
-            {
-                'key': 'rf_scaler',
-                'filename': 'scaler.pkl',
-                'description': '特徵標準化器 (.pkl)',
-                'extensions': ['.pkl'],
-            }
-        ],
-    },
-    'cyclegan_rf': {
-        'description': 'CycleGAN + Random Forest 組合',
-        'required_files': [
-            {
-                'key': 'cyclegan_checkpoint',
-                'filename': 'last.ckpt',
-                'description': 'CycleGAN 檢查點 (.ckpt)',
-                'extensions': ['.ckpt', '.pth'],
-            },
-            {
-                'key': 'rf_model',
-                'filename': 'mimii_fan_rf_classifier.pkl',
-                'description': 'RF 分類模型 (.pkl)',
-                'extensions': ['.pkl'],
-            }
-        ],
-        'optional_files': [
-            {
-                'key': 'cyclegan_normalization',
-                'filename': 'normalization_params.json',
-                'description': 'CycleGAN 正規化參數 (.json)',
-                'extensions': ['.json'],
-            },
-            {
-                'key': 'rf_metadata',
-                'filename': 'model_metadata.json',
-                'description': 'RF 模型元資料 (.json)',
-                'extensions': ['.json'],
-            }
-        ],
-    },
-}
 
 
 def _collect_capabilities():
@@ -168,8 +106,7 @@ def config_create():
         'configs/edit.html',
         form=form,
         mode='create',
-        capability_options=capability_options,
-        model_requirements=MODEL_REQUIREMENTS
+        capability_options=capability_options
     )
 
 
@@ -208,7 +145,7 @@ def config_edit(config_id):
                     )
 
             # 更新設定
-            success = config.update(
+            success = config.update_fields(
                 config_name=form.config_name.data,
                 description=form.description.data,
                 parameters=parameters,
@@ -239,8 +176,7 @@ def config_edit(config_id):
         form=form,
         mode='edit',
         config=config,
-        capability_options=capability_options,
-        model_requirements=MODEL_REQUIREMENTS
+        capability_options=capability_options
     )
 
 
@@ -304,7 +240,7 @@ def config_toggle(config_id):
             return jsonify({'success': False, 'message': '系統設定不可變更狀態'}), 403
 
         new_status = not config.enabled
-        success = config.update(enabled=new_status)
+        success = config.update_fields(enabled=new_status)
 
         if success:
             logger.info(f"設定狀態切換成功: {config_id} -> {new_status}")

@@ -1,0 +1,56 @@
+{
+  "6964c7dc6b7ced2b6ce53ac0": {
+    "local_path": "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\sub_system\\analysis_service\\model_cache\\6964c7dc6b7ced2b6ce53ac0\\cycle_A0.5531.ckpt",
+    "filename": "cycle_A0.5531.ckpt",
+    "downloaded_at": "2026-01-12T10:08:05.212838",
+    "size": 7847877
+  },
+  "6964c5a6abb4ba4bda85efbb": {
+    "local_path": "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\sub_system\\analysis_service\\model_cache\\6964c5a6abb4ba4bda85efbb\\mimii_fan_rf_classifier.pkl",
+    "filename": "mimii_fan_rf_classifier.pkl",
+    "downloaded_at": "2026-01-12T10:08:06.894530",
+    "size": 90748415
+  },
+  "6964c7e46b7ced2b6ce53ae0": {
+    "local_path": "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\sub_system\\analysis_service\\model_cache\\6964c7e46b7ced2b6ce53ae0\\normalization_params.json",
+    "filename": "normalization_params.json",
+    "downloaded_at": "2026-01-12T10:08:06.907952",
+    "size": 4109
+  },
+  "6964c5b3abb4ba4bda85f118": {
+    "local_path": "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\sub_system\\analysis_service\\model_cache\\6964c5b3abb4ba4bda85f118\\model_metadata.json",
+    "filename": "model_metadata.json",
+    "downloaded_at": "2026-01-12T10:08:06.914404",
+    "size": 833
+  },
+  "6964cc1a96e2beafca0fa60a": {
+    "local_path": "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\sub_system\\analysis_service\\model_cache\\6964cc1a96e2beafca0fa60a\\mimii_fan_rf_classifier.pkl",
+    "filename": "mimii_fan_rf_classifier.pkl",
+    "downloaded_at": "2026-01-12T10:26:07.114352",
+    "size": 90748415
+  },
+  "6964cc2296e2beafca0fa767": {
+    "local_path": "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\sub_system\\analysis_service\\model_cache\\6964cc2296e2beafca0fa767\\model_metadata.json",
+    "filename": "model_metadata.json",
+    "downloaded_at": "2026-01-12T10:26:07.128326",
+    "size": 833
+  },
+  "6965295a6e7f0cf0336c08b2": {
+    "local_path": "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\sub_system\\analysis_service\\model_cache\\6965295a6e7f0cf0336c08b2\\cycle_A0.5531.ckpt",
+    "filename": "cycle_A0.5531.ckpt",
+    "downloaded_at": "2026-01-12T17:04:29.483146",
+    "size": 7847877
+  },
+  "696529526e7f0cf0336c0755": {
+    "local_path": "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\sub_system\\analysis_service\\model_cache\\696529526e7f0cf0336c0755\\mimii_fan_rf_classifier.pkl",
+    "filename": "mimii_fan_rf_classifier.pkl",
+    "downloaded_at": "2026-01-12T17:04:32.315975",
+    "size": 90748415
+  },
+  "696529716e7f0cf0336c08d2": {
+    "local_path": "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\sub_system\\analysis_service\\model_cache\\696529716e7f0cf0336c08d2\\normalization_params.json",
+    "filename": "normalization_params.json",
+    "downloaded_at": "2026-01-12T17:04:32.337222",
+    "size": 4109
+  }
+}

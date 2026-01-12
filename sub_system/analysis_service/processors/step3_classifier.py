@@ -268,6 +268,9 @@ class AudioClassifier:
                 logger.info(f"✓ 元資料載入成功")
                 logger.info(f"  - 訓練日期: {self.metadata.get('training_date', 'Unknown')}")
                 logger.info(f"  - 特徵聚合: {self.metadata.get('aggregation', 'Unknown')}")
+            else:
+                self.metadata = {}
+                logger.warning(f"元資料檔案不存在: {metadata_path}，使用預設值")
         except Exception as e:
             logger.error(f"模型載入失敗: {e}")
             logger.warning("將使用隨機分類模式")
@@ -355,10 +358,13 @@ class AudioClassifier:
             prediction_proba = model.predict_proba(aggregated_feature)[0]
 
             # 解碼標籤
-            label_decoder = self.metadata.get('label_decoder', {0: 'normal', 1: 'abnormal'})
+            label_decoder = (self.metadata or {}).get('label_decoder', {0: 'normal', 1: 'abnormal'})
             if isinstance(label_decoder, dict):
-                # 處理 JSON 中字串鍵的情況
-                label_decoder = {int(k) if k.isdigit() else k: v for k, v in label_decoder.items()}
+                # 處理 JSON 中字串鍵的情況（JSON 的鍵一定是字串）
+                label_decoder = {
+                    int(k) if isinstance(k, str) and k.isdigit() else k: v
+                    for k, v in label_decoder.items()
+                }
 
             predicted_label = label_decoder.get(int(prediction_class), 'unknown')
             confidence = float(prediction_proba[int(prediction_class)])

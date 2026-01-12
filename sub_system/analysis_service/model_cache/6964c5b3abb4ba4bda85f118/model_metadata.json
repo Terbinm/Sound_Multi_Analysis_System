@@ -1,0 +1,40 @@
+{
+  "model_type": "RandomForestClassifier",
+  "feature_dim": 40,
+  "aggregation": "segments",
+  "normalize": false,
+  "label_encoder": {
+    "normal": 0,
+    "abnormal": 1
+  },
+  "label_decoder": {
+    "0": "normal",
+    "1": "abnormal"
+  },
+  "training_date": "2025-12-03T16:44:05.871749",
+  "model_params": {
+    "n_estimators": 100,
+    "max_depth": null,
+    "min_samples_split": 2,
+    "min_samples_leaf": 1,
+    "max_features": "sqrt",
+    "n_jobs": -1,
+    "random_state": 42,
+    "class_weight": "balanced"
+  },
+  "training_history": {
+    "train_scores": [
+      1.0
+    ],
+    "val_scores": [
+      0.9516638655462185
+    ],
+    "cv_scores": [
+      0.9498679471788716,
+      0.9512124849939976,
+      0.9528451380552221,
+      0.9506362545018007,
+      0.9507803121248499
+    ]
+  }
+}

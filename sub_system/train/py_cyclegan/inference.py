@@ -18,7 +18,9 @@ import torch
 
 try:
     from sub_system.train.py_cyclegan.models.cyclegan_module import CycleGANModule
-except Exception:  # pragma: no cover - import 失敗時僅記錄
+except Exception as e:  # pragma: no cover - import 失敗時記錄詳細錯誤
+    import logging
+    logging.getLogger(__name__).error(f"CycleGANModule 導入失敗: {e}")
     CycleGANModule = None  # type: ignore
 
 

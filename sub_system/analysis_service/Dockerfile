@@ -15,11 +15,7 @@ RUN apt-get update && apt-get install -y \
 # ============ 第一層：ML 大型依賴（很少變動，充分利用快取）============
 # PyTorch CPU 版本（約 700MB，很少更新）
 RUN pip install --no-cache-dir \
-    torch --index-url https://download.pytorch.org/whl/cpu \
-    torchaudio --index-url https://download.pytorch.org/whl/cpu
-
-# SpeechBrain (用於 LEAF，約 200MB)
-RUN pip install --no-cache-dir speechbrain
+    torch --index-url https://download.pytorch.org/whl/cpu
 
 # ============ 第二層：核心依賴（偶爾變動）============
 RUN pip install --no-cache-dir \

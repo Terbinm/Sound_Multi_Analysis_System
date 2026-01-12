@@ -3,6 +3,8 @@
 提供分析方法配置的 CRUD 操作
 """
 import logging
+import os
+import sys
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 import gridfs
@@ -13,6 +15,28 @@ from config import get_config
 logger = logging.getLogger(__name__)
 
 config_bp = Blueprint('config_api', __name__)
+
+# ==================== 動態載入 config_schema ====================
+# 將 analysis_service 路徑加入 sys.path 以便匯入 config_schema
+_ANALYSIS_SERVICE_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', '..', '..', 'sub_system', 'analysis_service')
+)
+if _ANALYSIS_SERVICE_PATH not in sys.path:
+    sys.path.insert(0, _ANALYSIS_SERVICE_PATH)
+
+try:
+    from config_schema import (
+        get_analysis_config_schema,
+        get_all_model_requirements,
+        get_method_by_key,
+        get_default_parameters,
+        get_method_default_params,
+        CLASSIFICATION_METHODS,
+    )
+    _SCHEMA_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"無法載入 config_schema: {e}，將使用內建定義")
+    _SCHEMA_AVAILABLE = False
 
 
 @config_bp.route('', methods=['GET'])
@@ -365,77 +389,280 @@ def download_model(file_id):
         }), 500
 
 
+# ==================== Schema API ====================
+
+@config_bp.route('/schema', methods=['GET'])
+def get_schema():
+    """
+    取得完整的分析配置 Schema。
+
+    前端透過此 API 取得 Schema 後，可動態生成配置表單。
+    Schema 包含：
+    - schema_version: Schema 版本號
+    - schema_hash: Schema 內容雜湊值（用於驗證一致性）
+    - classification_methods: 分類方法定義（含模型需求和方法特定參數）
+    - model_files: 模型檔案定義
+    - parameter_groups: 參數群組定義（含欄位類型、標題、說明、預設值）
+    """
+    try:
+        if _SCHEMA_AVAILABLE:
+            schema = get_analysis_config_schema()
+        else:
+            # 如果無法載入 config_schema，返回內建基本 Schema
+            schema = _get_fallback_schema()
+
+        return jsonify({
+            'success': True,
+            'data': schema
+        }), 200
+
+    except Exception as e:
+        logger.error(f"取得 Schema 失敗: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@config_bp.route('/schema/defaults', methods=['GET'])
+def get_schema_defaults():
+    """取得所有參數的預設值"""
+    try:
+        if _SCHEMA_AVAILABLE:
+            defaults = get_default_parameters()
+        else:
+            defaults = {}
+
+        return jsonify({
+            'success': True,
+            'data': defaults
+        }), 200
+
+    except Exception as e:
+        logger.error(f"取得預設值失敗: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@config_bp.route('/schema/method/<method_key>/defaults', methods=['GET'])
+def get_method_defaults(method_key):
+    """取得指定分類方法的預設參數"""
+    try:
+        if _SCHEMA_AVAILABLE:
+            defaults = get_method_default_params(method_key)
+        else:
+            defaults = {}
+
+        return jsonify({
+            'success': True,
+            'data': defaults
+        }), 200
+
+    except Exception as e:
+        logger.error(f"取得方法預設值失敗: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def _get_fallback_schema():
+    """當無法載入 config_schema 時返回的內建基本 Schema"""
+    return {
+        'schema_version': '1.0.0',
+        'schema_hash': 'fallback',
+        'classification_methods': [
+            {
+                'key': 'random',
+                'label': 'Random Classification',
+                'description': 'Random classification without model',
+                'version': '1.0.0',
+                'required_models': [],
+                'optional_models': [],
+                'params': [
+                    {
+                        'name': 'normal_probability',
+                        'label': 'Normal Probability',
+                        'type': 'number',
+                        'description': 'Probability of classifying as normal (0-1)',
+                        'default': 0.7,
+                        'min': 0,
+                        'max': 1,
+                        'step': 0.05,
+                    },
+                ],
+            },
+            {
+                'key': 'rf_model',
+                'label': 'Random Forest Classifier',
+                'description': 'Classification using Random Forest model',
+                'version': '1.0.0',
+                'required_models': ['rf_model'],
+                'optional_models': ['rf_metadata', 'rf_scaler'],
+                'params': [
+                    {
+                        'name': 'threshold',
+                        'label': 'Decision Threshold',
+                        'type': 'number',
+                        'default': 0.5,
+                        'min': 0,
+                        'max': 1,
+                        'step': 0.05,
+                    },
+                ],
+            },
+            {
+                'key': 'cyclegan_rf',
+                'label': 'CycleGAN + Random Forest',
+                'description': 'Feature transformation via CycleGAN then RF classification',
+                'version': '1.0.0',
+                'required_models': ['cyclegan_checkpoint', 'rf_model'],
+                'optional_models': ['cyclegan_normalization', 'rf_metadata'],
+                'params': [
+                    {
+                        'name': 'threshold',
+                        'label': 'Decision Threshold',
+                        'type': 'number',
+                        'default': 0.5,
+                        'min': 0,
+                        'max': 1,
+                        'step': 0.05,
+                    },
+                ],
+            },
+        ],
+        'model_files': {
+            'rf_model': {
+                'key': 'rf_model',
+                'label': 'RF Model',
+                'filename': 'mimii_fan_rf_classifier.pkl',
+                'description': 'Random Forest model file',
+                'extensions': ['.pkl'],
+            },
+            'rf_metadata': {
+                'key': 'rf_metadata',
+                'label': 'Model Metadata',
+                'filename': 'model_metadata.json',
+                'description': 'Model metadata JSON',
+                'extensions': ['.json'],
+            },
+            'rf_scaler': {
+                'key': 'rf_scaler',
+                'label': 'Feature Scaler',
+                'filename': 'scaler.pkl',
+                'description': 'StandardScaler for features',
+                'extensions': ['.pkl'],
+            },
+            'cyclegan_checkpoint': {
+                'key': 'cyclegan_checkpoint',
+                'label': 'CycleGAN Checkpoint',
+                'filename': 'last.ckpt',
+                'description': 'CycleGAN model checkpoint',
+                'extensions': ['.ckpt', '.pth'],
+            },
+            'cyclegan_normalization': {
+                'key': 'cyclegan_normalization',
+                'label': 'CycleGAN Normalization',
+                'filename': 'normalization_params.json',
+                'description': 'CycleGAN normalization parameters',
+                'extensions': ['.json'],
+            },
+        },
+        'parameter_groups': [
+            {
+                'key': 'classification',
+                'label': 'Classification Settings',
+                'description': 'Basic classification parameters',
+                'collapsed': False,
+                'fields': [
+                    {
+                        'name': 'classes',
+                        'label': 'Classification Classes',
+                        'type': 'tags',
+                        'description': 'Define classification labels',
+                        'default': ['normal', 'abnormal'],
+                    },
+                ],
+            },
+        ],
+    }
+
+
 # ==================== 模型管理 API ====================
 
 @config_bp.route('/model_requirements', methods=['GET'])
 def get_model_requirements():
     """取得所有分類方法的模型需求"""
     try:
-        # 從分析服務的配置中取得 MODEL_REQUIREMENTS
-        # 這裡使用硬編碼的版本，因為 State Management 無法直接導入 analysis_service
-        model_requirements = {
-            'random': {
-                'description': '隨機分類（不需要模型）',
-                'required_files': [],
-                'optional_files': [],
-            },
-            'rf_model': {
-                'description': 'Random Forest 分類器',
-                'required_files': [
-                    {
-                        'key': 'rf_model',
-                        'filename': 'mimii_fan_rf_classifier.pkl',
-                        'description': 'RF 分類模型 (.pkl)',
-                        'extensions': ['.pkl'],
-                    }
-                ],
-                'optional_files': [
-                    {
-                        'key': 'rf_metadata',
-                        'filename': 'model_metadata.json',
-                        'description': '模型元資料 (.json)',
-                        'extensions': ['.json'],
-                    },
-                    {
-                        'key': 'rf_scaler',
-                        'filename': 'scaler.pkl',
-                        'description': '特徵標準化器 (.pkl)',
-                        'extensions': ['.pkl'],
-                    }
-                ],
-            },
-            'cyclegan_rf': {
-                'description': 'CycleGAN + Random Forest 組合',
-                'required_files': [
-                    {
-                        'key': 'cyclegan_checkpoint',
-                        'filename': 'last.ckpt',
-                        'description': 'CycleGAN 檢查點 (.ckpt)',
-                        'extensions': ['.ckpt', '.pth'],
-                    },
-                    {
-                        'key': 'rf_model',
-                        'filename': 'mimii_fan_rf_classifier.pkl',
-                        'description': 'RF 分類模型 (.pkl)',
-                        'extensions': ['.pkl'],
-                    }
-                ],
-                'optional_files': [
-                    {
-                        'key': 'cyclegan_normalization',
-                        'filename': 'normalization_params.json',
-                        'description': 'CycleGAN 正規化參數 (.json)',
-                        'extensions': ['.json'],
-                    },
-                    {
-                        'key': 'rf_metadata',
-                        'filename': 'model_metadata.json',
-                        'description': 'RF 模型元資料 (.json)',
-                        'extensions': ['.json'],
-                    }
-                ],
-            },
-        }
+        if _SCHEMA_AVAILABLE:
+            model_requirements = get_all_model_requirements()
+        else:
+            # 內建定義作為備用
+            model_requirements = {
+                'random': {
+                    'description': 'Random Classification',
+                    'required_files': [],
+                    'optional_files': [],
+                },
+                'rf_model': {
+                    'description': 'Random Forest Classifier',
+                    'required_files': [
+                        {
+                            'key': 'rf_model',
+                            'filename': 'mimii_fan_rf_classifier.pkl',
+                            'description': 'RF Model (.pkl)',
+                            'extensions': ['.pkl'],
+                        }
+                    ],
+                    'optional_files': [
+                        {
+                            'key': 'rf_metadata',
+                            'filename': 'model_metadata.json',
+                            'description': 'Model Metadata (.json)',
+                            'extensions': ['.json'],
+                        },
+                        {
+                            'key': 'rf_scaler',
+                            'filename': 'scaler.pkl',
+                            'description': 'Feature Scaler (.pkl)',
+                            'extensions': ['.pkl'],
+                        }
+                    ],
+                },
+                'cyclegan_rf': {
+                    'description': 'CycleGAN + Random Forest',
+                    'required_files': [
+                        {
+                            'key': 'cyclegan_checkpoint',
+                            'filename': 'last.ckpt',
+                            'description': 'CycleGAN Checkpoint (.ckpt)',
+                            'extensions': ['.ckpt', '.pth'],
+                        },
+                        {
+                            'key': 'rf_model',
+                            'filename': 'mimii_fan_rf_classifier.pkl',
+                            'description': 'RF Model (.pkl)',
+                            'extensions': ['.pkl'],
+                        }
+                    ],
+                    'optional_files': [
+                        {
+                            'key': 'cyclegan_normalization',
+                            'filename': 'normalization_params.json',
+                            'description': 'CycleGAN Normalization (.json)',
+                            'extensions': ['.json'],
+                        },
+                        {
+                            'key': 'rf_metadata',
+                            'filename': 'model_metadata.json',
+                            'description': 'Model Metadata (.json)',
+                            'extensions': ['.json'],
+                        }
+                    ],
+                },
+            }
 
         return jsonify({
             'success': True,
@@ -463,8 +690,14 @@ def update_classification_method(config_id):
 
         method = data.get('method') or data.get('classification_method', 'random')
 
-        # 驗證方法是否有效
-        valid_methods = ['random', 'rf_model', 'cyclegan_rf']
+        # 驗證方法是否有效（從 Schema 取得有效方法列表）
+        if _SCHEMA_AVAILABLE:
+            valid_methods = [m['key'] for m in CLASSIFICATION_METHODS]
+            method_info = get_method_by_key(method)
+        else:
+            valid_methods = ['random', 'rf_model', 'cyclegan_rf']
+            method_info = None
+
         if method not in valid_methods:
             return jsonify({
                 'success': False,
@@ -495,31 +728,40 @@ def update_classification_method(config_id):
             }), 500
 
         # 取得模型需求
-        model_requirements = {
-            'random': {'required_files': [], 'optional_files': []},
-            'rf_model': {
-                'required_files': [{'key': 'rf_model', 'description': 'RF 分類模型 (.pkl)'}],
-                'optional_files': [{'key': 'rf_metadata', 'description': '模型元資料 (.json)'}]
-            },
-            'cyclegan_rf': {
-                'required_files': [
-                    {'key': 'cyclegan_checkpoint', 'description': 'CycleGAN 檢查點 (.ckpt)'},
-                    {'key': 'rf_model', 'description': 'RF 分類模型 (.pkl)'}
-                ],
-                'optional_files': [
-                    {'key': 'cyclegan_normalization', 'description': 'CycleGAN 正規化參數 (.json)'}
-                ]
+        if _SCHEMA_AVAILABLE:
+            from config_schema import get_model_requirements as get_method_model_requirements
+            model_req = get_method_model_requirements(method)
+            required_files = model_req.get('required_files', [])
+            optional_files = model_req.get('optional_files', [])
+        else:
+            model_requirements = {
+                'random': {'required_files': [], 'optional_files': []},
+                'rf_model': {
+                    'required_files': [{'key': 'rf_model', 'description': 'RF Model (.pkl)'}],
+                    'optional_files': [{'key': 'rf_metadata', 'description': 'Model Metadata (.json)'}]
+                },
+                'cyclegan_rf': {
+                    'required_files': [
+                        {'key': 'cyclegan_checkpoint', 'description': 'CycleGAN Checkpoint (.ckpt)'},
+                        {'key': 'rf_model', 'description': 'RF Model (.pkl)'}
+                    ],
+                    'optional_files': [
+                        {'key': 'cyclegan_normalization', 'description': 'CycleGAN Normalization (.json)'}
+                    ]
+                }
             }
-        }
+            required_files = model_requirements[method].get('required_files', [])
+            optional_files = model_requirements[method].get('optional_files', [])
 
         return jsonify({
             'success': True,
             'data': {
                 'classification_method': method,
-                'required_files': model_requirements[method].get('required_files', []),
-                'optional_files': model_requirements[method].get('optional_files', []),
+                'method_version': method_info.get('version', '1.0.0') if method_info else '1.0.0',
+                'required_files': required_files,
+                'optional_files': optional_files,
             },
-            'message': f'分類方法已更新為: {method}'
+            'message': f'Classification method updated to: {method}'
         }), 200
 
     except Exception as e:

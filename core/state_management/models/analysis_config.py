@@ -67,8 +67,17 @@ class AnalysisConfig:
             'is_system': self.is_system
         }
 
-    def update(self, allow_system: bool = False, **update_data) -> bool:
-        """實例方法包裝靜態更新"""
+    def update_fields(self, allow_system: bool = False, **update_data) -> bool:
+        """
+        實例方法：更新配置欄位
+
+        Args:
+            allow_system: 是否允許更新系統配置
+            **update_data: 要更新的欄位（如 config_name, description, parameters, enabled）
+
+        Returns:
+            是否更新成功
+        """
         if not update_data:
             return True
         return AnalysisConfig.update(

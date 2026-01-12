@@ -67,30 +67,8 @@ def main():
         except Exception as e:
             warn(f"NMS CUDA test warning/failed (可能是 CPU fallback 或未編入 CUDA): {e}")
 
-    # ---------- torchaudio tests ----------
-    header("torchaudio tests")
-    try:
-        import torchaudio
-        print("torchaudio:", torchaudio.__version__)
-    except Exception as e:
-        fail(f"import torchaudio failed: {e}")
-        torchaudio = None
-
-    if torchaudio is not None and torch.cuda.is_available():
-        try:
-            # MelSpectrogram 轉到 CUDA；輸入張量也在 CUDA，上游會走 torch.stft CUDA 路徑
-            mel = torchaudio.transforms.MelSpectrogram(
-                sample_rate=16000, n_fft=1024, hop_length=256, n_mels=64
-            ).to("cuda")
-            wav = torch.randn(1, 16000, device="cuda")
-            spec = mel(wav)
-            assert spec.is_cuda
-            ok("torchaudio MelSpectrogram on CUDA OK")
-        except Exception as e:
-            warn(f"torchaudio CUDA pipeline 警告/失敗（有些版本會在 CPU 跑）: {e}")
-
     header("Summary")
-    print("完成。若上面三大區塊皆為 ✅，代表 torch/vision/audio 都能在 GPU 正常運作。")
+    print("完成。若上面各區塊皆為 ✅，代表 torch/vision 都能在 GPU 正常運作。")
 
 if __name__ == "__main__":
     main()

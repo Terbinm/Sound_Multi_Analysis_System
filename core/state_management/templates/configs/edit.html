@@ -1,40 +1,46 @@
 {% extends "base.html" %}
 
-{% block title %}{% if mode == 'create' %}建立設定{% else %}編輯設定{% endif %}{% endblock %}
-{% block page_title %}{% if mode == 'create' %}建立分析設定{% else %}編輯分析設定{% endif %}{% endblock %}
+{% block title %}{% if mode == 'create' %}建立配置{% else %}編輯配置{% endif %}{% endblock %}
+{% block page_title %}{% if mode == 'create' %}建立分析配置{% else %}編輯分析配置{% endif %}{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl space-y-4">
+    <!-- Info Banner -->
     <div class="rounded-lg border border-indigo-100 bg-indigo-50/80 p-4 text-sm text-indigo-900">
-        <p class="font-semibold">填寫建議</p>
+        <p class="font-semibold">配置說明</p>
         <ul class="mt-2 list-disc space-y-1 pl-5">
-            <li><span class="font-semibold">分析方法 ID</span> 為必填且不可重複，應與分析節點的 routing key（如 <code class="bg-white/70 px-1.5 py-0.5 rounded">analysis.fan_autoencoder_v2.*</code>）對應。</li>
-            <li><span class="font-semibold">分類方法</span> 決定使用何種模型進行分類，選擇非「隨機分類」的方法時需上傳對應模型檔案。</li>
-            <li><span class="font-semibold">參數設定</span> 接受任何 JSON 結構，可放置模型路徑、特徵設定與後處理閾值；儲存前請先驗證格式。</li>
-            <li>若此設定受路由規則引用，請確保 <span class="font-semibold">啟用狀態</span> 與規則條件一致，以免調度器略過任務。</li>
+            <li><span class="font-semibold">分析方法 ID</span> 為必填，且必須與分析節點的路由金鑰相符。</li>
+            <li><span class="font-semibold">分類方法</span> 決定使用哪個模型。非隨機方法需要模型檔案。</li>
+            <li><span class="font-semibold">參數</span> 會根據所選方法自動產生。</li>
         </ul>
-        <p class="mt-2 text-xs text-indigo-700">更多範例：<code>docs/設定規則說明.html</code>（分析設定章節）。</p>
+        <p class="mt-2 text-xs text-indigo-700">
+            Schema 版本: <span id="schema-version" class="font-mono">載入中...</span>
+            | 雜湊值: <span id="schema-hash" class="font-mono">載入中...</span>
+        </p>
     </div>
+
     <form method="POST" class="space-y-6" id="config-form">
         {{ form.hidden_tag() }}
 
+        <!-- Basic Info Section -->
         <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
             <div class="px-4 py-6 sm:p-8">
+                <h3 class="text-base font-semibold leading-7 text-gray-900 mb-6">基本資訊</h3>
                 <div class="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
-                    <!-- 分析方法 ID -->
+                    <!-- Analysis Method ID -->
                     <div class="sm:col-span-4">
                         <label for="analysis_method_id" class="block text-sm font-medium leading-6 text-gray-900">
                             分析方法 ID <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-2">
-                            {{ form.analysis_method_id(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6", disabled=(mode == 'edit'), readonly=(mode == 'edit'), list="capability-options") }}
+                            {{ form.analysis_method_id(class="block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" ~ (" bg-gray-100 text-gray-500 cursor-not-allowed" if mode == 'edit' else " text-gray-900"), readonly=(mode == 'edit'), list="capability-options") }}
                             {% if capability_options %}
                             <datalist id="capability-options">
                                 {% for cap in capability_options %}
                                 <option value="{{ cap }}">{{ cap }}</option>
                                 {% endfor %}
                             </datalist>
-                            <p class="mt-1 text-xs text-gray-500">可用能力：{{ capability_options|join(', ') }}</p>
+                            <p class="mt-1 text-xs text-gray-500">可用功能: {{ capability_options|join(', ') }}</p>
                             {% endif %}
                             {% if form.analysis_method_id.errors %}
                                 <p class="mt-2 text-sm text-red-600">{{ form.analysis_method_id.errors[0] }}</p>
@@ -42,10 +48,10 @@
                         </div>
                     </div>
 
-                    <!-- 設定名稱 -->
+                    <!-- Config Name -->
                     <div class="sm:col-span-4">
                         <label for="config_name" class="block text-sm font-medium leading-6 text-gray-900">
-                            設定名稱 <span class="text-red-500">*</span>
+                            配置名稱 <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-2">
                             {{ form.config_name(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6") }}
@@ -55,39 +61,22 @@
                         </div>
                     </div>
 
-                    <!-- 描述 -->
+                    <!-- Description -->
                     <div class="col-span-full">
                         <label for="description" class="block text-sm font-medium leading-6 text-gray-900">
-                            描述
+                            說明
                         </label>
                         <div class="mt-2">
-                            {{ form.description(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6", rows=3) }}
-                            {% if form.description.errors %}
-                                <p class="mt-2 text-sm text-red-600">{{ form.description.errors[0] }}</p>
-                            {% endif %}
+                            {{ form.description(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6", rows=2) }}
                         </div>
                     </div>
 
-                    <!-- 參數 JSON -->
-                    <div class="col-span-full">
-                        <label for="parameters" class="block text-sm font-medium leading-6 text-gray-900">
-                            參數設定（JSON 格式）
-                        </label>
-                        <div class="mt-2">
-                            {{ form.parameters(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 font-mono") }}
-                            {% if form.parameters.errors %}
-                                <p class="mt-2 text-sm text-red-600">{{ form.parameters.errors[0] }}</p>
-                            {% endif %}
-                            <p class="mt-2 text-sm text-gray-500">請輸入有效的 JSON 格式資料</p>
-                        </div>
-                    </div>
-
-                    <!-- 啟用狀態 -->
+                    <!-- Enabled -->
                     <div class="sm:col-span-4">
                         <div class="flex items-center">
                             {{ form.enabled(class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600") }}
                             <label for="enabled" class="ml-2 block text-sm text-gray-900">
-                                啟用此設定
+                                啟用此配置
                             </label>
                         </div>
                     </div>
@@ -95,14 +84,14 @@
             </div>
         </div>
 
-        <!-- 分類方法與模型檔案區塊 -->
+        <!-- Classification Method Section -->
         <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
             <div class="px-4 py-6 sm:p-8">
-                <h3 class="text-base font-semibold leading-7 text-gray-900">分類方法與模型設定</h3>
-                <p class="mt-1 text-sm leading-6 text-gray-600">選擇分類方法後，請上傳對應的模型檔案。</p>
+                <h3 class="text-base font-semibold leading-7 text-gray-900">分類方法</h3>
+                <p class="mt-1 text-sm leading-6 text-gray-600">選擇分類方法並配置其參數。</p>
 
                 <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
-                    <!-- 分類方法選擇 -->
+                    <!-- Classification Method Select -->
                     <div class="sm:col-span-4">
                         <label for="classification_method" class="block text-sm font-medium leading-6 text-gray-900">
                             分類方法
@@ -110,24 +99,32 @@
                         <div class="mt-2">
                             <select id="classification_method" name="classification_method"
                                 class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                                {% for method_key, method_info in model_requirements.items() %}
-                                <option value="{{ method_key }}"
-                                    {% if config and config.model_files and config.model_files.get('classification_method') == method_key %}selected{% endif %}
-                                    {% if not config and method_key == 'random' %}selected{% endif %}>
-                                    {{ method_info.description }}
-                                </option>
-                                {% endfor %}
+                                <!-- Options will be populated by JavaScript -->
                             </select>
+                            <p id="method-description" class="mt-1 text-xs text-gray-500"></p>
+                            <p id="method-version" class="mt-1 text-xs text-gray-400"></p>
                         </div>
                     </div>
 
-                    <!-- 模型檔案上傳區塊 -->
+                    <!-- Method-specific Parameters -->
+                    <div class="col-span-full" id="method-params-section">
+                        <div class="border-l-4 border-indigo-400 bg-indigo-50 p-4">
+                            <h4 class="text-sm font-medium text-indigo-800 mb-3">
+                                <i class="fas fa-sliders-h mr-1"></i> 方法參數
+                            </h4>
+                            <div id="method-params-container" class="space-y-4">
+                                <!-- Dynamically generated method-specific parameters -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Model Files Upload -->
                     <div class="col-span-full" id="model-files-section">
                         <div id="model-files-container" class="space-y-4">
-                            <!-- 動態產生的模型檔案上傳區塊 -->
+                            <!-- Dynamically generated model file upload sections -->
                         </div>
 
-                        <!-- 驗證狀態提示 -->
+                        <!-- Validation Status -->
                         <div id="validation-status" class="mt-4 hidden">
                             <div class="rounded-md bg-yellow-50 p-4">
                                 <div class="flex">
@@ -135,9 +132,9 @@
                                         <i class="fas fa-exclamation-triangle text-yellow-400"></i>
                                     </div>
                                     <div class="ml-3">
-                                        <h3 class="text-sm font-medium text-yellow-800">缺少必要模型檔案</h3>
+                                        <h3 class="text-sm font-medium text-yellow-800">缺少必要的模型檔案</h3>
                                         <div class="mt-2 text-sm text-yellow-700">
-                                            <p id="validation-message">請上傳所有必要的模型檔案後才能儲存設定。</p>
+                                            <p id="validation-message">請在儲存前上傳所有必要的模型檔案。</p>
                                         </div>
                                     </div>
                                 </div>
@@ -148,7 +145,22 @@
             </div>
         </div>
 
-        <!-- 操作按鈕 -->
+        <!-- Parameter Groups Section -->
+        <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
+            <div class="px-4 py-6 sm:p-8">
+                <h3 class="text-base font-semibold leading-7 text-gray-900">分析參數</h3>
+                <p class="mt-1 text-sm leading-6 text-gray-600">配置每個分析步驟的處理參數。</p>
+
+                <div id="parameter-groups-container" class="mt-6 space-y-6">
+                    <!-- Dynamically generated parameter groups -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden field for parameters JSON -->
+        <input type="hidden" id="parameters" name="parameters" value="{{ form.parameters.data or '{}' }}">
+
+        <!-- Submit Buttons -->
         <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
             <div class="flex items-center justify-end gap-x-6 border-t border-gray-900/10 px-4 py-4 sm:px-8">
                 <a href="{{ url_for('views.configs_list') }}" class="text-sm font-semibold leading-6 text-gray-900">
@@ -163,49 +175,327 @@
 </div>
 
 <script>
-// 模型需求資料
-const MODEL_REQUIREMENTS = {{ model_requirements|tojson|safe }};
-
-// 目前已上傳的檔案狀態
+// ==================== Global State ====================
+let SCHEMA = null;
 let uploadedFiles = {};
+let currentParameters = {};
 
 {% if config and config.model_files and config.model_files.files %}
 uploadedFiles = {{ config.model_files.files|tojson|safe }};
 {% endif %}
 
-// 目前設定 ID（編輯模式）
+{% if config and config.parameters %}
+currentParameters = {{ config.parameters|tojson|safe }};
+{% endif %}
+
 const configId = {% if config %}'{{ config.config_id }}'{% else %}null{% endif %};
 const isEditMode = {% if mode == 'edit' %}true{% else %}false{% endif %};
+const currentMethod = {% if config and config.model_files %}'{{ config.model_files.classification_method or "random" }}'{% else %}'random'{% endif %};
 
-// 初始化
-document.addEventListener('DOMContentLoaded', function() {
-    const methodSelect = document.getElementById('classification_method');
-
-    // 監聽分類方法變更
-    methodSelect.addEventListener('change', function() {
-        updateModelFilesUI(this.value);
-        validateForm();
-    });
-
-    // 初始化顯示
-    updateModelFilesUI(methodSelect.value);
-    validateForm();
+// ==================== Initialization ====================
+document.addEventListener('DOMContentLoaded', async function() {
+    await loadSchema();
+    initializeForm();
 });
 
-// 更新模型檔案 UI
-function updateModelFilesUI(method) {
-    const container = document.getElementById('model-files-container');
-    const requirements = MODEL_REQUIREMENTS[method];
+async function loadSchema() {
+    try {
+        const response = await fetch('/api/configs/schema');
+        const result = await response.json();
 
-    if (!requirements) {
-        container.innerHTML = '';
+        if (result.success) {
+            SCHEMA = result.data;
+            document.getElementById('schema-version').textContent = SCHEMA.schema_version;
+            document.getElementById('schema-hash').textContent = SCHEMA.schema_hash;
+        } else {
+            console.error('Failed to load schema:', result.error);
+            alert('載入配置 Schema 失敗');
+        }
+    } catch (error) {
+        console.error('Error loading schema:', error);
+        alert('載入配置 Schema 時發生錯誤');
+    }
+}
+
+function initializeForm() {
+    if (!SCHEMA) return;
+
+    // Populate classification methods
+    populateClassificationMethods();
+
+    // Render parameter groups
+    renderParameterGroups();
+
+    // Setup event listeners
+    document.getElementById('classification_method').addEventListener('change', function() {
+        onMethodChange(this.value);
+    });
+
+    // Trigger initial render
+    onMethodChange(currentMethod);
+}
+
+// ==================== Classification Methods ====================
+function populateClassificationMethods() {
+    const select = document.getElementById('classification_method');
+    select.innerHTML = '';
+
+    for (const method of SCHEMA.classification_methods) {
+        const option = document.createElement('option');
+        option.value = method.key;
+        option.textContent = method.label;
+        if (method.key === currentMethod) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    }
+}
+
+function onMethodChange(methodKey) {
+    const method = SCHEMA.classification_methods.find(m => m.key === methodKey);
+    if (!method) return;
+
+    // Update description
+    document.getElementById('method-description').textContent = method.description;
+    document.getElementById('method-version').textContent = `版本: ${method.version}`;
+
+    // Render method-specific parameters
+    renderMethodParams(method);
+
+    // Render model files section
+    renderModelFiles(method);
+
+    // Validate form
+    validateForm();
+}
+
+function renderMethodParams(method) {
+    const container = document.getElementById('method-params-container');
+    const params = method.params || [];
+
+    if (params.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-500">此方法無額外參數。</p>';
         return;
     }
 
-    const requiredFiles = requirements.required_files || [];
-    const optionalFiles = requirements.optional_files || [];
+    let html = '<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">';
 
-    if (requiredFiles.length === 0 && optionalFiles.length === 0) {
+    for (const param of params) {
+        const currentValue = getParameterValue('method', param.name, param.default);
+        html += renderField(param, currentValue, 'method');
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+
+    // Bind events
+    bindFieldEvents(container);
+}
+
+// ==================== Parameter Groups ====================
+function renderParameterGroups() {
+    const container = document.getElementById('parameter-groups-container');
+    let html = '';
+
+    for (const group of SCHEMA.parameter_groups) {
+        html += renderParameterGroup(group);
+    }
+
+    container.innerHTML = html;
+
+    // Bind collapsible events
+    container.querySelectorAll('[data-collapse-toggle]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const targetId = this.getAttribute('data-collapse-toggle');
+            const target = document.getElementById(targetId);
+            const icon = this.querySelector('i');
+
+            if (target.classList.contains('hidden')) {
+                target.classList.remove('hidden');
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-down');
+            } else {
+                target.classList.add('hidden');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-right');
+            }
+        });
+    });
+
+    // Bind field events
+    bindFieldEvents(container);
+}
+
+function renderParameterGroup(group) {
+    const isCollapsed = group.collapsed !== false;
+    const collapseId = `group-${group.key}-content`;
+
+    let html = `
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <button type="button" data-collapse-toggle="${collapseId}"
+                class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 text-left">
+                <div>
+                    <span class="text-sm font-medium text-gray-900">${group.label}</span>
+                    <span class="ml-2 text-xs text-gray-500">${group.description || ''}</span>
+                </div>
+                <i class="fas ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'} text-gray-400"></i>
+            </button>
+            <div id="${collapseId}" class="${isCollapsed ? 'hidden' : ''} p-4 border-t border-gray-200">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    `;
+
+    for (const field of group.fields) {
+        const currentValue = getParameterValue(group.key, field.name, field.default);
+        html += renderField(field, currentValue, group.key);
+    }
+
+    html += `
+                </div>
+            </div>
+        </div>
+    `;
+
+    return html;
+}
+
+// ==================== Field Rendering ====================
+function renderField(field, value, groupKey) {
+    const fieldId = `param-${groupKey}-${field.name}`;
+    const fieldName = `${groupKey}.${field.name}`;
+
+    let inputHtml = '';
+
+    switch (field.type) {
+        case 'number':
+            inputHtml = `
+                <input type="number" id="${fieldId}" data-group="${groupKey}" data-field="${field.name}"
+                    value="${value !== null && value !== undefined ? value : ''}"
+                    ${field.min !== undefined ? `min="${field.min}"` : ''}
+                    ${field.max !== undefined ? `max="${field.max}"` : ''}
+                    ${field.step !== undefined ? `step="${field.step}"` : ''}
+                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+            `;
+            break;
+
+        case 'select':
+            inputHtml = `<select id="${fieldId}" data-group="${groupKey}" data-field="${field.name}"
+                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">`;
+            for (const opt of field.options) {
+                const optValue = typeof opt.value === 'object' ? JSON.stringify(opt.value) : opt.value;
+                const currentVal = typeof value === 'object' ? JSON.stringify(value) : value;
+                const selected = optValue == currentVal ? 'selected' : '';
+                inputHtml += `<option value='${optValue}' ${selected}>${opt.label}</option>`;
+            }
+            inputHtml += '</select>';
+            break;
+
+        case 'boolean':
+            inputHtml = `
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="${fieldId}" data-group="${groupKey}" data-field="${field.name}"
+                        ${value ? 'checked' : ''}
+                        class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    <span class="ms-3 text-sm font-medium text-gray-700">${value ? '已啟用' : '已停用'}</span>
+                </label>
+            `;
+            break;
+
+        case 'tags':
+            const tagsValue = Array.isArray(value) ? value.join(', ') : (value || '');
+            inputHtml = `
+                <input type="text" id="${fieldId}" data-group="${groupKey}" data-field="${field.name}" data-type="tags"
+                    value="${tagsValue}"
+                    placeholder="請輸入以逗號分隔的值"
+                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+            `;
+            if (field.suggestions) {
+                inputHtml += `<p class="mt-1 text-xs text-gray-400">建議: ${field.suggestions.join(', ')}</p>`;
+            }
+            break;
+
+        default:
+            inputHtml = `
+                <input type="text" id="${fieldId}" data-group="${groupKey}" data-field="${field.name}"
+                    value="${value !== null && value !== undefined ? value : ''}"
+                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+            `;
+    }
+
+    return `
+        <div class="space-y-1">
+            <label for="${fieldId}" class="block text-sm font-medium text-gray-700">
+                ${field.label}
+            </label>
+            ${inputHtml}
+            ${field.description ? `<p class="text-xs text-gray-500">${field.description}</p>` : ''}
+        </div>
+    `;
+}
+
+function bindFieldEvents(container) {
+    container.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener('change', function() {
+            updateParameterValue(this);
+        });
+    });
+}
+
+// ==================== Parameter Value Management ====================
+function getParameterValue(groupKey, fieldName, defaultValue) {
+    if (groupKey === 'method') {
+        // Method-specific params stored in classification group
+        const classificationParams = currentParameters.classification || {};
+        return classificationParams[fieldName] !== undefined ? classificationParams[fieldName] : defaultValue;
+    }
+
+    const groupParams = currentParameters[groupKey] || {};
+    return groupParams[fieldName] !== undefined ? groupParams[fieldName] : defaultValue;
+}
+
+function updateParameterValue(element) {
+    const groupKey = element.dataset.group;
+    const fieldName = element.dataset.field;
+    const fieldType = element.dataset.type;
+
+    let value;
+
+    if (element.type === 'checkbox') {
+        value = element.checked;
+        // Update toggle label
+        const label = element.parentElement.querySelector('span');
+        if (label) label.textContent = value ? '已啟用' : '已停用';
+    } else if (element.type === 'number') {
+        value = element.value === '' ? null : parseFloat(element.value);
+    } else if (fieldType === 'tags') {
+        value = element.value.split(',').map(s => s.trim()).filter(s => s);
+    } else {
+        // Try to parse JSON for select values that might be arrays/objects
+        try {
+            value = JSON.parse(element.value);
+        } catch {
+            value = element.value;
+        }
+    }
+
+    // Store value
+    const targetGroup = groupKey === 'method' ? 'classification' : groupKey;
+    if (!currentParameters[targetGroup]) {
+        currentParameters[targetGroup] = {};
+    }
+    currentParameters[targetGroup][fieldName] = value;
+
+    // Update hidden field
+    document.getElementById('parameters').value = JSON.stringify(currentParameters);
+}
+
+// ==================== Model Files ====================
+function renderModelFiles(method) {
+    const container = document.getElementById('model-files-container');
+    const requiredModels = method.required_models || [];
+    const optionalModels = method.optional_models || [];
+
+    if (requiredModels.length === 0 && optionalModels.length === 0) {
         container.innerHTML = `
             <div class="rounded-md bg-green-50 p-4">
                 <div class="flex">
@@ -213,7 +503,7 @@ function updateModelFilesUI(method) {
                         <i class="fas fa-check-circle text-green-400"></i>
                     </div>
                     <div class="ml-3">
-                        <p class="text-sm font-medium text-green-800">此分類方法不需要模型檔案</p>
+                        <p class="text-sm font-medium text-green-800">此方法不需要模型檔案</p>
                     </div>
                 </div>
             </div>
@@ -223,8 +513,8 @@ function updateModelFilesUI(method) {
 
     let html = '';
 
-    // 必要檔案區塊
-    if (requiredFiles.length > 0) {
+    // Required files
+    if (requiredModels.length > 0) {
         html += `
             <div class="border-l-4 border-red-400 bg-red-50 p-4">
                 <h4 class="text-sm font-medium text-red-800 mb-3">
@@ -232,19 +522,17 @@ function updateModelFilesUI(method) {
                 </h4>
                 <div class="space-y-3">
         `;
-
-        for (const file of requiredFiles) {
-            html += createFileUploadRow(file, true);
+        for (const modelKey of requiredModels) {
+            const modelDef = SCHEMA.model_files[modelKey];
+            if (modelDef) {
+                html += createFileUploadRow(modelDef, true);
+            }
         }
-
-        html += `
-                </div>
-            </div>
-        `;
+        html += '</div></div>';
     }
 
-    // 選用檔案區塊
-    if (optionalFiles.length > 0) {
+    // Optional files
+    if (optionalModels.length > 0) {
         html += `
             <div class="border-l-4 border-gray-300 bg-gray-50 p-4">
                 <h4 class="text-sm font-medium text-gray-700 mb-3">
@@ -252,24 +540,19 @@ function updateModelFilesUI(method) {
                 </h4>
                 <div class="space-y-3">
         `;
-
-        for (const file of optionalFiles) {
-            html += createFileUploadRow(file, false);
+        for (const modelKey of optionalModels) {
+            const modelDef = SCHEMA.model_files[modelKey];
+            if (modelDef) {
+                html += createFileUploadRow(modelDef, false);
+            }
         }
-
-        html += `
-                </div>
-            </div>
-        `;
+        html += '</div></div>';
     }
 
     container.innerHTML = html;
-
-    // 綁定上傳事件
     bindUploadEvents();
 }
 
-// 建立檔案上傳列
 function createFileUploadRow(fileInfo, isRequired) {
     const fileKey = fileInfo.key;
     const uploaded = uploadedFiles[fileKey];
@@ -308,10 +591,10 @@ function createFileUploadRow(fileInfo, isRequired) {
         <div class="flex items-center justify-between py-2 border-b border-gray-200 last:border-0" id="row-${fileKey}">
             <div class="flex-1">
                 <p class="text-sm font-medium text-gray-900">
-                    ${fileInfo.description}
+                    ${fileInfo.label || fileInfo.description}
                     ${isRequired ? '<span class="text-red-500">*</span>' : ''}
                 </p>
-                <p class="text-xs text-gray-500">預設檔名: ${fileInfo.filename} (${extensions})</p>
+                <p class="text-xs text-gray-500">預設: ${fileInfo.filename} (${extensions})</p>
             </div>
             <div class="flex items-center space-x-4">
                 <div id="status-${fileKey}">${statusHtml}</div>
@@ -321,7 +604,6 @@ function createFileUploadRow(fileInfo, isRequired) {
     `;
 }
 
-// 綁定上傳事件
 function bindUploadEvents() {
     document.querySelectorAll('input[type="file"][data-file-key]').forEach(input => {
         input.addEventListener('change', async function() {
@@ -334,17 +616,15 @@ function bindUploadEvents() {
     });
 }
 
-// 上傳模型檔案
 async function uploadModelFile(fileKey, file) {
     if (!configId) {
-        alert('請先儲存設定後再上傳模型檔案');
+        alert('請先儲存配置後再上傳模型檔案');
         return;
     }
 
     const statusEl = document.getElementById(`status-${fileKey}`);
     const actionEl = document.getElementById(`action-${fileKey}`);
 
-    // 顯示上傳中狀態
     statusEl.innerHTML = `
         <span class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
             <i class="fas fa-spinner fa-spin mr-1"></i> 上傳中...
@@ -364,8 +644,7 @@ async function uploadModelFile(fileKey, file) {
         const result = await response.json();
 
         if (result.success) {
-            // 更新已上傳狀態
-            uploadedFiles[fileKey] = result.file_info;
+            uploadedFiles[fileKey] = result.data;
 
             statusEl.innerHTML = `
                 <span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
@@ -381,12 +660,12 @@ async function uploadModelFile(fileKey, file) {
 
             validateForm();
         } else {
-            throw new Error(result.message || '上傳失敗');
+            throw new Error(result.error || '上傳失敗');
         }
     } catch (error) {
         statusEl.innerHTML = `
             <span class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                <i class="fas fa-times mr-1"></i> 上傳失敗
+                <i class="fas fa-times mr-1"></i> 失敗
             </span>
         `;
         actionEl.innerHTML = `
@@ -400,16 +679,11 @@ async function uploadModelFile(fileKey, file) {
     }
 }
 
-// 刪除模型檔案
 async function deleteModelFile(fileKey) {
     if (!configId) return;
-
     if (!confirm('確定要刪除此模型檔案嗎？')) return;
 
     const statusEl = document.getElementById(`status-${fileKey}`);
-    const actionEl = document.getElementById(`action-${fileKey}`);
-
-    // 顯示刪除中狀態
     statusEl.innerHTML = `
         <span class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
             <i class="fas fa-spinner fa-spin mr-1"></i> 刪除中...
@@ -425,61 +699,65 @@ async function deleteModelFile(fileKey) {
 
         if (result.success) {
             delete uploadedFiles[fileKey];
-
-            // 重新渲染該列
             const method = document.getElementById('classification_method').value;
-            updateModelFilesUI(method);
+            const methodDef = SCHEMA.classification_methods.find(m => m.key === method);
+            renderModelFiles(methodDef);
             validateForm();
         } else {
-            throw new Error(result.message || '刪除失敗');
+            throw new Error(result.error || '刪除失敗');
         }
     } catch (error) {
         alert('刪除失敗: ' + error.message);
         const method = document.getElementById('classification_method').value;
-        updateModelFilesUI(method);
+        const methodDef = SCHEMA.classification_methods.find(m => m.key === method);
+        renderModelFiles(methodDef);
     }
 }
 
-// 驗證表單
+// ==================== Form Validation ====================
 function validateForm() {
     const method = document.getElementById('classification_method').value;
-    const requirements = MODEL_REQUIREMENTS[method];
+    const methodDef = SCHEMA.classification_methods.find(m => m.key === method);
     const submitBtn = document.getElementById('submit-btn');
     const validationStatus = document.getElementById('validation-status');
     const validationMessage = document.getElementById('validation-message');
 
-    if (!requirements) {
+    if (!methodDef) {
         submitBtn.disabled = false;
         validationStatus.classList.add('hidden');
         return;
     }
 
-    const requiredFiles = requirements.required_files || [];
+    const requiredModels = methodDef.required_models || [];
 
-    // 檢查所有必要檔案是否已上傳
+    // Check all required files are uploaded
     const missingFiles = [];
-    for (const file of requiredFiles) {
-        const uploaded = uploadedFiles[file.key];
+    for (const modelKey of requiredModels) {
+        const uploaded = uploadedFiles[modelKey];
         if (!uploaded || !uploaded.file_id) {
-            missingFiles.push(file.description);
+            const modelDef = SCHEMA.model_files[modelKey];
+            missingFiles.push(modelDef ? modelDef.label : modelKey);
         }
     }
 
     if (missingFiles.length > 0 && isEditMode) {
         submitBtn.disabled = true;
         validationStatus.classList.remove('hidden');
-        validationMessage.textContent = `缺少以下必要檔案：${missingFiles.join('、')}`;
+        validationMessage.textContent = `缺少必要檔案: ${missingFiles.join(', ')}`;
     } else {
         submitBtn.disabled = false;
         validationStatus.classList.add('hidden');
     }
 }
 
-// 表單提交前更新分類方法
+// ==================== Form Submission ====================
 document.getElementById('config-form').addEventListener('submit', async function(e) {
     const method = document.getElementById('classification_method').value;
 
-    // 如果是編輯模式，先更新分類方法
+    // Ensure parameters are updated
+    document.getElementById('parameters').value = JSON.stringify(currentParameters);
+
+    // If edit mode, update classification method first
     if (isEditMode && configId) {
         e.preventDefault();
 
@@ -495,10 +773,9 @@ document.getElementById('config-form').addEventListener('submit', async function
             const result = await response.json();
 
             if (result.success) {
-                // 繼續提交表單
                 this.submit();
             } else {
-                alert('更新分類方法失敗: ' + (result.message || '未知錯誤'));
+                alert('更新分類方法失敗: ' + (result.error || '未知錯誤'));
             }
         } catch (error) {
             alert('更新分類方法失敗: ' + error.message);

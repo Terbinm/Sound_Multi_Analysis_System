@@ -87,70 +87,12 @@ CLASSIFICATION_CONFIG = {
 }
 
 # ==================== 模型需求定義 ====================
-# 定義每個分類方法需要的模型檔案
-MODEL_REQUIREMENTS = {
-    'random': {
-        'description': '隨機分類（不需要模型）',
-        'required_files': [],
-        'optional_files': [],
-    },
-    'rf_model': {
-        'description': 'Random Forest 分類器',
-        'required_files': [
-            {
-                'key': 'rf_model',
-                'filename': 'mimii_fan_rf_classifier.pkl',
-                'description': 'RF 分類模型 (.pkl)',
-                'extensions': ['.pkl'],
-            }
-        ],
-        'optional_files': [
-            {
-                'key': 'rf_metadata',
-                'filename': 'model_metadata.json',
-                'description': '模型元資料 (.json)',
-                'extensions': ['.json'],
-            },
-            {
-                'key': 'rf_scaler',
-                'filename': 'scaler.pkl',
-                'description': '特徵標準化器 (.pkl)',
-                'extensions': ['.pkl'],
-            }
-        ],
-    },
-    'cyclegan_rf': {
-        'description': 'CycleGAN + Random Forest 組合',
-        'required_files': [
-            {
-                'key': 'cyclegan_checkpoint',
-                'filename': 'last.ckpt',
-                'description': 'CycleGAN 檢查點 (.ckpt)',
-                'extensions': ['.ckpt', '.pth'],
-            },
-            {
-                'key': 'rf_model',
-                'filename': 'mimii_fan_rf_classifier.pkl',
-                'description': 'RF 分類模型 (.pkl)',
-                'extensions': ['.pkl'],
-            }
-        ],
-        'optional_files': [
-            {
-                'key': 'cyclegan_normalization',
-                'filename': 'normalization_params.json',
-                'description': 'CycleGAN 正規化參數 (.json)',
-                'extensions': ['.json'],
-            },
-            {
-                'key': 'rf_metadata',
-                'filename': 'model_metadata.json',
-                'description': 'RF 模型元資料 (.json)',
-                'extensions': ['.json'],
-            }
-        ],
-    },
-}
+# 模型需求現在統一由 config_schema.py 管理
+# 此處提供向後相容的匯入
+from config_schema import get_all_model_requirements, get_analysis_config_schema
+
+# 向後相容：MODEL_REQUIREMENTS 現在從 config_schema 動態生成
+MODEL_REQUIREMENTS = get_all_model_requirements()
 
 # ==================== 模型快取配置 ====================
 MODEL_CACHE_CONFIG = {

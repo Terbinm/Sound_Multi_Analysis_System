@@ -11,7 +11,6 @@ CycleGAN PyTorch Lightning Module
 """
 
 import torch
-import torchaudio
 import torch.nn as nn
 import pytorch_lightning as pl
 from typing import Dict, Tuple, Optional, Any
