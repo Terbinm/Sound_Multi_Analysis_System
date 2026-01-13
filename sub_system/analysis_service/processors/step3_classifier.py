@@ -111,6 +111,9 @@ class AudioClassifier:
                     self.config['model_path'] = str(local_paths['rf_model'].parent)
                 if 'rf_scaler' in local_paths:
                     self.config['scaler_path'] = str(local_paths['rf_scaler'])
+                if 'rf_metadata' in local_paths:
+                    self.config['metadata_path'] = str(local_paths['rf_metadata'])
+                    logger.info(f"設置 metadata_path: {self.config['metadata_path']}")
 
             logger.info(f"Applied model paths for method={classification_method}: {list(local_paths.keys())}")
 
@@ -261,11 +264,18 @@ class AudioClassifier:
                 self.model = pickle.load(f)
             logger.info(f"✓ 模型載入成功: {model_path}")
 
-            metadata_path = model_dir / 'model_metadata.json'
+            # 優先使用配置中指定的 metadata 路徑（用戶上傳的檔案）
+            config_metadata_path = self.config.get('metadata_path')
+            if config_metadata_path and Path(config_metadata_path).exists():
+                metadata_path = Path(config_metadata_path)
+            else:
+                # 備用：嘗試模型目錄下的 metadata 檔案
+                metadata_path = model_dir / 'model_metadata.json'
+
             if metadata_path.exists():
                 with open(metadata_path, 'r', encoding='utf-8') as f:
                     self.metadata = json.load(f)
-                logger.info(f"✓ 元資料載入成功")
+                logger.info(f"✓ 元資料載入成功: {metadata_path}")
                 logger.info(f"  - 訓練日期: {self.metadata.get('training_date', 'Unknown')}")
                 logger.info(f"  - 特徵聚合: {self.metadata.get('aggregation', 'Unknown')}")
             else:
@@ -340,22 +350,9 @@ class AudioClassifier:
                 logger.error("沒有有效的特徵向量")
                 return self._random_classify_all(features_data)
 
-            # 聚合特徵（根據訓練時的設定）
+            # 聚合方式（根據訓練時的設定）
             aggregation = self.metadata.get('aggregation', 'mean') if self.metadata else 'mean'
             feature_vectors = np.array(valid_features)
-            aggregated_feature = self._aggregate_features(feature_vectors, aggregation)
-
-            # 重塑為 (1, n_features)
-            aggregated_feature = aggregated_feature.reshape(1, -1)
-
-            # 標準化（如果有 scaler）
-            # if self.scaler is not None:
-            #     aggregated_feature = self.scaler.transform(aggregated_feature)
-
-            # 預測
-            model = getattr(self, 'model', None)
-            prediction_class = model.predict(aggregated_feature)[0]
-            prediction_proba = model.predict_proba(aggregated_feature)[0]
 
             # 解碼標籤
             label_decoder = (self.metadata or {}).get('label_decoder', {0: 'normal', 1: 'abnormal'})
@@ -366,33 +363,76 @@ class AudioClassifier:
                     for k, v in label_decoder.items()
                 }
 
-            predicted_label = label_decoder.get(int(prediction_class), 'unknown')
-            confidence = float(prediction_proba[int(prediction_class)])
-
-            # 為每個切片建立預測結果
+            model = getattr(self, 'model', None)
             predictions = []
-            for idx in range(len(features_data)):
-                if idx in valid_indices:
-                    prediction = {
-                        'segment_id': idx + 1,
-                        'prediction': predicted_label,
-                        'confidence': confidence,
-                        'proba_normal': float(prediction_proba[0]),
-                        'proba_abnormal': float(prediction_proba[1])
-                    }
-                else:
-                    prediction = {
-                        'segment_id': idx + 1,
-                        'prediction': 'unknown',
-                        'confidence': 0.0,
-                        'error': '特徵無效'
-                    }
-                predictions.append(prediction)
+
+            if aggregation == 'segments':
+                # segments 模式：每個 segment 單獨預測
+                all_classes = model.predict(feature_vectors)
+                all_probas = model.predict_proba(feature_vectors)
+
+                # 統計預測分布
+                normal_cnt = sum(1 for c in all_classes if c == 0)
+                abnormal_cnt = sum(1 for c in all_classes if c == 1)
+                logger.info(f"Segments 預測分布: normal={normal_cnt}, abnormal={abnormal_cnt}, total={len(all_classes)}")
+
+                valid_pointer = 0
+                for idx in range(len(features_data)):
+                    if idx in valid_indices:
+                        pred_class = int(all_classes[valid_pointer])
+                        pred_proba = all_probas[valid_pointer]
+                        predicted_label = label_decoder.get(pred_class, 'unknown')
+                        confidence = float(pred_proba[pred_class])
+
+                        prediction = {
+                            'segment_id': idx + 1,
+                            'prediction': predicted_label,
+                            'confidence': confidence,
+                            'proba_normal': float(pred_proba[0]),
+                            'proba_abnormal': float(pred_proba[1])
+                        }
+                        valid_pointer += 1
+                    else:
+                        prediction = {
+                            'segment_id': idx + 1,
+                            'prediction': 'unknown',
+                            'confidence': 0.0,
+                            'error': '特徵無效'
+                        }
+                    predictions.append(prediction)
+            else:
+                # 其他聚合模式：先聚合再預測
+                aggregated_feature = self._aggregate_features(feature_vectors, aggregation)
+                aggregated_feature = aggregated_feature.reshape(1, -1)
+
+                prediction_class = model.predict(aggregated_feature)[0]
+                prediction_proba = model.predict_proba(aggregated_feature)[0]
+
+                predicted_label = label_decoder.get(int(prediction_class), 'unknown')
+                confidence = float(prediction_proba[int(prediction_class)])
+
+                for idx in range(len(features_data)):
+                    if idx in valid_indices:
+                        prediction = {
+                            'segment_id': idx + 1,
+                            'prediction': predicted_label,
+                            'confidence': confidence,
+                            'proba_normal': float(prediction_proba[0]),
+                            'proba_abnormal': float(prediction_proba[1])
+                        }
+                    else:
+                        prediction = {
+                            'segment_id': idx + 1,
+                            'prediction': 'unknown',
+                            'confidence': 0.0,
+                            'error': '特徵無效'
+                        }
+                    predictions.append(prediction)
 
             # 統計結果
             summary = self._calculate_summary(predictions)
 
-            # pprocessor_metadata（統一格式）
+            # processor_metadata（統一格式）
             processor_metadata = {
                 'method': 'rf_model',
                 'model_type': 'RandomForest',
@@ -413,7 +453,7 @@ class AudioClassifier:
                 'processor_metadata': processor_metadata
             }
 
-            logger.info(f"分類完成: {summary['final_prediction']} (信心度: {confidence:.3f})")
+            logger.info(f"分類完成: {summary['final_prediction']} (信心度: {summary['average_confidence']:.3f})")
 
             return result
 

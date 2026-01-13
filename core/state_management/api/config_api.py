@@ -826,7 +826,7 @@ def _get_fallback_schema():
                 'description': 'Classification using Random Forest model',
                 'version': '1.0.0',
                 'required_models': ['rf_model'],
-                'optional_models': ['rf_metadata', 'rf_scaler'],
+                'optional_models': ['rf_metadata'],
                 'params': [
                     {
                         'name': 'threshold',
@@ -873,13 +873,6 @@ def _get_fallback_schema():
                 'filename': 'model_metadata.json',
                 'description': 'Model metadata JSON',
                 'extensions': ['.json'],
-            },
-            'rf_scaler': {
-                'key': 'rf_scaler',
-                'label': 'Feature Scaler',
-                'filename': 'scaler.pkl',
-                'description': 'StandardScaler for features',
-                'extensions': ['.pkl'],
             },
             'cyclegan_checkpoint': {
                 'key': 'cyclegan_checkpoint',
@@ -948,12 +941,6 @@ def get_model_requirements():
                             'filename': 'model_metadata.json',
                             'description': 'Model Metadata (.json)',
                             'extensions': ['.json'],
-                        },
-                        {
-                            'key': 'rf_scaler',
-                            'filename': 'scaler.pkl',
-                            'description': 'Feature Scaler (.pkl)',
-                            'extensions': ['.pkl'],
                         }
                     ],
                 },

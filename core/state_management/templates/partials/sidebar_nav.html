@@ -38,18 +38,6 @@
                         {% endif %}
                     </a>
                 </li>
-
-                <!-- MongoDB 實例 -->
-                <li>
-                    <a href="{{ url_for('views.instances_list') }}"
-                       class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint and 'instance' in request.endpoint %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
-                        <i class="fas fa-database w-5 text-center"></i>
-                        <span class="flex-1">MongoDB 實例</span>
-                        {% if request.endpoint and 'instance' in request.endpoint %}
-                        <i class="fas fa-chevron-right text-xs opacity-50"></i>
-                        {% endif %}
-                    </a>
-                </li>
             </ul>
         </li>
 
@@ -57,6 +45,18 @@
         <li>
             <div class="text-xs font-semibold leading-6 text-gray-500 uppercase tracking-wider mb-3 px-2">分析子系統</div>
             <ul role="list" class="space-y-1">
+                <!-- 分析總覽 -->
+                <li>
+                    <a href="{{ url_for('views.analysis_dashboard') }}"
+                       class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint == 'views.analysis_dashboard' %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
+                        <i class="fas fa-chart-line w-5 text-center"></i>
+                        <span class="flex-1">分析總覽</span>
+                        {% if request.endpoint == 'views.analysis_dashboard' %}
+                        <i class="fas fa-chevron-right text-xs opacity-50"></i>
+                        {% endif %}
+                    </a>
+                </li>
+
                 <!-- 分析配置設定 -->
                 <li>
                     <a href="{{ url_for('views.configs_list') }}"
@@ -88,6 +88,37 @@
                         <i class="fas fa-server w-5 text-center"></i>
                         <span class="flex-1">分析節點監控</span>
                         {% if request.endpoint and 'node' in request.endpoint %}
+                        <i class="fas fa-chevron-right text-xs opacity-50"></i>
+                        {% endif %}
+                    </a>
+                </li>
+                
+                <!-- MongoDB 實例 -->
+                <li>
+                    <a href="{{ url_for('views.instances_list') }}"
+                       class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint and 'instance' in request.endpoint %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
+                        <i class="fas fa-database w-5 text-center"></i>
+                        <span class="flex-1">MongoDB 實例</span>
+                        {% if request.endpoint and 'instance' in request.endpoint %}
+                        <i class="fas fa-chevron-right text-xs opacity-50"></i>
+                        {% endif %}
+                    </a>
+                </li>
+
+            </ul>
+        </li>
+
+        <!-- 裝置群組 -->
+        <li>
+            <div class="text-xs font-semibold leading-6 text-gray-500 uppercase tracking-wider mb-3 px-2">裝置群組</div>
+            <ul role="list" class="space-y-1">
+                <!-- 裝置管理 -->
+                <li>
+                    <a href="{{ url_for('views.devices_list') }}"
+                       class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint and 'device' in request.endpoint %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
+                        <i class="fas fa-microphone-alt w-5 text-center"></i>
+                        <span class="flex-1">裝置管理</span>
+                        {% if request.endpoint and 'device' in request.endpoint %}
                         <i class="fas fa-chevron-right text-xs opacity-50"></i>
                         {% endif %}
                     </a>

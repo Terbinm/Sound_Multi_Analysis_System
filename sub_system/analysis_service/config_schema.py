@@ -41,13 +41,6 @@ MODEL_FILES_DEFINITION: Dict[str, Dict[str, Any]] = {
         'description': 'RF 模型的元資料（類別、特徵等資訊）',
         'extensions': ['.json'],
     },
-    'rf_scaler': {
-        'key': 'rf_scaler',
-        'label': '特徵標準化器',
-        'filename': 'scaler.pkl',
-        'description': '特徵標準化器（StandardScaler）',
-        'extensions': ['.pkl'],
-    },
     'cyclegan_checkpoint': {
         'key': 'cyclegan_checkpoint',
         'label': 'CycleGAN 檢查點',
@@ -93,7 +86,7 @@ CLASSIFICATION_METHODS: List[Dict[str, Any]] = [
         'description': '使用 LEAF 特徵的隨機森林模型進行分類',
         'version': '1.0.0',
         'required_models': ['rf_model'],
-        'optional_models': ['rf_metadata', 'rf_scaler'],
+        'optional_models': ['rf_metadata'],
         'params': [
             {
                 'name': 'threshold',
