@@ -46,7 +46,7 @@ if str(ROOT) not in sys.path:
 CHECKPOINT_DIR = (Path(ROOT) / "sub_system/train/py_cyclegan/checkpoints").resolve()
 
 # --- 預設檔案路徑設定（確保不用額外傳參數也能執行） ---
-DEFAULT_CKPT = (CHECKPOINT_DIR / "cycle_A=0.5269.ckpt").resolve()
+DEFAULT_CKPT = (CHECKPOINT_DIR / "cycle_A=0.5531.ckpt").resolve()
 DEFAULT_RF = (Path(ROOT) / "sub_system/train/RF/models").resolve()
 #DEFAULT_SCALER = (Path(ROOT) / "a_sub_system/train/RF/models/feature_scaler.pkl").resolve()
 DEFAULT_UUID_FILE = (Path(ROOT) / "sub_system/train/RF/uuid_list.txt").resolve()

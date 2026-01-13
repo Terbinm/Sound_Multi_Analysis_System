@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(docker inspect:*)"
+      "Bash(docker inspect:*)",
+      "Bash(\"c:\\\\Users\\\\sixsn\\\\PycharmProjects\\\\Sound_Multi_Analysis_System\\\\.venv\\\\Scripts\\\\python.exe\":*)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\debug_tools"
     ]
   }
 }

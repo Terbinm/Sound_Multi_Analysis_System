@@ -19,6 +19,17 @@ class LEAFFeatureExtractor:
         self._window_params = self._compute_window_params()
 
         logger.info("LEAF 提取器初始化成功 (使用 librosa MelSpectrogram)")
+        win_length, hop_length, n_fft = self._window_params
+        logger.debug(
+            f"[Step 2] LEAF 特徵提取參數: "
+            f"採樣率={self.config['sample_rate']}Hz, "
+            f"視窗={self.config['window_len']}ms ({win_length}採樣點), "
+            f"步進={self.config['window_stride']}ms ({hop_length}採樣點), "
+            f"n_fft={n_fft}, "
+            f"頻率範圍={self.config['init_min_freq']}-{self.config['init_max_freq']}Hz, "
+            f"Mel濾波器={self.config['n_filters']}, "
+            f"PCEN壓縮={self.config['pcen_compression']}"
+        )
 
     def _compute_window_params(self) -> Tuple[int, int, int]:
         """計算 MelSpectrogram 需使用的視窗參數"""
@@ -26,6 +37,12 @@ class LEAFFeatureExtractor:
         win_length = max(1, int(sample_rate * self.config['window_len'] / 1000))
         hop_length = max(1, int(sample_rate * self.config['window_stride'] / 1000))
         n_fft = 512
+        logger.debug(
+            f"[Step 2] LEAF 視窗參數計算: "
+            f"win_length={win_length} (來自 {self.config['window_len']}ms @ {sample_rate}Hz), "
+            f"hop_length={hop_length} (來自 {self.config['window_stride']}ms), "
+            f"n_fft={n_fft}"
+        )
         return win_length, hop_length, n_fft
 
     def apply_config(self, leaf_config: Dict[str, Any], audio_config: Dict[str, Any]):
@@ -54,6 +71,8 @@ class LEAFFeatureExtractor:
                 return []
 
             logger.debug(f"開始提取 LEAF 特徵: {len(segments)} 個切片")
+            n_batches = (len(segments) + self.config['batch_size'] - 1) // self.config['batch_size']
+            logger.debug(f"[Step 2] 特徵提取準備: 總切片={len(segments)}, 批次大小={self.config['batch_size']}, 批次數={n_batches}")
 
             features_data = []
 
@@ -185,6 +204,13 @@ class LEAFFeatureExtractor:
         """使用 librosa 生成 MelSpectrogram，無需 torchaudio"""
         try:
             win_length, hop_length, n_fft = self._window_params
+            # logger.debug(
+            #     f"[Step 2] Mel-Spectrogram 計算: "
+            #     f"輸入長度={len(audio_segment)}採樣點, "
+            #     f"n_fft={n_fft}, hop={hop_length}, win={win_length}, "
+            #     f"n_mels={self.config['n_filters']}, "
+            #     f"fmin={self.config['init_min_freq']}, fmax={self.config['init_max_freq']}"
+            # )
             mel_spec = librosa.feature.melspectrogram(
                 y=audio_segment,
                 sr=self.config['sample_rate'],
@@ -200,6 +226,7 @@ class LEAFFeatureExtractor:
             features = np.mean(mel_spec, axis=-1)
             if self.config['pcen_compression']:
                 features = np.log(features + 1e-6)
+            # logger.debug(f"[Step 2] Mel-Spectrogram 完成: shape={mel_spec.shape}, 特徵值範圍=[{features.min():.4f}, {features.max():.4f}]")
             return features.astype(np.float32)
         except Exception as exc:
             logger.error(f"librosa MelSpectrogram 計算失敗: {exc}")

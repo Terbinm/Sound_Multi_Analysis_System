@@ -73,6 +73,19 @@ class AudioSlicer:
             channels_to_process = self._determine_channels(audio.shape[0], target_channels)
             logger.debug(f"將處理以下音軌: {channels_to_process}")
 
+            # 計算切割參數供日誌輸出
+            slice_samples = int(self.config['slice_duration'] * sr)
+            interval_samples = int(self.config['slice_interval'] * sr)
+            total_samples = audio.shape[1]
+            estimated_slices = max(0, (total_samples - slice_samples) // interval_samples + 1) * len(channels_to_process)
+            logger.debug(
+                f"[Step 1] 切割參數確認: "
+                f"採樣率={sr}Hz, 總採樣點={total_samples}, "
+                f"切片時長={self.config['slice_duration']}s ({slice_samples}採樣點), "
+                f"切片間隔={self.config['slice_interval']}s ({interval_samples}採樣點), "
+                f"預計切片數≈{estimated_slices}"
+            )
+
             # 執行切割
             segments = self._perform_slicing(audio, sr, channels_to_process)
 
@@ -219,6 +232,7 @@ class AudioSlicer:
                 channels = audio.shape[0]
                 duration = audio.shape[1] / sr
 
+            logger.debug(f"[Step 1] 音訊資訊: 採樣率={sr}Hz, 通道={channels}, 時長={duration:.4f}秒, 採樣點={audio.shape[-1] if audio.ndim > 1 else len(audio)}")
             return {
                 'sample_rate': sr,
                 'channels': channels,

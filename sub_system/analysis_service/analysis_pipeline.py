@@ -177,7 +177,6 @@ class AnalysisPipeline:
         try:
             logger.info("=" * 60)
             logger.info(f"開始處理記錄: {analyze_uuid}")
-            logger.info("=" * 60)
 
             # ✅ 先嘗試認領記錄
             if not self.mongodb.try_claim_record(analyze_uuid):

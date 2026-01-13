@@ -9,12 +9,15 @@ py_cyclegan.inference
 """
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import numpy as np
 import torch
+
+logger = logging.getLogger('analysis_service')
 
 try:
     from sub_system.train.py_cyclegan.models.cyclegan_module import CycleGANModule
@@ -59,10 +62,12 @@ class CycleGANConverter:
             raise FileNotFoundError(f"找不到 CycleGAN checkpoint: {self.checkpoint_path}")
 
         self.device = self._resolve_device(self.device)
+        logger.debug(f"[Step 3] CycleGAN 載入中: checkpoint={self.checkpoint_path}, device={self.device}")
         self.model = CycleGANModule.load_from_checkpoint(
             str(self.checkpoint_path), map_location=self.device
         )
         self.model.eval()
+        logger.debug(f"[Step 3] CycleGAN 模型載入成功, direction={self.direction}")
 
         if self.normalization_path is None:
             self.normalization_path = self._auto_find_normalization()
@@ -70,6 +75,10 @@ class CycleGANConverter:
         self.normalization: Optional[Dict[str, Any]] = _load_normalization(
             Path(self.normalization_path) if self.normalization_path else None
         )
+        if self.normalization:
+            logger.debug(f"[Step 3] CycleGAN 正規化參數已載入: keys={list(self.normalization.keys())}")
+        else:
+            logger.debug("[Step 3] CycleGAN 未使用正規化參數")
 
     def _resolve_device(self, requested: str) -> str:
         if requested.lower() == "cuda" and torch.cuda.is_available():
@@ -97,6 +106,13 @@ class CycleGANConverter:
         if features.ndim != 2:
             raise ValueError(f"features 必須是 (T, F) 形狀，實際 shape={features.shape}")
 
+        logger.debug(
+            f"[Step 3] CycleGAN 轉換開始: "
+            f"輸入 shape={features.shape}, "
+            f"輸入值範圍=[{features.min():.4f}, {features.max():.4f}], "
+            f"direction={self.direction}"
+        )
+
         tensor = torch.tensor(features, dtype=torch.float32, device=self.device).unsqueeze(0)
         with torch.no_grad():
             if self.direction.upper() == "AB":
@@ -105,6 +121,11 @@ class CycleGANConverter:
                 converted = self.model.convert_B_to_A(tensor)
 
         converted_np = converted.squeeze(0).cpu().numpy()
+        logger.debug(
+            f"[Step 3] CycleGAN 轉換完成: "
+            f"輸出 shape={converted_np.shape}, "
+            f"轉換後值範圍=[{converted_np.min():.4f}, {converted_np.max():.4f}]"
+        )
 
         if self.apply_normalization and self.normalization:
             key = "b" if self.direction.upper() == "AB" else "a"
@@ -114,5 +135,10 @@ class CycleGANConverter:
                 mean = np.asarray(self.normalization[mean_key], dtype=np.float32)
                 std = np.asarray(self.normalization[std_key], dtype=np.float32)
                 converted_np = converted_np * std + mean
+                logger.debug(
+                    f"[Step 3] CycleGAN 反正規化: "
+                    f"mean shape={mean.shape}, std shape={std.shape}, "
+                    f"最終值範圍=[{converted_np.min():.4f}, {converted_np.max():.4f}]"
+                )
 
         return converted_np

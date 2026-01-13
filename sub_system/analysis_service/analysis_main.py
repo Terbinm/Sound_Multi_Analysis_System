@@ -354,6 +354,7 @@ class AnalysisServiceV2:
 
                 if success:
                     logger.info(f"任務處理成功: {task_id}")
+                    logger.info("=" * 60)
                     self._update_task_status(task_id, 'completed')
                 else:
                     err_msg = f"任務處理失敗: {task_id}"

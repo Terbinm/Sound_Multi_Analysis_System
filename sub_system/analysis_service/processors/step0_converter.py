@@ -108,7 +108,9 @@ class AudioConverter:
             resolved = int(sample_rate)
             if resolved != self.sample_rate:
                 logger.warning(f"無法推算採樣率，使用值: {resolved}Hz（預設 {self.sample_rate}Hz）")
+            logger.debug(f"[Step 0] 採樣率解析: 請求={sample_rate} → 使用={resolved}Hz")
             return resolved
+        logger.debug(f"[Step 0] 採樣率解析: 請求={sample_rate} → 使用預設={self.sample_rate}Hz")
         return self.sample_rate
 
     def _convert_csv_to_wav(self, csv_path: str, sample_rate: int) -> Optional[str]:
@@ -128,6 +130,7 @@ class AudioConverter:
         """
         try:
             logger.info(f"開始轉換 CSV 到 WAV: {csv_path}")
+            logger.debug(f"[Step 0] CSV→WAV 轉換開始: 目標採樣率={sample_rate}Hz, 來源={csv_path}")
 
             # 讀取 CSV 檔案
             df = pd.read_csv(csv_path, header=None)

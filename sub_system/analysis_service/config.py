@@ -19,7 +19,8 @@ MONGODB_CONFIG: Dict[str, Any] = {
     'username': os.getenv("MONGODB_USERNAME"),
     'password': os.getenv("MONGODB_PASSWORD"),
     'database': os.getenv("MONGODB_DATABASE"),
-    'collection': os.getenv("MONGODB_COLLECTION")
+    'collection': os.getenv("MONGODB_COLLECTION"),
+    'auth_source': os.getenv("MONGODB_AUTH_SOURCE", "admin"),
 }
 
 # ==================== 音訊處理配置 ====================
@@ -124,7 +125,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ==================== 日誌配置 ====================
 LOGGING_CONFIG = {
-    'level': 'INFO',
+    'level': 'DEBUG',
     'format': '%(asctime)s - %(levelname)s - AnalyzeUUID:%(analyze_uuid)s - %(message)s',
     'log_file': 'analysis_service.log',
     'log_dir': os.path.join(BASE_DIR, 'logs'),

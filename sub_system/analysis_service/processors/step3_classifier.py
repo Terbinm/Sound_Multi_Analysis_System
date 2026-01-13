@@ -105,6 +105,9 @@ class AudioClassifier:
                     self.config['model_path'] = str(local_paths['rf_model'].parent)
                 if 'cyclegan_normalization' in local_paths:
                     self.config['cyclegan_normalization_path'] = str(local_paths['cyclegan_normalization'])
+                if 'rf_metadata' in local_paths:
+                    self.config['metadata_path'] = str(local_paths['rf_metadata'])
+                    logger.info(f"設置 rf_metadata 路徑 (cyclegan_rf): {self.config['metadata_path']}")
 
             elif classification_method == 'rf_model':
                 if 'rf_model' in local_paths:
@@ -189,6 +192,7 @@ class AudioClassifier:
             DEFAULT_RF_MODEL_DIR
         ) or str(DEFAULT_RF_MODEL_DIR)
         self.config['model_path'] = model_dir
+        logger.debug(f"[Step 3] 載入 CycleGAN+RF: model_dir={model_dir}")
         cyclegan_cfg = self.config.get('cyclegan', {}) or {}
         rf_cfg = self.config.get('rf', {}) or {}
 
@@ -232,6 +236,14 @@ class AudioClassifier:
             or rf_cfg.get('scaler_path')
         )
         scaler_path = self._normalize_training_path(scaler_path, None)
+
+        # 取得 metadata 路徑（可能與 model_dir 不同）
+        metadata_path = (
+            self.config.get('metadata_path')
+            or rf_cfg.get('metadata_path')
+        )
+        metadata_path = self._normalize_training_path(metadata_path, None)
+
         aggregation_override = (
             self.config.get('rf_aggregation')
             or rf_cfg.get('aggregation')
@@ -244,7 +256,7 @@ class AudioClassifier:
             apply_normalization=bool(apply_norm),
             device=device,
         )
-        self.rf_classifier = RFClassifier(model_dir, scaler_path=scaler_path)
+        self.rf_classifier = RFClassifier(model_dir, scaler_path=scaler_path, metadata_path=metadata_path)
         self.metadata = getattr(self.rf_classifier, 'metadata', None)
         self.model = None
         self.scaler = None
@@ -300,6 +312,11 @@ class AudioClassifier:
         """
         try:
             logger.debug(f"開始分類: {len(features_data)} 個切片")
+            logger.debug(
+                f"[Step 3] 分類配置: method={self.method}, "
+                f"model_path={self.config.get('model_path', '無')}, "
+                f"輸入切片數={len(features_data)}"
+            )
 
             if (
                 self.method == 'cyclegan_rf'
@@ -353,6 +370,7 @@ class AudioClassifier:
             # 聚合方式（根據訓練時的設定）
             aggregation = self.metadata.get('aggregation', 'mean') if self.metadata else 'mean'
             feature_vectors = np.array(valid_features)
+            logger.debug(f"[Step 3] RF 分類配置: 有效特徵={len(valid_features)}/{len(features_data)}, 聚合方式={aggregation}")
 
             # 解碼標籤
             label_decoder = (self.metadata or {}).get('label_decoder', {0: 'normal', 1: 'abnormal'})
@@ -468,13 +486,23 @@ class AudioClassifier:
             logger.error("CycleGAN+RF 管線尚未初始化")
             return self._random_classify_all(features_data)
 
+        logger.debug(
+            f"[Step 3] CycleGAN+RF 分類開始: "
+            f"輸入切片數={len(features_data)}, "
+            f"CycleGAN direction={getattr(self.cyclegan_converter, 'direction', 'N/A')}"
+        )
+
         feature_matrix = self._prepare_feature_matrix(features_data)
         if feature_matrix.size == 0:
             logger.error("無法取得有效特徵，無法執行 CycleGAN+RF 推論")
             return self._random_classify_all(features_data)
 
+        logger.debug(f"[Step 3] CycleGAN 轉換前特徵矩陣: shape={feature_matrix.shape}")
         converted_features = self.cyclegan_converter.convert(feature_matrix)
+        logger.debug(f"[Step 3] CycleGAN 轉換後特徵矩陣: shape={converted_features.shape}")
+
         aggregation = self.rf_aggregation or getattr(self.rf_classifier, 'aggregation', None)
+        logger.debug(f"[Step 3] RF 預測開始: aggregation={aggregation}")
         rf_result = self.rf_classifier.predict(converted_features, aggregation=aggregation)
         predictions = rf_result['predictions']
         summary = rf_result['summary']
@@ -531,7 +559,9 @@ class AudioClassifier:
 
         if not rows:
             return np.zeros((0, feature_dim), dtype=np.float32)
-        return np.vstack(rows)
+        result = np.vstack(rows)
+        logger.debug(f"[Step 3] 特徵矩陣準備完成: 輸入={len(features_data)}個切片, 輸出形狀={result.shape}, 特徵維度={feature_dim}")
+        return result
 
     def _aggregate_features(self, features: np.ndarray, method: str) -> np.ndarray:
         """

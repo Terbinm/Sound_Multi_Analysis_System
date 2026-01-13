@@ -112,9 +112,9 @@ def setup_logger(name: str = 'analysis_service') -> logging.Logger:
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     
-    # 控制台處理器
+    # 控制台處理器（根據配置決定級別）
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(getattr(logging, LOGGING_CONFIG['level']))
     console_handler.setFormatter(formatter)
     
     # 添加處理器

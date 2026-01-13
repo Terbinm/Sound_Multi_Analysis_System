@@ -222,3 +222,4 @@ __marimo__/
 /core/state_management_2/
 /debug_tools/Integration_upload/reports/
 sub_system/analysis_service/model_cache/*
+debug_tools/mongo_query_tools/output/*
