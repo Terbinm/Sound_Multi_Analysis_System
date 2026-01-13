@@ -5,7 +5,9 @@
 import logging
 import os
 import sys
-from flask import Blueprint, request, jsonify
+import uuid
+from datetime import datetime, timedelta
+from flask import Blueprint, request, jsonify, session
 from werkzeug.utils import secure_filename
 import gridfs
 from models.analysis_config import AnalysisConfig
@@ -274,6 +276,330 @@ def get_configs_by_method(analysis_method_id):
 
     except Exception as e:
         logger.error(f"獲取配置列表失敗: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==================== 暫存上傳 API ====================
+
+@config_bp.route('/temp-upload/<file_key>', methods=['POST'])
+def temp_upload_model(file_key):
+    """
+    暫存上傳模型檔案（用於新建配置時）
+    檔案會暫存到 GridFS，並帶有 temp: true 的 metadata
+    前端需保存返回的 session_id 和 file_id，在儲存配置時一併提交
+    """
+    try:
+        # 檢查文件
+        if 'file' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': '缺少文件'
+            }), 400
+
+        file = request.files['file']
+
+        if file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': '未選擇文件'
+            }), 400
+
+        # 取得或建立 session_id
+        session_id = request.form.get('session_id')
+        if not session_id:
+            session_id = str(uuid.uuid4())
+
+        # 安全處理文件名
+        filename = secure_filename(file.filename)
+
+        # 上傳到 GridFS（標記為暫存）
+        db = get_db()
+        fs = gridfs.GridFS(db)
+
+        # 讀取文件內容
+        file_content = file.read()
+
+        # 存儲文件（帶有 temp 標記）
+        file_id = fs.put(
+            file_content,
+            filename=filename,
+            content_type=file.content_type,
+            metadata={
+                'original_filename': file.filename,
+                'file_type': 'model',
+                'file_key': file_key,
+                'session_id': session_id,
+                'temp': True,  # 標記為暫存檔案
+                'created_at': datetime.utcnow(),
+                'expires_at': datetime.utcnow() + timedelta(hours=24),  # 24小時後過期
+                'size': len(file_content)
+            }
+        )
+
+        logger.info(f"暫存模型文件已上傳: session={session_id}, key={file_key}, file={filename}")
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'file_id': str(file_id),
+                'file_key': file_key,
+                'filename': filename,
+                'size': len(file_content),
+                'session_id': session_id
+            },
+            'message': '模型文件已暫存'
+        }), 201
+
+    except Exception as e:
+        logger.error(f"暫存上傳模型文件失敗: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@config_bp.route('/temp-upload/<file_key>', methods=['DELETE'])
+def delete_temp_model(file_key):
+    """刪除暫存的模型檔案"""
+    try:
+        from bson.objectid import ObjectId
+
+        session_id = request.args.get('session_id')
+        file_id = request.args.get('file_id')
+
+        if not file_id:
+            return jsonify({
+                'success': False,
+                'error': '缺少 file_id'
+            }), 400
+
+        db = get_db()
+        fs = gridfs.GridFS(db)
+
+        # 驗證檔案存在且是暫存檔案
+        try:
+            grid_out = fs.get(ObjectId(file_id))
+            metadata = grid_out.metadata or {}
+
+            if not metadata.get('temp'):
+                return jsonify({
+                    'success': False,
+                    'error': '此檔案不是暫存檔案'
+                }), 400
+
+            if session_id and metadata.get('session_id') != session_id:
+                return jsonify({
+                    'success': False,
+                    'error': 'session_id 不符'
+                }), 403
+
+        except gridfs.errors.NoFile:
+            return jsonify({
+                'success': False,
+                'error': '檔案不存在'
+            }), 404
+
+        # 刪除檔案
+        fs.delete(ObjectId(file_id))
+
+        logger.info(f"暫存模型文件已刪除: file_id={file_id}")
+
+        return jsonify({
+            'success': True,
+            'message': '暫存檔案已刪除'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"刪除暫存模型文件失敗: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@config_bp.route('/temp-files', methods=['GET'])
+def get_temp_files():
+    """取得指定 session 的所有暫存檔案"""
+    try:
+        session_id = request.args.get('session_id')
+        if not session_id:
+            return jsonify({
+                'success': False,
+                'error': '缺少 session_id'
+            }), 400
+
+        db = get_db()
+        # 查詢 fs.files 集合
+        files_collection = db['fs.files']
+
+        temp_files = list(files_collection.find({
+            'metadata.session_id': session_id,
+            'metadata.temp': True
+        }))
+
+        result = {}
+        for f in temp_files:
+            file_key = f.get('metadata', {}).get('file_key')
+            if file_key:
+                result[file_key] = {
+                    'file_id': str(f['_id']),
+                    'filename': f.get('filename'),
+                    'size': f.get('metadata', {}).get('size', 0),
+                    'uploaded_at': f.get('uploadDate')
+                }
+
+        return jsonify({
+            'success': True,
+            'data': result,
+            'session_id': session_id
+        }), 200
+
+    except Exception as e:
+        logger.error(f"取得暫存檔案列表失敗: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@config_bp.route('/link-temp-files', methods=['POST'])
+def link_temp_files_to_config():
+    """
+    將暫存檔案關聯到正式配置
+    在配置儲存成功後調用此 API
+    """
+    try:
+        from bson.objectid import ObjectId
+
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': '缺少請求數據'
+            }), 400
+
+        config_id = data.get('config_id')
+        session_id = data.get('session_id')
+        temp_files = data.get('temp_files', {})  # {file_key: file_id, ...}
+
+        if not config_id:
+            return jsonify({
+                'success': False,
+                'error': '缺少 config_id'
+            }), 400
+
+        # 檢查配置是否存在
+        config = AnalysisConfig.get_by_id(config_id)
+        if not config:
+            return jsonify({
+                'success': False,
+                'error': '配置不存在'
+            }), 404
+
+        db = get_db()
+        fs = gridfs.GridFS(db)
+        files_collection = db['fs.files']
+
+        linked_files = {}
+        errors = []
+
+        for file_key, file_id in temp_files.items():
+            try:
+                # 驗證並更新檔案 metadata
+                result = files_collection.update_one(
+                    {
+                        '_id': ObjectId(file_id),
+                        'metadata.temp': True
+                    },
+                    {
+                        '$set': {
+                            'metadata.temp': False,
+                            'metadata.config_id': config_id,
+                            'metadata.linked_at': datetime.utcnow()
+                        },
+                        '$unset': {
+                            'metadata.expires_at': '',
+                            'metadata.session_id': ''
+                        }
+                    }
+                )
+
+                if result.modified_count > 0:
+                    # 取得檔案資訊
+                    file_doc = files_collection.find_one({'_id': ObjectId(file_id)})
+                    if file_doc:
+                        file_info = {
+                            'file_id': str(file_id),
+                            'filename': file_doc.get('filename'),
+                            'uploaded_at': datetime.utcnow(),
+                            'size': file_doc.get('metadata', {}).get('size', 0)
+                        }
+                        # 更新配置的 model_files
+                        AnalysisConfig.set_model_file(config_id, file_key, file_info)
+                        linked_files[file_key] = file_info
+                else:
+                    errors.append(f'{file_key}: 檔案不存在或已不是暫存狀態')
+
+            except Exception as e:
+                errors.append(f'{file_key}: {str(e)}')
+
+        if errors:
+            logger.warning(f"關聯暫存檔案時發生錯誤: {errors}")
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'linked_files': linked_files,
+                'errors': errors if errors else None
+            },
+            'message': f'已關聯 {len(linked_files)} 個檔案'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"關聯暫存檔案失敗: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@config_bp.route('/cleanup-temp-files', methods=['POST'])
+def cleanup_expired_temp_files():
+    """清理過期的暫存檔案（可由排程任務調用）"""
+    try:
+        db = get_db()
+        fs = gridfs.GridFS(db)
+        files_collection = db['fs.files']
+
+        # 查找過期的暫存檔案
+        expired_files = list(files_collection.find({
+            'metadata.temp': True,
+            'metadata.expires_at': {'$lt': datetime.utcnow()}
+        }))
+
+        deleted_count = 0
+        for f in expired_files:
+            try:
+                fs.delete(f['_id'])
+                deleted_count += 1
+            except Exception as e:
+                logger.warning(f"刪除過期暫存檔案失敗: {f['_id']}, error: {e}")
+
+        logger.info(f"已清理 {deleted_count} 個過期暫存檔案")
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'deleted_count': deleted_count
+            },
+            'message': f'已清理 {deleted_count} 個過期暫存檔案'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"清理暫存檔案失敗: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)

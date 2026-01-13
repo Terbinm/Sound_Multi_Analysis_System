@@ -12,8 +12,56 @@ from flask_login import login_required
 from views import views_bp
 from utils.mongodb_handler import get_db
 from config import get_config
+from models.routing_rule import RoutingRule
+from models.analysis_config import AnalysisConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _build_name_mappings(records: List[Dict[str, Any]]) -> Dict[str, Dict[str, str]]:
+    """
+    從記錄中收集 router_id 和 config_id，建立名稱映射表
+
+    Returns:
+        {
+            'routers': {router_id: rule_name, ...},
+            'configs': {config_id: config_name, ...}
+        }
+    """
+    router_ids = set()
+    config_ids = set()
+
+    # 收集所有 ID
+    for rec in records:
+        latest = rec.get('latest_run')
+        if latest:
+            if latest.get('router_id'):
+                router_ids.add(latest['router_id'])
+            if latest.get('analysis_config_id'):
+                config_ids.add(latest['analysis_config_id'])
+
+    # 建立 router_id -> rule_name 映射
+    router_names = {}
+    for rid in router_ids:
+        rule = RoutingRule.get_by_router_id(rid)
+        if rule:
+            router_names[rid] = rule.rule_name
+        else:
+            router_names[rid] = rid[:8] + '...'  # 截斷顯示
+
+    # 建立 config_id -> config_name 映射
+    config_names = {}
+    for cid in config_ids:
+        config = AnalysisConfig.get_by_id(cid)
+        if config:
+            config_names[cid] = config.config_name
+        else:
+            config_names[cid] = cid[:8] + '...'  # 截斷顯示
+
+    return {
+        'routers': router_names,
+        'configs': config_names
+    }
 
 
 def _normalize_steps(step_payload: Any) -> List[Dict[str, Any]]:
@@ -205,13 +253,18 @@ def data_list():
         prev_url = _page_url(page - 1 if page > 1 else 1)
         next_url = _page_url(page + 1 if page < max_page else max_page)
 
+        # 建立名稱映射表
+        name_mappings = _build_name_mappings(records)
+
         return render_template(
             'data/list.html',
             records=records,
             filters=filters,
             pagination=pagination,
             prev_url=prev_url,
-            next_url=next_url
+            next_url=next_url,
+            router_names=name_mappings['routers'],
+            config_names=name_mappings['configs']
         )
 
     except Exception as exc:
@@ -221,6 +274,8 @@ def data_list():
             records=[],
             filters=filters if 'filters' in locals() else request.args,
             pagination={'page': 1, 'page_size': 20, 'total': 0, 'pages': 0},
+            router_names={},
+            config_names={},
             error=str(exc)
         )
 

@@ -106,9 +106,23 @@
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-700">
                             {% if latest %}
-                                <div class="flex items-center gap-2">
-                                    <span class="tech-badge tech-badge-info">Router {{ latest.router_id or '-' }}</span>
-                                    <span class="tech-badge tech-badge-secondary">Config {{ latest.analysis_config_id or '-' }}</span>
+                                <div class="flex flex-col gap-1">
+                                    {% if latest.router_id %}
+                                    <div class="flex items-center gap-2">
+                                        <span class="tech-badge tech-badge-info" title="Router ID: {{ latest.router_id }}">
+                                            <i class="fas fa-route mr-1 text-xs"></i>
+                                            {{ router_names.get(latest.router_id, latest.router_id[:12] ~ '...') }}
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                    {% if latest.analysis_config_id %}
+                                    <div class="flex items-center gap-2">
+                                        <span class="tech-badge tech-badge-secondary" title="Config ID: {{ latest.analysis_config_id }}">
+                                            <i class="fas fa-cog mr-1 text-xs"></i>
+                                            {{ config_names.get(latest.analysis_config_id, latest.analysis_config_id[:12] ~ '...') }}
+                                        </span>
+                                    </div>
+                                    {% endif %}
                                 </div>
                                 {% if latest.analysis_method_id %}
                                 <div class="text-xs text-gray-500 mt-1">Method: {{ latest.analysis_method_id }}</div>

@@ -33,13 +33,42 @@
                             分析方法 ID <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-2">
-                            {{ form.analysis_method_id(class="block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" ~ (" bg-gray-100 text-gray-500 cursor-not-allowed" if mode == 'edit' else " text-gray-900"), readonly=(mode == 'edit'), list="capability-options") }}
+                            {% if mode == 'edit' %}
+                            <!-- 編輯模式：唯讀顯示 -->
+                            {{ form.analysis_method_id(class="block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed sm:text-sm sm:leading-6", readonly=true) }}
+                            {% else %}
+                            <!-- 新建模式：可輸入的下拉選單 -->
+                            <div class="relative">
+                                <input type="text"
+                                       id="analysis_method_id"
+                                       name="analysis_method_id"
+                                       value="{{ form.analysis_method_id.data or '' }}"
+                                       class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 pr-10"
+                                       placeholder="選擇或輸入分析方法 ID"
+                                       autocomplete="off"
+                                       required>
+                                <button type="button"
+                                        id="method-dropdown-btn"
+                                        class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <!-- 下拉選單 -->
+                                <div id="method-dropdown" class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                                    {% if capability_options %}
+                                    {% for cap in capability_options %}
+                                    <div class="method-option cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-indigo-50" data-value="{{ cap }}">
+                                        <span class="block truncate">{{ cap }}</span>
+                                    </div>
+                                    {% endfor %}
+                                    {% else %}
+                                    <div class="py-2 pl-3 pr-9 text-gray-500">
+                                        <span class="block truncate">尚無可用的分析方法，請直接輸入</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if capability_options %}
-                            <datalist id="capability-options">
-                                {% for cap in capability_options %}
-                                <option value="{{ cap }}">{{ cap }}</option>
-                                {% endfor %}
-                            </datalist>
                             <p class="mt-1 text-xs text-gray-500">可用功能: {{ capability_options|join(', ') }}</p>
                             {% endif %}
                             {% if form.analysis_method_id.errors %}
@@ -160,6 +189,10 @@
         <!-- Hidden field for parameters JSON -->
         <input type="hidden" id="parameters" name="parameters" value="{{ form.parameters.data or '{}' }}">
 
+        <!-- Hidden fields for temp upload data (新建模式使用) -->
+        <input type="hidden" id="temp_session_id" name="temp_session_id" value="">
+        <input type="hidden" id="temp_files" name="temp_files" value="{}">
+
         <!-- Submit Buttons -->
         <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
             <div class="flex items-center justify-end gap-x-6 border-t border-gray-900/10 px-4 py-4 sm:px-8">
@@ -179,6 +212,8 @@
 let SCHEMA = null;
 let uploadedFiles = {};
 let currentParameters = {};
+let tempUploadedFiles = {};  // 暫存上傳的檔案 {file_key: {file_id, filename, ...}}
+let tempSessionId = null;    // 暫存上傳的 session ID
 
 {% if config and config.model_files and config.model_files.files %}
 uploadedFiles = {{ config.model_files.files|tojson|safe }};
@@ -196,7 +231,55 @@ const currentMethod = {% if config and config.model_files %}'{{ config.model_fil
 document.addEventListener('DOMContentLoaded', async function() {
     await loadSchema();
     initializeForm();
+    initializeMethodDropdown();
 });
+
+// ==================== Method ID Dropdown ====================
+function initializeMethodDropdown() {
+    if (isEditMode) return;  // 編輯模式不需要下拉選單
+
+    const input = document.getElementById('analysis_method_id');
+    const dropdown = document.getElementById('method-dropdown');
+    const dropdownBtn = document.getElementById('method-dropdown-btn');
+
+    if (!input || !dropdown || !dropdownBtn) return;
+
+    // 點擊按鈕切換下拉選單
+    dropdownBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        dropdown.classList.toggle('hidden');
+    });
+
+    // 點擊輸入框也顯示下拉選單
+    input.addEventListener('focus', function() {
+        dropdown.classList.remove('hidden');
+    });
+
+    // 選擇選項
+    document.querySelectorAll('.method-option').forEach(option => {
+        option.addEventListener('click', function() {
+            input.value = this.dataset.value;
+            dropdown.classList.add('hidden');
+            input.dispatchEvent(new Event('change'));
+        });
+    });
+
+    // 點擊其他地方關閉下拉選單
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !dropdown.contains(e.target) && !dropdownBtn.contains(e.target)) {
+            dropdown.classList.add('hidden');
+        }
+    });
+
+    // 輸入時過濾選項
+    input.addEventListener('input', function() {
+        const filter = this.value.toLowerCase();
+        document.querySelectorAll('.method-option').forEach(option => {
+            const text = option.dataset.value.toLowerCase();
+            option.style.display = text.includes(filter) ? '' : 'none';
+        });
+    });
+}
 
 async function loadSchema() {
     try {
@@ -556,17 +639,32 @@ function renderModelFiles(method) {
 function createFileUploadRow(fileInfo, isRequired) {
     const fileKey = fileInfo.key;
     const uploaded = uploadedFiles[fileKey];
+    const tempUploaded = tempUploadedFiles[fileKey];
     const extensions = fileInfo.extensions.join(', ');
 
     let statusHtml = '';
     let actionHtml = '';
 
     if (uploaded && uploaded.file_id) {
+        // 正式上傳的檔案
         statusHtml = `
             <span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
                 <i class="fas fa-check mr-1"></i> 已上傳
             </span>
             <span class="text-xs text-gray-500 ml-2">${uploaded.filename || fileInfo.filename}</span>
+        `;
+        actionHtml = `
+            <button type="button" onclick="deleteModelFile('${fileKey}')" class="text-red-600 hover:text-red-800 text-sm">
+                <i class="fas fa-trash"></i> 刪除
+            </button>
+        `;
+    } else if (tempUploaded && tempUploaded.file_id) {
+        // 暫存的檔案
+        statusHtml = `
+            <span class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                <i class="fas fa-clock mr-1"></i> 已暫存
+            </span>
+            <span class="text-xs text-gray-500 ml-2">${tempUploaded.filename || fileInfo.filename}</span>
         `;
         actionHtml = `
             <button type="button" onclick="deleteModelFile('${fileKey}')" class="text-red-600 hover:text-red-800 text-sm">
@@ -617,11 +715,6 @@ function bindUploadEvents() {
 }
 
 async function uploadModelFile(fileKey, file) {
-    if (!configId) {
-        alert('請先儲存配置後再上傳模型檔案');
-        return;
-    }
-
     const statusEl = document.getElementById(`status-${fileKey}`);
     const actionEl = document.getElementById(`action-${fileKey}`);
 
@@ -636,7 +729,19 @@ async function uploadModelFile(fileKey, file) {
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await fetch(`/api/configs/${configId}/model/${fileKey}`, {
+        let apiUrl;
+        if (configId) {
+            // 編輯模式：直接上傳到配置
+            apiUrl = `/api/configs/${configId}/model/${fileKey}`;
+        } else {
+            // 新建模式：暫存上傳
+            apiUrl = `/api/configs/temp-upload/${fileKey}`;
+            if (tempSessionId) {
+                formData.append('session_id', tempSessionId);
+            }
+        }
+
+        const response = await fetch(apiUrl, {
             method: 'POST',
             body: formData
         });
@@ -644,11 +749,20 @@ async function uploadModelFile(fileKey, file) {
         const result = await response.json();
 
         if (result.success) {
-            uploadedFiles[fileKey] = result.data;
+            if (configId) {
+                // 編輯模式
+                uploadedFiles[fileKey] = result.data;
+            } else {
+                // 新建模式：保存暫存資訊
+                tempUploadedFiles[fileKey] = result.data;
+                if (result.data.session_id) {
+                    tempSessionId = result.data.session_id;
+                }
+            }
 
             statusEl.innerHTML = `
                 <span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                    <i class="fas fa-check mr-1"></i> 已上傳
+                    <i class="fas fa-check mr-1"></i> ${configId ? '已上傳' : '已暫存'}
                 </span>
                 <span class="text-xs text-gray-500 ml-2">${file.name}</span>
             `;
@@ -680,7 +794,6 @@ async function uploadModelFile(fileKey, file) {
 }
 
 async function deleteModelFile(fileKey) {
-    if (!configId) return;
     if (!confirm('確定要刪除此模型檔案嗎？')) return;
 
     const statusEl = document.getElementById(`status-${fileKey}`);
@@ -691,14 +804,34 @@ async function deleteModelFile(fileKey) {
     `;
 
     try {
-        const response = await fetch(`/api/configs/${configId}/model/${fileKey}`, {
+        let apiUrl;
+        if (configId) {
+            // 編輯模式
+            apiUrl = `/api/configs/${configId}/model/${fileKey}`;
+        } else {
+            // 新建模式：刪除暫存檔案
+            const tempFile = tempUploadedFiles[fileKey];
+            if (!tempFile || !tempFile.file_id) {
+                throw new Error('找不到暫存檔案');
+            }
+            apiUrl = `/api/configs/temp-upload/${fileKey}?file_id=${tempFile.file_id}`;
+            if (tempSessionId) {
+                apiUrl += `&session_id=${tempSessionId}`;
+            }
+        }
+
+        const response = await fetch(apiUrl, {
             method: 'DELETE'
         });
 
         const result = await response.json();
 
         if (result.success) {
-            delete uploadedFiles[fileKey];
+            if (configId) {
+                delete uploadedFiles[fileKey];
+            } else {
+                delete tempUploadedFiles[fileKey];
+            }
             const method = document.getElementById('classification_method').value;
             const methodDef = SCHEMA.classification_methods.find(m => m.key === method);
             renderModelFiles(methodDef);
@@ -730,17 +863,22 @@ function validateForm() {
 
     const requiredModels = methodDef.required_models || [];
 
-    // Check all required files are uploaded
+    // Check all required files are uploaded (檢查正式上傳和暫存上傳)
     const missingFiles = [];
     for (const modelKey of requiredModels) {
         const uploaded = uploadedFiles[modelKey];
-        if (!uploaded || !uploaded.file_id) {
+        const tempUploaded = tempUploadedFiles[modelKey];
+
+        // 檢查是否有正式上傳或暫存上傳
+        const hasFile = (uploaded && uploaded.file_id) || (tempUploaded && tempUploaded.file_id);
+
+        if (!hasFile) {
             const modelDef = SCHEMA.model_files[modelKey];
             missingFiles.push(modelDef ? modelDef.label : modelKey);
         }
     }
 
-    if (missingFiles.length > 0 && isEditMode) {
+    if (missingFiles.length > 0) {
         submitBtn.disabled = true;
         validationStatus.classList.remove('hidden');
         validationMessage.textContent = `缺少必要檔案: ${missingFiles.join(', ')}`;
@@ -756,6 +894,19 @@ document.getElementById('config-form').addEventListener('submit', async function
 
     // Ensure parameters are updated
     document.getElementById('parameters').value = JSON.stringify(currentParameters);
+
+    // 更新暫存上傳資訊（新建模式）
+    if (!isEditMode && Object.keys(tempUploadedFiles).length > 0) {
+        document.getElementById('temp_session_id').value = tempSessionId || '';
+        // 建立 file_key -> file_id 的映射
+        const tempFilesMap = {};
+        for (const [key, info] of Object.entries(tempUploadedFiles)) {
+            if (info && info.file_id) {
+                tempFilesMap[key] = info.file_id;
+            }
+        }
+        document.getElementById('temp_files').value = JSON.stringify(tempFilesMap);
+    }
 
     // If edit mode, update classification method first
     if (isEditMode && configId) {

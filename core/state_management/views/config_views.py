@@ -12,10 +12,67 @@ from auth.decorators import admin_required
 from forms.config_forms import ConfigForm, ModelUploadForm
 from models.analysis_config import AnalysisConfig
 from models.node_status import NodeStatus
+from utils.mongodb_handler import get_db
+from bson.objectid import ObjectId
+from datetime import datetime
+import gridfs
 import json
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _link_temp_files_to_config(config_id: str, session_id: str, temp_files: dict):
+    """
+    將暫存檔案關聯到正式配置
+
+    Args:
+        config_id: 配置 ID
+        session_id: 暫存 session ID
+        temp_files: {file_key: file_id, ...} 映射
+    """
+    db = get_db()
+    files_collection = db['fs.files']
+
+    for file_key, file_id in temp_files.items():
+        try:
+            # 驗證並更新檔案 metadata
+            result = files_collection.update_one(
+                {
+                    '_id': ObjectId(file_id),
+                    'metadata.temp': True
+                },
+                {
+                    '$set': {
+                        'metadata.temp': False,
+                        'metadata.config_id': config_id,
+                        'metadata.linked_at': datetime.utcnow()
+                    },
+                    '$unset': {
+                        'metadata.expires_at': '',
+                        'metadata.session_id': ''
+                    }
+                }
+            )
+
+            if result.modified_count > 0:
+                # 取得檔案資訊
+                file_doc = files_collection.find_one({'_id': ObjectId(file_id)})
+                if file_doc:
+                    file_info = {
+                        'file_id': str(file_id),
+                        'filename': file_doc.get('filename'),
+                        'uploaded_at': datetime.utcnow(),
+                        'size': file_doc.get('metadata', {}).get('size', 0)
+                    }
+                    # 更新配置的 model_files
+                    AnalysisConfig.set_model_file(config_id, file_key, file_info)
+                    logger.info(f"暫存檔案已關聯: {file_key} -> {config_id}")
+            else:
+                logger.warning(f"暫存檔案關聯失敗 (檔案不存在或已關聯): {file_key}")
+
+        except Exception as e:
+            logger.error(f"關聯暫存檔案失敗: {file_key}, error: {e}")
 
 
 def _collect_capabilities():
@@ -82,17 +139,41 @@ def config_create():
                     flash('參數 JSON 格式錯誤', 'danger')
                     return render_template('configs/edit.html', form=form, mode='create')
 
+            # 取得分類方法（從前端傳來）
+            classification_method = request.form.get('classification_method', 'random')
+
             # 建立設定
             config = AnalysisConfig.create({
                 'analysis_method_id': form.analysis_method_id.data,
                 'config_name': form.config_name.data,
                 'description': form.description.data,
                 'parameters': parameters,
-                'enabled': form.enabled.data
+                'enabled': form.enabled.data,
+                'model_files': {
+                    'classification_method': classification_method,
+                    'files': {}
+                }
             })
 
             if config:
                 logger.info(f"設定建立成功: {config.config_id}")
+
+                # 處理暫存檔案關聯
+                temp_session_id = request.form.get('temp_session_id', '')
+                temp_files_str = request.form.get('temp_files', '{}')
+
+                if temp_session_id and temp_files_str:
+                    try:
+                        temp_files = json.loads(temp_files_str)
+                        if temp_files:
+                            # 調用 API 將暫存檔案關聯到配置
+                            _link_temp_files_to_config(config.config_id, temp_session_id, temp_files)
+                            logger.info(f"暫存檔案已關聯到配置: {config.config_id}")
+                    except json.JSONDecodeError:
+                        logger.warning(f"解析暫存檔案資訊失敗: {temp_files_str}")
+                    except Exception as e:
+                        logger.error(f"關聯暫存檔案失敗: {e}")
+
                 flash('設定建立成功', 'success')
                 return redirect(url_for('views.configs_list'))
             else:

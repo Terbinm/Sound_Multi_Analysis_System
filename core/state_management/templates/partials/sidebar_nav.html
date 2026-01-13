@@ -27,30 +27,6 @@
                     </a>
                 </li>
 
-                <!-- 設定管理 -->
-                <li>
-                    <a href="{{ url_for('views.configs_list') }}"
-                       class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint and 'config' in request.endpoint %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
-                        <i class="fas fa-cog w-5 text-center group-hover:rotate-90 transition-transform duration-300"></i>
-                        <span class="flex-1">分析設定</span>
-                        {% if request.endpoint and 'config' in request.endpoint %}
-                        <i class="fas fa-chevron-right text-xs opacity-50"></i>
-                        {% endif %}
-                    </a>
-                </li>
-
-                <!-- 路由規則 -->
-                <li>
-                    <a href="{{ url_for('views.routing_list') }}"
-                       class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint and 'routing' in request.endpoint %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
-                        <i class="fas fa-route w-5 text-center"></i>
-                        <span class="flex-1">路由規則</span>
-                        {% if request.endpoint and 'routing' in request.endpoint %}
-                        <i class="fas fa-chevron-right text-xs opacity-50"></i>
-                        {% endif %}
-                    </a>
-                </li>
-
                 <!-- 檔案上傳 -->
                 <li>
                     <a href="{{ url_for('views.upload_create') }}"
@@ -74,23 +50,57 @@
                         {% endif %}
                     </a>
                 </li>
+            </ul>
+        </li>
 
-                <!-- 節點監控 -->
+        <!-- 分析子系統 -->
+        <li>
+            <div class="text-xs font-semibold leading-6 text-gray-500 uppercase tracking-wider mb-3 px-2">分析子系統</div>
+            <ul role="list" class="space-y-1">
+                <!-- 分析配置設定 -->
                 <li>
-                    <a href="{{ url_for('views.nodes_list') }}"
-                       class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint and 'node' in request.endpoint %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
-                        <i class="fas fa-server w-5 text-center"></i>
-                        <span class="flex-1">節點監控</span>
-                        {% if request.endpoint and 'node' in request.endpoint %}
+                    <a href="{{ url_for('views.configs_list') }}"
+                       class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint and 'config' in request.endpoint %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
+                        <i class="fas fa-cog w-5 text-center group-hover:rotate-90 transition-transform duration-300"></i>
+                        <span class="flex-1">分析配置設定</span>
+                        {% if request.endpoint and 'config' in request.endpoint %}
                         <i class="fas fa-chevron-right text-xs opacity-50"></i>
                         {% endif %}
                     </a>
                 </li>
 
-                <!-- 使用者管理（僅管理員） -->
-                {% if current_user.is_admin() %}
-                <li class="pt-4 mt-4 border-t border-gray-800">
-                    <div class="text-xs font-semibold leading-6 text-gray-500 uppercase tracking-wider mb-3 px-2">管理功能</div>
+                <!-- 分析路由規則 -->
+                <li>
+                    <a href="{{ url_for('views.routing_list') }}"
+                       class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint and 'routing' in request.endpoint %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
+                        <i class="fas fa-route w-5 text-center"></i>
+                        <span class="flex-1">分析路由規則</span>
+                        {% if request.endpoint and 'routing' in request.endpoint %}
+                        <i class="fas fa-chevron-right text-xs opacity-50"></i>
+                        {% endif %}
+                    </a>
+                </li>
+
+                <!-- 分析節點監控 -->
+                <li>
+                    <a href="{{ url_for('views.nodes_list') }}"
+                       class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint and 'node' in request.endpoint %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
+                        <i class="fas fa-server w-5 text-center"></i>
+                        <span class="flex-1">分析節點監控</span>
+                        {% if request.endpoint and 'node' in request.endpoint %}
+                        <i class="fas fa-chevron-right text-xs opacity-50"></i>
+                        {% endif %}
+                    </a>
+                </li>
+            </ul>
+        </li>
+
+        <!-- 使用者管理（僅管理員） -->
+        {% if current_user.is_admin() %}
+        <li>
+            <div class="text-xs font-semibold leading-6 text-gray-500 uppercase tracking-wider mb-3 px-2">管理功能</div>
+            <ul role="list" class="space-y-1">
+                <li>
                     <a href="{{ url_for('views.users_list') }}"
                        class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint and 'user' in request.endpoint %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
                         <i class="fas fa-users-cog w-5 text-center"></i>
@@ -100,9 +110,9 @@
                         {% endif %}
                     </a>
                 </li>
-                {% endif %}
             </ul>
         </li>
+        {% endif %}
 
         <!-- 底部資訊 -->
         <li class="-mx-6 mt-auto border-t border-gray-800">
