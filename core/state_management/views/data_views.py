@@ -310,3 +310,56 @@ def data_detail(analyze_uuid: str):
     except Exception as exc:
         logger.error(f"載入資料詳情失敗: {exc}", exc_info=True)
         abort(500)
+
+
+@views_bp.route('/data/<analyze_uuid>/run/<analysis_id>')
+@login_required
+def run_detail(analyze_uuid: str, analysis_id: str):
+    """Run 詳情頁 - 顯示單一分析執行的詳細資訊"""
+    try:
+        config = get_config()
+        db = get_db()
+        recordings_col = db[config.COLLECTIONS['recordings']]
+
+        record = recordings_col.find_one({'AnalyzeUUID': analyze_uuid})
+        if not record:
+            abort(404)
+
+        runs, _ = _normalize_runs(record)
+
+        # Find the specific run
+        run = next((r for r in runs if r.get('analysis_id') == analysis_id), None)
+        if not run:
+            abort(404)
+
+        # Get name mappings for display
+        router_name = None
+        config_name = None
+        rule_name = None
+
+        if run.get('router_id'):
+            rule = RoutingRule.get_by_router_id(run['router_id'])
+            if rule:
+                router_name = rule.rule_name
+                rule_name = rule.rule_name
+
+        if run.get('analysis_config_id'):
+            analysis_config = AnalysisConfig.get_by_id(run['analysis_config_id'])
+            if analysis_config:
+                config_name = analysis_config.config_name
+
+        return render_template(
+            'data/run_detail.html',
+            record=record,
+            run=run,
+            runs=runs,
+            router_name=router_name,
+            config_name=config_name,
+            rule_name=rule_name
+        )
+
+    except Exception as exc:
+        logger.error(f"載入 Run 詳情失敗: {exc}", exc_info=True)
+        if '404' in str(exc):
+            abort(404)
+        abort(500)

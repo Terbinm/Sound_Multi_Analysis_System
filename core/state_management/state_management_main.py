@@ -122,6 +122,7 @@ def create_app():
     from api.instance_api import instance_bp
     from api.upload_api import upload_bp
     from api.edge_device_api import edge_device_bp
+    from api.data_api import data_api_bp
 
     app.register_blueprint(config_bp, url_prefix='/api/configs')
     app.register_blueprint(routing_bp, url_prefix='/api/routing')
@@ -129,9 +130,10 @@ def create_app():
     app.register_blueprint(instance_bp, url_prefix='/api/instances')
     app.register_blueprint(upload_bp, url_prefix='/api/uploads')
     app.register_blueprint(edge_device_bp, url_prefix='/api/edge-devices')
+    app.register_blueprint(data_api_bp, url_prefix='/api/data')
 
     # API 僅透過 JSON 驗證，移除 CSRF 限制
-    for bp in (config_bp, routing_bp, node_bp, instance_bp, upload_bp, edge_device_bp):
+    for bp in (config_bp, routing_bp, node_bp, instance_bp, upload_bp, edge_device_bp, data_api_bp):
         csrf.exempt(bp)
 
     # 註冊 Web UI 藍圖
