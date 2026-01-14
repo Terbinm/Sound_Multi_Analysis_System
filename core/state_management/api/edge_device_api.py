@@ -146,9 +146,11 @@ def delete_device(device_id):
 
     Query Parameters:
         force: 是否強制刪除（即使設備在線）
+        delete_recordings: 是否同時刪除該設備的所有錄音資料
     """
     try:
         force = request.args.get('force', 'false').lower() == 'true'
+        delete_recordings = request.args.get('delete_recordings', 'false').lower() == 'true'
 
         # 檢查設備是否存在
         device = EdgeDevice.get_by_id(device_id)
@@ -165,6 +167,33 @@ def delete_device(device_id):
                 'error': '無法刪除在線的設備，請先使設備離線或使用 force=true 參數'
             }), 400
 
+        deleted_recordings_count = 0
+
+        # 若需要刪除錄音資料
+        if delete_recordings:
+            db = get_db()
+            config = get_config()
+            recordings_collection = db[config.COLLECTIONS.get('recordings', 'recordings')]
+            fs = gridfs.GridFS(db)
+
+            # 查詢該設備的所有錄音
+            query = {'info_features.device_id': device_id}
+            recordings = list(recordings_collection.find(query))
+
+            # 刪除 GridFS 檔案
+            for recording in recordings:
+                try:
+                    file_id = recording.get('files', {}).get('raw', {}).get('fileId')
+                    if file_id:
+                        fs.delete(file_id)
+                except Exception as e:
+                    logger.warning(f"刪除 GridFS 檔案失敗 ({recording.get('AnalyzeUUID')}): {e}")
+
+            # 刪除 recordings 集合中的文檔
+            result = recordings_collection.delete_many(query)
+            deleted_recordings_count = result.deleted_count
+            logger.info(f"已刪除設備 {device_id} 的 {deleted_recordings_count} 筆錄音")
+
         # 刪除設備
         success = EdgeDevice.delete(device_id, force=force)
         if not success:
@@ -180,7 +209,8 @@ def delete_device(device_id):
 
         return jsonify({
             'success': True,
-            'message': '設備已刪除'
+            'message': '設備已刪除',
+            'deleted_recordings': deleted_recordings_count if delete_recordings else None
         }), 200
 
     except Exception as e:

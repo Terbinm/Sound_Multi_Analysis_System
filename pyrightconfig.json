@@ -1,0 +1,8 @@
+{
+  "venvPath": "C:/Users/sixsn/PycharmProjects/Sound_Multi_Analysis_System",
+  "venv": ".venv",
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "warning"
+}

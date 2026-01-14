@@ -522,6 +522,19 @@
                     <p class="text-sm text-amber-800">此操作無法復原，設備的所有配置資料將會被永久刪除。</p>
                 </div>
             </div>
+            <!-- 刪除錄音資料選項 -->
+            <div class="mt-4">
+                <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input type="checkbox" id="delete-recordings-checkbox"
+                           class="mt-1 h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500">
+                    <div>
+                        <span class="font-medium text-gray-900">同時刪除該設備的所有錄音資料</span>
+                        <p class="text-xs text-gray-500 mt-1">
+                            共 <span class="font-semibold text-red-600">{{ device_stats.total_recordings or 0 }}</span> 筆錄音，包含音訊檔案與分析記錄
+                        </p>
+                    </div>
+                </label>
+            </div>
         </div>
         <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
             <button onclick="closeDeleteConfirmModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
@@ -865,13 +878,25 @@ function confirmDeleteDevice() {
     // 關閉 Modal
     closeDeleteConfirmModal();
 
-    fetch(`/api/edge-devices/${deviceId}`, {
-        method: 'DELETE'
-    })
+    // 取得是否刪除錄音的選項
+    const deleteRecordings = document.getElementById('delete-recordings-checkbox').checked;
+
+    // 建立 URL 參數
+    const params = new URLSearchParams();
+    if (deleteRecordings) {
+        params.append('delete_recordings', 'true');
+    }
+
+    const url = `/api/edge-devices/${deviceId}` + (params.toString() ? `?${params}` : '');
+
+    fetch(url, { method: 'DELETE' })
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            alert('設備已刪除');
+            const msg = deleteRecordings
+                ? `設備已刪除，同時刪除了 ${data.deleted_recordings || 0} 筆錄音資料`
+                : '設備已刪除';
+            alert(msg);
             window.location.href = '{{ url_for("views.edge_devices_list") }}';
         } else {
             alert('刪除失敗: ' + (data.error || '未知錯誤'));
