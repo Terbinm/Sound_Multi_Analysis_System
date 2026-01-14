@@ -41,8 +41,9 @@ class AudioFFTPlayer {
 
         // Create audio element
         this.audioElement = new Audio();
+        // 啟用 CORS 以支援 Web Audio API 的 FFT 分析
         this.audioElement.crossOrigin = 'anonymous';
-        this.audioElement.preload = 'metadata';
+        this.audioElement.preload = 'auto';
 
         // Set up event listeners
         this.audioElement.addEventListener('play', () => {

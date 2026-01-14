@@ -103,6 +103,9 @@ def stream_audio(analyze_uuid: str):
             response.headers['Content-Range'] = f'bytes {start}-{end}/{file_size}'
             response.headers['Accept-Ranges'] = 'bytes'
             response.headers['Content-Length'] = content_length
+            # 允許 Web Audio API 存取
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            response.headers['Access-Control-Expose-Headers'] = 'Content-Range, Accept-Ranges, Content-Length'
 
             return response
 
@@ -124,6 +127,9 @@ def stream_audio(analyze_uuid: str):
             )
             response.headers['Accept-Ranges'] = 'bytes'
             response.headers['Content-Length'] = file_size
+            # 允許 Web Audio API 存取
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            response.headers['Access-Control-Expose-Headers'] = 'Accept-Ranges, Content-Length'
 
             return response
 
