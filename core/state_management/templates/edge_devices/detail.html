@@ -92,6 +92,19 @@
                 {% if device.status != 'IDLE' %}
                 <p class="text-xs text-gray-500 mt-2">設備必須在線才能錄音</p>
                 {% endif %}
+
+                <!-- 錄音進度條（預設隱藏） -->
+                <div id="recording-progress-container" class="hidden mt-4">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-sm font-medium text-red-600">
+                            <i class="fas fa-circle animate-pulse mr-1"></i>錄音中
+                        </span>
+                        <span id="recording-progress-text" class="text-sm text-gray-600">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div id="recording-progress-bar" class="bg-red-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- 查詢音訊設備 -->
@@ -294,11 +307,12 @@
             查看全部 <i class="fas fa-arrow-right ml-1"></i>
         </a>
     </div>
-    <div class="overflow-x-auto">
+    <div id="recent-recordings-container" class="overflow-x-auto">
         {% if recent_recordings %}
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">#</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分析 UUID</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">檔案名稱</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">時長</th>
@@ -306,9 +320,10 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">建立時間</th>
                 </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
+            <tbody id="recent-recordings-tbody" class="bg-white divide-y divide-gray-200">
                 {% for recording in recent_recordings %}
                 <tr class="hover:bg-gray-50">
+                    <td class="row-number px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-400">{{ loop.index }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
                         <a href="{{ url_for('views.data_detail', analyze_uuid=recording.analyze_uuid) }}"
                            class="text-emerald-600 hover:text-emerald-700 hover:underline">
@@ -319,7 +334,7 @@
                         {{ recording.filename or '-' }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {{ recording.duration or '-' }}s
+                        {% if recording.duration is not none %}{{ "%.1f"|format(recording.duration) }}{% else %}-{% endif %}s
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {% if recording.assigned_router_ids %}
@@ -342,7 +357,7 @@
             </tbody>
         </table>
         {% else %}
-        <div class="px-6 py-12 text-center">
+        <div id="no-recordings-placeholder" class="px-6 py-12 text-center">
             <i class="fas fa-file-audio text-4xl text-gray-300 mb-4"></i>
             <p class="text-gray-500">尚無錄音記錄</p>
         </div>
@@ -616,10 +631,31 @@ socket.on('edge_device.offline', function(data) {
     }
 });
 
-// 錄音進度
+// 錄音開始 - 顯示進度條
+socket.on('edge_device.recording_started', function(data) {
+    if (data.device_id === deviceId) {
+        showRecordingProgress();
+    }
+});
+
+// 錄音進度 - 更新進度條
 socket.on('edge_device.recording_progress', function(data) {
     if (data.device_id === deviceId) {
-        console.log('Recording progress:', data.progress_percent + '%');
+        updateRecordingProgress(data.progress_percent);
+    }
+});
+
+// 錄音完成 - 隱藏進度條
+socket.on('edge_device.recording_completed', function(data) {
+    if (data.device_id === deviceId) {
+        hideRecordingProgress();
+    }
+});
+
+// 錄音上傳完成 - 更新近期錄音表格
+socket.on('edge_device.recording_uploaded', function(data) {
+    if (data.device_id === deviceId) {
+        addNewRecordingRow(data);
     }
 });
 
@@ -687,6 +723,12 @@ function updateStatusDisplay(status, offlineReason, offlineReasonText) {
 
 function triggerRecording() {
     const duration = document.getElementById('record-duration').value;
+    const recordBtn = document.getElementById('record-btn');
+
+    // 立即禁用按鈕並顯示狀態
+    recordBtn.disabled = true;
+    recordBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> 發送中...';
+
     fetch(`/api/edge-devices/${deviceId}/record`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -695,11 +737,61 @@ function triggerRecording() {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            alert('錄音已開始');
+            showToast('錄音已開始', 'success');
+            // 狀態會透過 WebSocket 更新
         } else {
-            alert('錯誤: ' + (data.message || '未知錯誤'));
+            showToast('錯誤: ' + (data.message || '未知錯誤'), 'error');
+            // 恢復按鈕狀態
+            recordBtn.disabled = false;
+            recordBtn.innerHTML = '<i class="fas fa-circle mr-1"></i> 錄音';
         }
+    })
+    .catch(err => {
+        showToast('請求失敗: ' + err.message, 'error');
+        recordBtn.disabled = false;
+        recordBtn.innerHTML = '<i class="fas fa-circle mr-1"></i> 錄音';
     });
+}
+
+// Toast 通知函數（非阻塞）
+function showToast(message, type = 'info') {
+    // 移除已存在的 toast
+    const existingToast = document.getElementById('toast-notification');
+    if (existingToast) {
+        existingToast.remove();
+    }
+
+    // 建立 toast 元素
+    const toast = document.createElement('div');
+    toast.id = 'toast-notification';
+    toast.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+
+    // 根據類型設定樣式
+    if (type === 'success') {
+        toast.classList.add('bg-green-500', 'text-white');
+        toast.innerHTML = `<i class="fas fa-check-circle mr-2"></i>${message}`;
+    } else if (type === 'error') {
+        toast.classList.add('bg-red-500', 'text-white');
+        toast.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i>${message}`;
+    } else {
+        toast.classList.add('bg-blue-500', 'text-white');
+        toast.innerHTML = `<i class="fas fa-info-circle mr-2"></i>${message}`;
+    }
+
+    document.body.appendChild(toast);
+
+    // 觸發進入動畫
+    requestAnimationFrame(() => {
+        toast.classList.remove('translate-x-full');
+        toast.classList.add('translate-x-0');
+    });
+
+    // 自動消失
+    setTimeout(() => {
+        toast.classList.remove('translate-x-0');
+        toast.classList.add('translate-x-full');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 function queryAudioDevices() {
@@ -707,9 +799,9 @@ function queryAudioDevices() {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            alert('已發送音訊設備查詢請求，請重新整理頁面查看更新的設備。');
+            showToast('已發送音訊設備查詢請求，請重新整理頁面查看更新的設備', 'success');
         } else {
-            alert('錯誤: ' + (data.message || '未知錯誤'));
+            showToast('錯誤: ' + (data.message || '未知錯誤'), 'error');
         }
     });
 }
@@ -722,7 +814,7 @@ function toggleSchedule(enabled) {
         if (data.success) {
             location.reload();
         } else {
-            alert('錯誤: ' + (data.message || '未知錯誤'));
+            showToast('錯誤: ' + (data.message || '未知錯誤'), 'error');
         }
     });
 }
@@ -766,13 +858,13 @@ function saveSchedule() {
 
     // 前端驗證：間隔時間必須大於 0
     if (intervalSeconds <= 0) {
-        alert('間隔時間必須大於 0');
+        showToast('間隔時間必須大於 0', 'error');
         return;
     }
 
     // 前端驗證：間隔時間不能小於錄音時長
     if (intervalSeconds < durationSeconds) {
-        alert('間隔時間不可小於錄音時長（' + durationSeconds + ' 秒）');
+        showToast('間隔時間不可小於錄音時長（' + durationSeconds + ' 秒）', 'error');
         return;
     }
 
@@ -791,7 +883,7 @@ function saveSchedule() {
         if (data.success) {
             location.reload();
         } else {
-            alert('錯誤: ' + (data.error || data.message || '未知錯誤'));
+            showToast('錯誤: ' + (data.error || data.message || '未知錯誤'), 'error');
         }
     });
 }
@@ -824,7 +916,7 @@ function saveAudioConfig() {
         if (data.success) {
             location.reload();
         } else {
-            alert('錯誤: ' + (data.message || '未知錯誤'));
+            showToast('錯誤: ' + (data.message || '未知錯誤'), 'error');
         }
     });
 }
@@ -833,7 +925,7 @@ function deleteDevice() {
     // 檢查設備狀態，僅允許刪除離線設備
     const deleteBtn = document.getElementById('delete-btn');
     if (deleteBtn && deleteBtn.disabled) {
-        alert('無法刪除在線或錄音中的設備。請等待設備離線後再試。');
+        showToast('無法刪除在線或錄音中的設備。請等待設備離線後再試', 'error');
         return;
     }
 
@@ -841,7 +933,7 @@ function deleteDevice() {
     const statusBadge = document.getElementById('status-badge');
     const statusText = statusBadge ? statusBadge.textContent.replace(/\s+/g, '') : '';
     if (!statusText.includes('離線')) {
-        alert('無法刪除在線或錄音中的設備。請等待設備離線後再試。');
+        showToast('無法刪除在線或錄音中的設備。請等待設備離線後再試', 'error');
         return;
     }
 
@@ -875,11 +967,14 @@ function closeDeleteConfirmModal() {
 }
 
 function confirmDeleteDevice() {
+    // 取得是否刪除錄音的選項（在關閉 Modal 前讀取）
+    const checkbox = document.getElementById('delete-recordings-checkbox');
+    const deleteRecordings = checkbox ? checkbox.checked : false;
+
+    console.log('刪除設備 - deleteRecordings:', deleteRecordings, 'checkbox:', checkbox);
+
     // 關閉 Modal
     closeDeleteConfirmModal();
-
-    // 取得是否刪除錄音的選項
-    const deleteRecordings = document.getElementById('delete-recordings-checkbox').checked;
 
     // 建立 URL 參數
     const params = new URLSearchParams();
@@ -888,6 +983,7 @@ function confirmDeleteDevice() {
     }
 
     const url = `/api/edge-devices/${deviceId}` + (params.toString() ? `?${params}` : '');
+    console.log('刪除設備 - URL:', url);
 
     fetch(url, { method: 'DELETE' })
     .then(r => r.json())
@@ -896,14 +992,16 @@ function confirmDeleteDevice() {
             const msg = deleteRecordings
                 ? `設備已刪除，同時刪除了 ${data.deleted_recordings || 0} 筆錄音資料`
                 : '設備已刪除';
-            alert(msg);
-            window.location.href = '{{ url_for("views.edge_devices_list") }}';
+            showToast(msg, 'success');
+            setTimeout(() => {
+                window.location.href = '{{ url_for("views.edge_devices_list") }}';
+            }, 1500);
         } else {
-            alert('刪除失敗: ' + (data.error || '未知錯誤'));
+            showToast('刪除失敗: ' + (data.error || '未知錯誤'), 'error');
         }
     })
     .catch(err => {
-        alert('刪除失敗: ' + err.message);
+        showToast('刪除失敗: ' + err.message, 'error');
     });
 }
 
@@ -932,13 +1030,13 @@ function saveDeviceInfo() {
             // 更新頁面顯示
             document.getElementById('device-name-display').textContent = deviceName || '未命名設備';
             closeDeviceInfoModal();
-            alert('設備資訊已更新');
+            showToast('設備資訊已更新', 'success');
         } else {
-            alert('更新失敗: ' + (data.error || '未知錯誤'));
+            showToast('更新失敗: ' + (data.error || '未知錯誤'), 'error');
         }
     })
     .catch(err => {
-        alert('更新失敗: ' + err.message);
+        showToast('更新失敗: ' + err.message, 'error');
     });
 }
 
@@ -968,12 +1066,151 @@ function saveRouterConfig() {
             closeRouterConfigModal();
             location.reload();  // 重新載入頁面以更新路由配置顯示
         } else {
-            alert('更新失敗: ' + (data.error || '未知錯誤'));
+            showToast('更新失敗: ' + (data.error || '未知錯誤'), 'error');
         }
     })
     .catch(err => {
-        alert('更新失敗: ' + err.message);
+        showToast('更新失敗: ' + err.message, 'error');
     });
+}
+
+// ==================== 錄音進度條控制 ====================
+function showRecordingProgress() {
+    const container = document.getElementById('recording-progress-container');
+    if (container) {
+        container.classList.remove('hidden');
+        updateRecordingProgress(0);
+    }
+}
+
+function updateRecordingProgress(percent) {
+    const bar = document.getElementById('recording-progress-bar');
+    const text = document.getElementById('recording-progress-text');
+    if (bar && text) {
+        bar.style.width = percent + '%';
+        text.textContent = Math.round(percent) + '%';
+    }
+}
+
+function hideRecordingProgress() {
+    const container = document.getElementById('recording-progress-container');
+    if (container) {
+        container.classList.add('hidden');
+    }
+    // 重置錄音按鈕狀態
+    const recordBtn = document.getElementById('record-btn');
+    if (recordBtn) {
+        recordBtn.disabled = false;
+        recordBtn.innerHTML = '<i class="fas fa-circle mr-1"></i> 錄音';
+    }
+}
+
+// ==================== 近期錄音表格即時更新 ====================
+function addNewRecordingRow(data) {
+    const container = document.getElementById('recent-recordings-container');
+    const tbody = document.getElementById('recent-recordings-tbody');
+    const placeholder = document.getElementById('no-recordings-placeholder');
+
+    // 如果有空狀態提示，移除它並創建表格
+    if (placeholder) {
+        createRecordingsTable();
+    }
+
+    // 創建新行
+    const newRow = createRecordingRow(data, 1);  // 新錄音編號為 1
+
+    // 插入到表格頂部
+    const currentTbody = document.getElementById('recent-recordings-tbody');
+    if (currentTbody) {
+        currentTbody.insertBefore(newRow, currentTbody.firstChild);
+
+        // 重新編號所有行
+        renumberRecordingRows();
+
+        // 保持最多 10 筆
+        while (currentTbody.children.length > 10) {
+            currentTbody.removeChild(currentTbody.lastChild);
+        }
+    }
+
+    // 顯示 toast 通知
+    showToast('新錄音已上傳', 'success');
+}
+
+function createRecordingRow(data, index) {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-gray-50';
+
+    const timestamp = new Date().toLocaleString('zh-TW', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+    }).replace(/\//g, '-');
+
+    const routerCount = data.assigned_router_ids ? data.assigned_router_ids.length : 0;
+    const routerBadge = routerCount > 0
+        ? `<span class="tech-badge text-xs bg-emerald-100 text-emerald-700">${routerCount} 個路由</span>`
+        : `<span class="tech-badge text-xs bg-gray-100 text-gray-600">無</span>`;
+
+    const uuid = data.recording_uuid || data.analyze_uuid || '';
+    const displayUuid = uuid.length > 16 ? uuid.substring(0, 16) + '...' : uuid;
+
+    tr.innerHTML = `
+        <td class="row-number px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-400">${index}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
+            <a href="/data/${uuid}" class="text-emerald-600 hover:text-emerald-700 hover:underline">
+                ${displayUuid}
+            </a>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${data.filename || '-'}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${data.duration != null ? parseFloat(data.duration).toFixed(1) : '-'}s</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${routerBadge}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${timestamp}</td>
+    `;
+
+    return tr;
+}
+
+function renumberRecordingRows() {
+    const tbody = document.getElementById('recent-recordings-tbody');
+    if (tbody) {
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach((row, index) => {
+            const numberCell = row.querySelector('.row-number');
+            if (numberCell) {
+                numberCell.textContent = index + 1;
+            }
+        });
+    }
+}
+
+function createRecordingsTable() {
+    // 移除空狀態
+    const placeholder = document.getElementById('no-recordings-placeholder');
+    if (placeholder) {
+        placeholder.remove();
+    }
+
+    // 創建表格
+    const container = document.getElementById('recent-recordings-container');
+    if (container) {
+        container.innerHTML = `
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">#</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分析 UUID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">檔案名稱</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">時長</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分析路由</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">建立時間</th>
+                    </tr>
+                </thead>
+                <tbody id="recent-recordings-tbody" class="bg-white divide-y divide-gray-200">
+                </tbody>
+            </table>
+        `;
+    }
 }
 </script>
 {% endblock %}

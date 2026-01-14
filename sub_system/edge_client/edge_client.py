@@ -43,13 +43,11 @@ class EdgeClient:
         self.audio_manager = AudioManager(temp_dir=self.config.temp_wav_dir)
 
         # SocketIO 客戶端
+        # 注意：禁用自動重連，由主迴圈手動控制重連，避免兩套機制衝突
         self.sio = socketio.Client(
             logger=True,
             engineio_logger=False,
-            reconnection=True,
-            reconnection_attempts=0,  # 無限重試
-            reconnection_delay=self.config.reconnect_delay,
-            reconnection_delay_max=self.config.max_reconnect_delay
+            reconnection=False  # 禁用自動重連，使用手動重連
         )
 
         # 狀態

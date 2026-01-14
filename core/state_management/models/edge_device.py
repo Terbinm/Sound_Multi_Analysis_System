@@ -87,7 +87,8 @@ class EdgeDeviceRecord:
                 'interval_seconds': 3600,
                 'duration_seconds': 10,
                 'start_time': None,
-                'end_time': None
+                'end_time': None,
+                'max_success_count': None  # 錄製成功數量上限（累計），達到後自動停用排程
             }
 
         # 設定預設的統計資訊
@@ -229,7 +230,8 @@ class EdgeDevice:
                         'interval_seconds': 3600,
                         'duration_seconds': 10,
                         'start_time': None,
-                        'end_time': None
+                        'end_time': None,
+                        'max_success_count': None  # 錄製成功數量上限
                     },
                     'statistics': {
                         'total_recordings': 0,
@@ -837,16 +839,19 @@ class EdgeDevice:
             return False
 
     @staticmethod
-    def increment_recording_stats(device_id: str, success: bool = True) -> bool:
+    def increment_recording_stats(device_id: str, success: bool = True) -> Dict[str, Any]:
         """
-        增加錄音統計
+        增加錄音統計，並檢查是否達到排程上限
 
         Args:
             device_id: 設備 ID
             success: 是否成功
 
         Returns:
-            是否成功
+            結果字典，包含：
+            - success: 是否更新成功
+            - schedule_disabled: 是否因達到上限而停用排程
+            - new_success_count: 更新後的成功計數
         """
         try:
             db = get_db()
@@ -868,11 +873,49 @@ class EdgeDevice:
                 update_data
             )
 
-            return result.modified_count > 0
+            if result.modified_count == 0:
+                return {'success': False, 'schedule_disabled': False}
+
+            # 檢查是否達到排程錄音上限
+            schedule_disabled = False
+            new_success_count = 0
+
+            if success:
+                device = collection.find_one({'_id': device_id})
+                if device:
+                    schedule_config = device.get('schedule_config', {})
+                    statistics = device.get('statistics', {})
+                    max_success_count = schedule_config.get('max_success_count')
+                    new_success_count = statistics.get('success_count', 0)
+
+                    # 若設定了上限且已達到，自動停用排程
+                    if (max_success_count is not None and
+                        max_success_count > 0 and
+                        new_success_count >= max_success_count and
+                        schedule_config.get('enabled', False)):
+
+                        collection.update_one(
+                            {'_id': device_id},
+                            {'$set': {
+                                'schedule_config.enabled': False,
+                                'updated_at': datetime.utcnow()
+                            }}
+                        )
+                        schedule_disabled = True
+                        logger.info(
+                            f"設備 {device_id} 已達排程錄音上限 "
+                            f"({new_success_count}/{max_success_count})，排程已自動停用"
+                        )
+
+            return {
+                'success': True,
+                'schedule_disabled': schedule_disabled,
+                'new_success_count': new_success_count
+            }
 
         except Exception as e:
             logger.error(f"更新邊緣設備錄音統計失敗 ({device_id}): {e}")
-            return False
+            return {'success': False, 'schedule_disabled': False}
 
     @staticmethod
     def delete(device_id: str, force: bool = False) -> bool:

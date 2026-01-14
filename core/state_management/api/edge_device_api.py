@@ -13,6 +13,7 @@ from models.edge_device import EdgeDevice
 from models.routing_rule import RoutingRule
 from services.websocket_manager import websocket_manager
 from services.edge_schedule_service import edge_schedule_service
+from services.edge_device_manager import edge_device_manager
 from utils.mongodb_handler import get_db
 from config import get_config
 
@@ -116,11 +117,16 @@ def update_device(device_id):
                     'error': '更新設備名稱失敗'
                 }), 500
 
-            # 推送更新事件
+            # 推送更新事件給 Web UI
             websocket_manager.broadcast('edge_device.updated', {
                 'device_id': device_id,
                 'device_name': data['device_name']
             }, room='edge_devices')
+
+            # 同時通知 Edge Client 更新本地配置
+            edge_device_manager.update_device_config(device_id, {
+                'device_name': data['device_name']
+            })
 
         # 獲取更新後的設備資訊
         updated_device = EdgeDevice.get_by_id(device_id)
@@ -169,15 +175,39 @@ def delete_device(device_id):
 
         deleted_recordings_count = 0
 
+        logger.info(f"刪除設備請求: device_id={device_id}, delete_recordings={delete_recordings}, force={force}")
+
         # 若需要刪除錄音資料
         if delete_recordings:
             db = get_db()
             config = get_config()
-            recordings_collection = db[config.COLLECTIONS.get('recordings', 'recordings')]
+            collection_name = config.COLLECTIONS.get('recordings', 'recordings')
+            recordings_collection = db[collection_name]
             fs = gridfs.GridFS(db)
 
             # 查詢該設備的所有錄音
             query = {'info_features.device_id': device_id}
+
+            # 先計算數量以便調試
+            count_before = recordings_collection.count_documents(query)
+            logger.info(f"準備刪除錄音: collection={collection_name}, query={query}, 找到 {count_before} 筆")
+
+            # 如果找不到，嘗試其他查詢方式調試
+            if count_before == 0:
+                # 檢查是否有任何包含此 device_id 的錄音（可能在不同欄位）
+                alt_query = {'$or': [
+                    {'info_features.device_id': device_id},
+                    {'device_id': device_id},
+                    {'info_features.device_id': {'$regex': device_id, '$options': 'i'}}
+                ]}
+                alt_count = recordings_collection.count_documents(alt_query)
+                logger.info(f"替代查詢找到 {alt_count} 筆")
+
+                # 列出所有錄音的 device_id 欄位值（最多 5 筆）
+                sample_docs = list(recordings_collection.find({}, {'info_features.device_id': 1, 'device_id': 1}).limit(5))
+                for doc in sample_docs:
+                    logger.info(f"樣本錄音 device_id: info_features.device_id={doc.get('info_features', {}).get('device_id')}, device_id={doc.get('device_id')}")
+
             recordings = list(recordings_collection.find(query))
 
             # 刪除 GridFS 檔案
@@ -549,6 +579,7 @@ def update_schedule(device_id):
         duration_seconds: 錄音時長（可選）
         start_time: 每日開始時間 HH:MM（可選）
         end_time: 每日結束時間 HH:MM（可選）
+        max_success_count: 錄製成功數量上限（可選，達到後自動停用排程）
     """
     try:
         data = request.get_json()
@@ -568,7 +599,7 @@ def update_schedule(device_id):
             }), 404
 
         # 過濾有效的排程配置欄位
-        valid_fields = ['enabled', 'interval_seconds', 'duration_seconds', 'start_time', 'end_time']
+        valid_fields = ['enabled', 'interval_seconds', 'duration_seconds', 'start_time', 'end_time', 'max_success_count']
         schedule_config = {k: v for k, v in data.items() if k in valid_fields}
 
         if not schedule_config:
@@ -589,6 +620,15 @@ def update_schedule(device_id):
                 'success': False,
                 'error': '錄音時長必須大於 0'
             }), 400
+
+        # 驗證錄音上限（允許 None 或正整數）
+        if 'max_success_count' in schedule_config:
+            max_count = schedule_config['max_success_count']
+            if max_count is not None and (not isinstance(max_count, int) or max_count < 1):
+                return jsonify({
+                    'success': False,
+                    'error': '錄音上限必須是正整數或留空（無上限）'
+                }), 400
 
         # 更新排程配置
         success = EdgeDevice.update_schedule_config(device_id, schedule_config)
@@ -1149,14 +1189,28 @@ def upload_recording():
         recordings_collection.insert_one(recordings_document)
         logger.info(f"已在 recordings 集合建立分析記錄: AnalyzeUUID={recording_uuid}, routers={assigned_router_ids}")
 
-        # 7. 更新設備錄音統計
-        EdgeDevice.increment_recording_stats(device_id, success=True)
+        # 7. 更新設備錄音統計（並檢查是否達到排程上限）
+        stats_result = EdgeDevice.increment_recording_stats(device_id, success=True)
+
+        # 若因達到上限而停用排程，推送通知
+        if stats_result.get('schedule_disabled'):
+            # 同步移除排程服務中的任務
+            edge_schedule_service.remove_device_schedule(device_id)
+            logger.info(f"設備 {device_id} 已達排程錄音上限，排程已自動停用並移除任務")
+
+            # 推送排程停用事件
+            websocket_manager.broadcast('edge_device.schedule_disabled', {
+                'device_id': device_id,
+                'reason': 'max_success_count_reached',
+                'success_count': stats_result.get('new_success_count', 0)
+            }, room='edge_devices')
 
         # 8. 推送上傳完成事件
         websocket_manager.broadcast('edge_device.recording_uploaded', {
             'device_id': device_id,
             'recording_uuid': recording_uuid,
             'filename': filename,
+            'duration': duration,
             'file_id': str(gridfs_file_id),
             'assigned_router_ids': assigned_router_ids
         }, room='edge_devices')

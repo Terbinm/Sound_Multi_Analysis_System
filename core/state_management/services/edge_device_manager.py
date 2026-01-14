@@ -279,8 +279,7 @@ class EdgeDeviceManager:
                 EdgeDevice.update_status(device_id, 'IDLE')
                 EdgeDevice.update_heartbeat(device_id, status='IDLE', current_recording=None)
 
-                # 增加錄音統計
-                EdgeDevice.increment_recording_stats(device_id, success=True)
+                # 注意：錄音統計在 upload_recording API 中更新，避免重複計算
 
                 # 錄音結果資訊
                 result = {

@@ -86,8 +86,15 @@ def edge_device_detail(device_id: str):
                 'created_at': record.get('created_at')
             })
 
-        # 取得設備統計
-        device_stats = device.get('statistics', {})
+        # 計算實際的錄音數量（從 recordings 集合）
+        actual_recording_count = recordings_collection.count_documents(
+            {'info_features.device_id': device_id}
+        )
+
+        # 取得設備統計（複製一份以避免修改原始數據）
+        device_stats = dict(device.get('statistics', {}))
+        # 使用實際查詢的錄音數量
+        device_stats['total_recordings'] = actual_recording_count
 
         # 取得所有可用的路由規則
         available_routers = RoutingRule.get_all(enabled_only=True)
