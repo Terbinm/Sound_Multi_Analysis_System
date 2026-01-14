@@ -1,1 +1,15 @@
-{"device_id": "57989cd7-48ca-4c5d-8632-02f3cc29a207", "device_name": "Asus_Duo"}
+{
+  "device_id": "1189d524-4a7f-47a3-9c4b-1d9a7918d6ab",
+  "device_name": "Device_a741b2ef",
+  "server_url": "http://localhost:55103",
+  "audio_config": {
+    "default_device_index": 0,
+    "channels": 2,
+    "sample_rate": 16000,
+    "bit_depth": 32
+  },
+  "heartbeat_interval": 30,
+  "reconnect_delay": 5,
+  "max_reconnect_delay": 60,
+  "temp_wav_dir": "temp_wav"
+}

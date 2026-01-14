@@ -13,7 +13,7 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
-from typing import Dict, Any, List
+from typing import overload
 from env_loader import load_project_env
 
 
@@ -34,7 +34,15 @@ def require_env(name: str) -> str:
     return value
 
 
-def _get_required_env(key: str, value_type=str) -> Any:
+@overload
+def _get_required_env(key: str, value_type: type[str] = ...) -> str: ...
+@overload
+def _get_required_env(key: str, value_type: type[int]) -> int: ...
+@overload
+def _get_required_env(key: str, value_type: type[float]) -> float: ...
+
+
+def _get_required_env(key: str, value_type: type = str) -> str | int | float | bool:
     """
     獲取必要的環境變數，若不存在則拋出錯誤
 
@@ -87,7 +95,7 @@ class Config:
 
     # ==================== MongoDB 配置 ====================
     # 主要資料庫連線設定，所有參數必須提供
-    MONGODB_CONFIG: Dict[str, Any] = {
+    MONGODB_CONFIG: dict[str, str | int] = {
         'host': _get_required_env('MONGODB_HOST'),
         'port': _get_required_env('MONGODB_PORT', int),
         'username': _get_required_env('MONGODB_USERNAME'),
@@ -99,7 +107,7 @@ class Config:
 
     # ==================== RabbitMQ 配置 ====================
     # 訊息佇列連線設定，用於任務分發
-    RABBITMQ_CONFIG: Dict[str, Any] = {
+    RABBITMQ_CONFIG: dict[str, str | int] = {
         'host': _get_required_env('RABBITMQ_HOST'),
         'port': _get_required_env('RABBITMQ_PORT', int),
         'username': _get_required_env('RABBITMQ_USERNAME'),
@@ -125,12 +133,19 @@ class Config:
         'node_status': _get_required_env('MONGODB_COLLECTION_NODES_STATUS'),
         'config_version': _get_required_env('MONGODB_COLLECTION_SYSTEM_METADATA'),
         'users': _get_required_env('MONGODB_COLLECTION_USERS'),
+        # Edge Device 相關集合（可選，提供預設值）
+        'edge_devices': os.environ.get('MONGODB_COLLECTION_EDGE_DEVICES', 'edge_devices'),
     }
 
     # ==================== 節點監控配置 ====================
     # 節點心跳與健康檢查參數
     NODE_HEARTBEAT_INTERVAL = _get_required_env('NODE_HEARTBEAT_INTERVAL', int)
     NODE_HEARTBEAT_TIMEOUT = _get_required_env('NODE_HEARTBEAT_TIMEOUT', int)
+
+    # ==================== Edge Device 監控配置 ====================
+    # 邊緣設備心跳與健康檢查參數（可選，提供預設值）
+    EDGE_HEARTBEAT_INTERVAL = int(os.environ.get('EDGE_HEARTBEAT_INTERVAL', '30'))
+    EDGE_HEARTBEAT_TIMEOUT = int(os.environ.get('EDGE_HEARTBEAT_TIMEOUT', '90'))
 
     # ==================== WebSocket 配置 ====================
     # WebSocket 連線參數，影響即時通訊穩定性

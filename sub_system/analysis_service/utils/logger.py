@@ -2,6 +2,7 @@
 
 import logging
 import os
+import sys
 from contextlib import contextmanager
 import contextvars
 from datetime import datetime
@@ -113,7 +114,8 @@ def setup_logger(name: str = 'analysis_service') -> logging.Logger:
     file_handler.setFormatter(formatter)
     
     # 控制台處理器（根據配置決定級別）
-    console_handler = logging.StreamHandler()
+    # 使用 sys.stdout 避免所有日誌都顯示為紅色（stderr 預設為紅色）
+    console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(getattr(logging, LOGGING_CONFIG['level']))
     console_handler.setFormatter(formatter)
     

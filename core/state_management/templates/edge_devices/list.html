@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block title %}Edge 設備管理{% endblock %}
+{% block page_title %}Edge 設備管理{% endblock %}
+
+{% block content %}
+<!-- 頁面說明 -->
+<div class="mb-8 parallax-layer parallax-layer2">
+    <div class="tech-card-sm p-6 bg-gradient-to-r from-emerald-50 to-teal-50 border-l-4 border-emerald-500">
+        <div class="flex items-start gap-4">
+            <div class="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                <i class="fas fa-satellite-dish text-white text-xl"></i>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900 mb-2">Edge 設備控制</h2>
+                <p class="text-sm text-gray-600">
+                    管理 Edge 錄音設備、遠端觸發錄音，以及設定排程錄音任務。設備首次連線時會自動註冊。
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 統計卡片 -->
+<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-12 tech-grid">
+    <!-- 總設備數 -->
+    <div class="tech-card-sm parallax-layer2 overflow-hidden group">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
+                    <i class="fas fa-satellite-dish text-white text-2xl tech-icon-float"></i>
+                </div>
+                <div class="text-right">
+                    <div class="text-3xl font-bold text-gray-900 tech-counter" id="stat-total">{{ stats.total_devices }}</div>
+                    <div class="text-sm text-gray-500 mt-1">台設備</div>
+                </div>
+            </div>
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-700">總設備數</h3>
+            </div>
+        </div>
+        <div class="h-1 bg-gradient-to-r from-emerald-500 to-teal-600"></div>
+    </div>
+
+    <!-- 在線設備 -->
+    <div class="tech-card-sm parallax-layer2 overflow-hidden group">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
+                    <i class="fas fa-check-circle text-white text-2xl tech-icon-float"></i>
+                </div>
+                <div class="text-right">
+                    <div class="text-3xl font-bold text-green-600 tech-counter" id="stat-online">{{ stats.online_devices }}</div>
+                    <div class="text-sm text-gray-500 mt-1">在線</div>
+                </div>
+            </div>
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-700">在線設備</h3>
+            </div>
+        </div>
+        <div class="h-1 bg-gradient-to-r from-green-500 to-emerald-600"></div>
+    </div>
+
+    <!-- 錄音中 -->
+    <div class="tech-card-sm parallax-layer2 overflow-hidden group">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="rounded-xl bg-gradient-to-br from-red-500 to-rose-600 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
+                    <i class="fas fa-circle text-white text-2xl tech-icon-float animate-pulse"></i>
+                </div>
+                <div class="text-right">
+                    <div class="text-3xl font-bold text-red-600 tech-counter" id="stat-recording">{{ stats.recording_devices }}</div>
+                    <div class="text-sm text-gray-500 mt-1">錄音中</div>
+                </div>
+            </div>
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-700">錄音中</h3>
+            </div>
+        </div>
+        <div class="h-1 bg-gradient-to-r from-red-500 to-rose-600"></div>
+    </div>
+
+    <!-- 離線設備 -->
+    <div class="tech-card-sm parallax-layer2 overflow-hidden group">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="rounded-xl bg-gradient-to-br from-gray-400 to-gray-500 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
+                    <i class="fas fa-power-off text-white text-2xl tech-icon-float"></i>
+                </div>
+                <div class="text-right">
+                    <div class="text-3xl font-bold text-gray-500 tech-counter" id="stat-offline">{{ stats.offline_devices }}</div>
+                    <div class="text-sm text-gray-500 mt-1">離線</div>
+                </div>
+            </div>
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-700">離線設備</h3>
+            </div>
+        </div>
+        <div class="h-1 bg-gradient-to-r from-gray-400 to-gray-500"></div>
+    </div>
+</div>
+
+<!-- 設備列表 -->
+<div class="parallax-layer parallax-layer2">
+    {% if devices %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="devices-grid">
+        {% for device in devices %}
+        <div class="tech-card h-full overflow-hidden group hover:shadow-xl transition-all duration-300"
+             data-device-id="{{ device.device_id }}"
+             data-status="{{ device.status }}">
+            <div class="p-6">
+                <div class="flex items-start justify-between gap-4 mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 relative">
+                            <i class="fas fa-satellite-dish text-white text-lg"></i>
+                            <!-- 狀態指示燈 -->
+                            <span class="absolute -top-1 -right-1 h-4 w-4 rounded-full border-2 border-white shadow-sm
+                                {% if device.status == 'IDLE' %}bg-green-500{% elif device.status == 'RECORDING' %}bg-red-500 animate-pulse{% else %}bg-gray-400{% endif %}">
+                            </span>
+                        </div>
+                        <div>
+                            <p class="text-base font-semibold text-gray-900 group-hover:text-emerald-600 transition-colors">
+                                {{ device.device_name or device.device_id[:12] }}
+                            </p>
+                            <p class="text-xs text-gray-500 mt-0.5 font-mono">
+                                {{ device.device_id[:16] }}...
+                            </p>
+                        </div>
+                    </div>
+                    <!-- 狀態標籤 -->
+                    <div class="flex flex-col items-end gap-1">
+                        <span class="tech-badge text-xs status-badge
+                            {% if device.status == 'IDLE' %}bg-green-100 text-green-700 border-green-200
+                            {% elif device.status == 'RECORDING' %}bg-red-100 text-red-700 border-red-200
+                            {% else %}bg-gray-100 text-gray-600 border-gray-200{% endif %}">
+                            {% if device.status == 'IDLE' %}在線
+                            {% elif device.status == 'RECORDING' %}錄音中
+                            {% else %}離線{% endif %}
+                        </span>
+                        {% if device.status == 'OFFLINE' and device.offline_reason %}
+                        <span class="offline-reason text-xs text-gray-500" title="離線原因">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            {% if device.offline_reason == 'never_connected' %}從未連線
+                            {% elif device.offline_reason == 'heartbeat_timeout' %}心跳超時
+                            {% elif device.offline_reason == 'connection_lost' %}連線中斷
+                            {% else %}未知原因{% endif %}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 設備資訊 -->
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="flex items-center gap-2 text-sm">
+                        <div class="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                            <i class="fas fa-desktop text-blue-600 text-xs"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">平台</p>
+                            <p class="font-semibold text-gray-900">{{ device.platform or '未知' }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm">
+                        <div class="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                            <i class="fas fa-file-audio text-purple-600 text-xs"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">錄音數</p>
+                            <p class="font-semibold text-gray-900">{{ device.statistics.total_recordings if device.statistics else 0 }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 排程狀態 -->
+                {% set schedule = device.schedule_config or {} %}
+                <div class="flex items-center gap-2 mb-4 p-3 rounded-lg {% if schedule.enabled %}bg-emerald-50{% else %}bg-gray-50{% endif %}">
+                    <i class="fas fa-clock {% if schedule.enabled %}text-emerald-600{% else %}text-gray-400{% endif %}"></i>
+                    <span class="text-sm {% if schedule.enabled %}text-emerald-700{% else %}text-gray-500{% endif %}">
+                        {% if schedule.enabled %}
+                            排程: 每 {{ schedule.interval_seconds // 60 }} 分鐘，錄音 {{ schedule.duration_seconds }} 秒
+                        {% else %}
+                            排程已停用
+                        {% endif %}
+                    </span>
+                </div>
+
+                <!-- 音訊配置摘要 -->
+                {% set audio = device.audio_config or {} %}
+                <div class="flex flex-wrap gap-1 mb-2">
+                    <span class="tech-badge text-xs bg-gray-100 text-gray-600 border border-gray-200">
+                        {{ audio.sample_rate or 16000 }} Hz
+                    </span>
+                    <span class="tech-badge text-xs bg-gray-100 text-gray-600 border border-gray-200">
+                        {{ audio.channels or 1 }} ch
+                    </span>
+                    <span class="tech-badge text-xs bg-gray-100 text-gray-600 border border-gray-200">
+                        {{ audio.bit_depth or 16 }} bit
+                    </span>
+                </div>
+            </div>
+
+            <!-- 底部操作區 -->
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div class="text-xs text-gray-500">
+                        {% if device.connection_info and device.connection_info.last_heartbeat %}
+                            最後上線: {{ device.connection_info.last_heartbeat.strftime('%Y-%m-%d %H:%M') }}
+                        {% else %}
+                            從未連線
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <!-- 快捷錄音按鈕 -->
+                        {% if device.status == 'IDLE' %}
+                        <button onclick="triggerRecording('{{ device.device_id }}')"
+                                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-medium hover:bg-red-600 transition-all duration-200 shadow-sm">
+                            <i class="fas fa-circle text-xs"></i>
+                            錄音
+                        </button>
+                        {% endif %}
+                        <a href="{{ url_for('views.edge_device_detail', device_id=device.device_id) }}"
+                           class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-all duration-200">
+                            詳情
+                            <i class="fas fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="tech-card overflow-hidden">
+        <div class="px-6 py-16">
+            <div class="tech-empty-state">
+                <div class="tech-empty-state-icon mx-auto mb-4">
+                    <i class="fas fa-satellite-dish text-6xl text-gray-300"></i>
+                </div>
+                <p class="text-lg font-medium text-gray-600">尚無 Edge 設備</p>
+                <p class="text-sm text-gray-500 mt-2">設備連線並向伺服器註冊後，將會顯示在此處</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if error %}
+<div class="mt-8">
+    <div class="tech-card border-l-4 border-red-500 bg-red-50">
+        <div class="p-4">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <div class="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+                        <i class="fas fa-exclamation-circle text-red-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <h3 class="text-sm font-semibold text-red-800 mb-1">載入資料時發生錯誤</h3>
+                    <p class="text-sm text-red-700">{{ error }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+<script>
+// WebSocket 連線
+const socket = io();
+
+// 訂閱 edge_devices 房間
+socket.on('connect', function() {
+    socket.emit('subscribe', {room: 'edge_devices'});
+});
+
+// 設備狀態變更
+socket.on('edge_device.status_changed', function(data) {
+    updateDeviceStatus(data.device_id, data.status);
+});
+
+// 設備上線
+socket.on('edge_device.online', function(data) {
+    location.reload();
+});
+
+// 設備離線
+socket.on('edge_device.offline', function(data) {
+    updateDeviceStatus(data.device_id, 'offline', data.offline_reason, data.offline_reason_display);
+});
+
+// 統計更新
+socket.on('edge_device.stats_updated', function(data) {
+    document.getElementById('stat-total').textContent = data.total_devices || 0;
+    document.getElementById('stat-online').textContent = data.online_devices || 0;
+    document.getElementById('stat-recording').textContent = data.recording_devices || 0;
+    document.getElementById('stat-offline').textContent = data.offline_devices || 0;
+});
+
+// 新設備註冊
+socket.on('edge_device.registered', function(data) {
+    location.reload();
+});
+
+// 離線原因對照表
+const offlineReasonDisplay = {
+    'never_connected': '從未連線',
+    'heartbeat_timeout': '心跳超時',
+    'connection_lost': '連線中斷'
+};
+
+// 更新設備狀態
+function updateDeviceStatus(deviceId, status, offlineReason, offlineReasonText) {
+    const card = document.querySelector(`[data-device-id="${deviceId}"]`);
+    if (!card) return;
+
+    card.setAttribute('data-status', status);
+
+    // 判斷是否為在線狀態
+    const isOnline = (status === 'IDLE');
+
+    // 更新狀態指示燈
+    const indicator = card.querySelector('.absolute.-top-1.-right-1');
+    if (indicator) {
+        indicator.className = 'absolute -top-1 -right-1 h-4 w-4 rounded-full border-2 border-white shadow-sm';
+        if (isOnline) {
+            indicator.classList.add('bg-green-500');
+        } else if (status === 'RECORDING') {
+            indicator.classList.add('bg-red-500', 'animate-pulse');
+        } else {
+            indicator.classList.add('bg-gray-400');
+        }
+    }
+
+    // 更新狀態標籤
+    const badge = card.querySelector('.status-badge');
+    if (badge) {
+        badge.className = 'tech-badge text-xs status-badge';
+        if (isOnline) {
+            badge.classList.add('bg-green-100', 'text-green-700', 'border-green-200');
+            badge.textContent = '在線';
+        } else if (status === 'RECORDING') {
+            badge.classList.add('bg-red-100', 'text-red-700', 'border-red-200');
+            badge.textContent = '錄音中';
+        } else {
+            badge.classList.add('bg-gray-100', 'text-gray-600', 'border-gray-200');
+            badge.textContent = '離線';
+        }
+    }
+
+    // 更新離線原因
+    let reasonSpan = card.querySelector('.offline-reason');
+    if (status === 'OFFLINE' && offlineReason) {
+        const reasonText = offlineReasonText || offlineReasonDisplay[offlineReason] || '未知原因';
+        if (!reasonSpan) {
+            // 建立新的離線原因元素
+            reasonSpan = document.createElement('span');
+            reasonSpan.className = 'offline-reason text-xs text-gray-500';
+            reasonSpan.title = '離線原因';
+            const badgeContainer = badge.parentElement;
+            if (badgeContainer) {
+                badgeContainer.appendChild(reasonSpan);
+            }
+        }
+        reasonSpan.innerHTML = `<i class="fas fa-info-circle mr-1"></i>${reasonText}`;
+        reasonSpan.style.display = '';
+    } else if (reasonSpan) {
+        // 隱藏離線原因
+        reasonSpan.style.display = 'none';
+    }
+}
+
+// 觸發錄音
+function triggerRecording(deviceId) {
+    if (!confirm('是否在此設備上開始錄音？')) return;
+
+    fetch(`/api/edge-devices/${deviceId}/record`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            duration: 60  // 預設 60 秒
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('錄音指令已成功發送');
+        } else {
+            alert('發送錄音指令失敗: ' + (data.message || '未知錯誤'));
+        }
+    })
+    .catch(error => {
+        alert('錯誤: ' + error.message);
+    });
+}
+</script>
+{% endblock %}

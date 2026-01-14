@@ -121,15 +121,17 @@ def create_app():
     from api.node_api import node_bp
     from api.instance_api import instance_bp
     from api.upload_api import upload_bp
+    from api.edge_device_api import edge_device_bp
 
     app.register_blueprint(config_bp, url_prefix='/api/configs')
     app.register_blueprint(routing_bp, url_prefix='/api/routing')
     app.register_blueprint(node_bp, url_prefix='/api/nodes')
     app.register_blueprint(instance_bp, url_prefix='/api/instances')
     app.register_blueprint(upload_bp, url_prefix='/api/uploads')
+    app.register_blueprint(edge_device_bp, url_prefix='/api/edge-devices')
 
     # API 僅透過 JSON 驗證，移除 CSRF 限制
-    for bp in (config_bp, routing_bp, node_bp, instance_bp, upload_bp):
+    for bp in (config_bp, routing_bp, node_bp, instance_bp, upload_bp, edge_device_bp):
         csrf.exempt(bp)
 
     # 註冊 Web UI 藍圖
@@ -170,6 +172,7 @@ def create_app():
                 'routing': '/api/routing',
                 'nodes': '/api/nodes',
                 'instances': '/api/instances',
+                'edge_devices': '/api/edge-devices',
                 'health': '/health'
             }
         }), 200
@@ -186,12 +189,14 @@ def create_app():
 
     # 啟動後台服務
     def start_background_services():
-        """啟動後台服務（任務調度器、節點監控器）"""
+        """啟動後台服務（任務調度器、節點監控器、Edge 設備排程器）"""
         logger.info("啟動後台服務...")
 
         try:
             from services.task_scheduler import TaskScheduler
             from services.node_monitor import NodeMonitor
+            from services.edge_device_manager import edge_device_manager
+            from services.edge_schedule_service import edge_schedule_service
 
             # 啟動任務調度器
             scheduler = TaskScheduler()
@@ -212,6 +217,15 @@ def create_app():
             )
             monitor_thread.start()
             logger.info("節點監控器已啟動")
+
+            # 初始化 Edge 設備管理器
+            edge_device_manager.init_socketio(socketio)
+            logger.info("Edge 設備管理器已初始化")
+
+            # 初始化並啟動 Edge 設備排程服務
+            edge_schedule_service.init(edge_device_manager)
+            edge_schedule_service.start()
+            logger.info("Edge 設備排程服務已啟動")
 
         except Exception as e:
             logger.error(f"啟動後台服務失敗: {e}", exc_info=True)

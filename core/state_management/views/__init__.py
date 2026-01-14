@@ -17,3 +17,4 @@ from . import data_views
 from . import upload_views
 from . import analysis_dashboard
 from . import device_views
+from . import edge_device_views

@@ -1,0 +1,883 @@
+{% extends "base.html" %}
+
+{% block title %}{{ device.device_name or 'Edge 設備' }} - 詳情{% endblock %}
+{% block page_title %}Edge 設備詳情{% endblock %}
+
+{% block content %}
+<!-- 返回連結 -->
+<div class="mb-6">
+    <a href="{{ url_for('views.edge_devices_list') }}" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600 transition-colors">
+        <i class="fas fa-arrow-left"></i>
+        返回設備列表
+    </a>
+</div>
+
+<!-- 設備資訊卡片 -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- 主要資訊 -->
+    <div class="lg:col-span-2 tech-card overflow-hidden">
+        <div class="p-6">
+            <div class="flex items-start justify-between mb-6">
+                <div class="flex items-center gap-4">
+                    <div class="h-16 w-16 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg relative">
+                        <i class="fas fa-satellite-dish text-white text-2xl"></i>
+                        <span id="status-indicator" class="absolute -top-1 -right-1 h-5 w-5 rounded-full border-2 border-white shadow-sm
+                            {% if device.status == 'IDLE' %}bg-green-500{% elif device.status == 'RECORDING' %}bg-red-500 animate-pulse{% else %}bg-gray-400{% endif %}">
+                        </span>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900" id="device-name-display">{{ device.device_name or '未命名設備' }}</h2>
+                        <p class="text-sm text-gray-500 font-mono mt-1">{{ device.device_id }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="openDeviceInfoModal()"
+                            class="px-3 py-2 text-sm bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                        <i class="fas fa-edit mr-1"></i>編輯資訊
+                    </button>
+                    <div class="flex flex-col items-end gap-1">
+                        <span id="status-badge" class="tech-badge text-sm px-4 py-2 {% if device.status == 'IDLE' %}bg-green-100 text-green-700 border-green-200{% elif device.status == 'RECORDING' %}bg-red-100 text-red-700 border-red-200{% else %}bg-gray-100 text-gray-600 border-gray-200{% endif %}">{% if device.status == 'IDLE' %}在線{% elif device.status == 'RECORDING' %}錄音中{% else %}離線{% endif %}</span>
+                        {% if device.status == 'OFFLINE' and device.offline_reason %}
+                        <span id="offline-reason" class="text-xs text-gray-500" title="離線原因">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            {% if device.offline_reason == 'never_connected' %}從未連線
+                            {% elif device.offline_reason == 'heartbeat_timeout' %}心跳超時
+                            {% elif device.offline_reason == 'connection_lost' %}連線中斷
+                            {% else %}未知原因{% endif %}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 設備詳細資訊 -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="p-4 rounded-lg bg-gray-50">
+                    <div class="text-xs text-gray-500 mb-1">平台</div>
+                    <div class="font-semibold text-gray-900">{{ device.platform or '未知' }}</div>
+                </div>
+                <div class="p-4 rounded-lg bg-gray-50">
+                    <div class="text-xs text-gray-500 mb-1">總錄音數</div>
+                    <div class="font-semibold text-gray-900">{{ device_stats.total_recordings or 0 }}</div>
+                </div>
+                <div class="p-4 rounded-lg bg-gray-50">
+                    <div class="text-xs text-gray-500 mb-1">成功次數</div>
+                    <div class="font-semibold text-green-600">{{ device_stats.success_count or 0 }}</div>
+                </div>
+                <div class="p-4 rounded-lg bg-gray-50">
+                    <div class="text-xs text-gray-500 mb-1">錯誤次數</div>
+                    <div class="font-semibold text-red-600">{{ device_stats.error_count or 0 }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 快捷操作 -->
+    <div class="tech-card overflow-hidden">
+        <div class="p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">快速操作</h3>
+
+            <!-- 即時錄音 -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">錄音時長（秒）</label>
+                <div class="flex gap-2">
+                    <input type="number" id="record-duration" value="60" min="1" max="3600"
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    <button onclick="triggerRecording()" id="record-btn"
+                            class="px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            {% if device.status != 'IDLE' %}disabled{% endif %}>
+                        <i class="fas fa-circle mr-1"></i> 錄音
+                    </button>
+                </div>
+                {% if device.status != 'IDLE' %}
+                <p class="text-xs text-gray-500 mt-2">設備必須在線才能錄音</p>
+                {% endif %}
+            </div>
+
+            <!-- 查詢音訊設備 -->
+            <button onclick="queryAudioDevices()"
+                    class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors mb-3 disabled:opacity-50"
+                    {% if device.status != 'IDLE' %}disabled{% endif %}>
+                <i class="fas fa-search mr-1"></i> 查詢音訊設備
+            </button>
+
+            <!-- 查看錄音歷史 -->
+            <a href="{{ url_for('views.edge_device_recordings', device_id=device.device_id) }}"
+               class="block w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors text-center mb-3">
+                <i class="fas fa-history mr-1"></i> 錄音歷史
+            </a>
+
+            <!-- 刪除設備（僅離線設備可刪除） -->
+            <button onclick="deleteDevice()" id="delete-btn"
+                    class="w-full px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg font-medium hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-50"
+                    {% if device.status != 'OFFLINE' %}disabled{% endif %}>
+                <i class="fas fa-trash-alt mr-1"></i> 刪除設備
+            </button>
+            {% if device.status != 'OFFLINE' %}
+            <p class="text-xs text-gray-500 mt-2">僅可刪除離線設備</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 配置區塊 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- 音訊配置 -->
+    <div class="tech-card overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <h3 class="text-lg font-semibold text-gray-900">音訊配置</h3>
+        </div>
+        <div class="p-6">
+            {% set audio = device.audio_config or {} %}
+            <div class="space-y-4">
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span class="text-gray-600">預設設備索引</span>
+                    <span class="font-semibold text-gray-900">{{ audio.default_device_index or 0 }}</span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span class="text-gray-600">取樣率</span>
+                    <span class="font-semibold text-gray-900">{{ audio.sample_rate or 16000 }} Hz</span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span class="text-gray-600">聲道數</span>
+                    <span class="font-semibold text-gray-900">{{ audio.channels or 1 }}</span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span class="text-gray-600">位元深度</span>
+                    <span class="font-semibold text-gray-900">{{ audio.bit_depth or 16 }} bit</span>
+                </div>
+            </div>
+
+            <!-- 可用音訊設備 -->
+            {% if audio.available_devices %}
+            <div class="mt-6">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3">可用音訊設備</h4>
+                <div class="space-y-2 max-h-48 overflow-y-auto">
+                    {% for dev in audio.available_devices %}
+                    <div class="p-3 rounded-lg bg-gray-50 text-sm">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium text-gray-900">{{ dev.name }}</span>
+                            <span class="text-xs text-gray-500">索引: {{ dev.index }}</span>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            {{ dev.max_input_channels }} 輸入聲道 | {{ dev.default_sample_rate }} Hz
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <button onclick="openAudioConfigModal()"
+                    class="w-full mt-4 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                    {% if device.status != 'IDLE' %}disabled{% endif %}>
+                <i class="fas fa-cog mr-1"></i> 編輯配置
+            </button>
+        </div>
+    </div>
+
+    <!-- 排程配置 -->
+    <div class="tech-card overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">排程配置</h3>
+            {% set schedule = device.schedule_config or {} %}
+            <span class="tech-badge text-xs {% if schedule.enabled %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+                {% if schedule.enabled %}已啟用{% else %}已停用{% endif %}
+            </span>
+        </div>
+        <div class="p-6">
+            <div class="space-y-4">
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span class="text-gray-600">狀態</span>
+                    <span class="font-semibold {% if schedule.enabled %}text-green-600{% else %}text-gray-500{% endif %}">
+                        {% if schedule.enabled %}啟用中{% else %}未啟用{% endif %}
+                    </span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span class="text-gray-600">間隔時間</span>
+                    <span class="font-semibold text-gray-900">
+                        {% set interval = schedule.interval_seconds or 3600 %}
+                        {% set days = (interval // 86400)|int %}
+                        {% set hours = ((interval % 86400) // 3600)|int %}
+                        {% set minutes = ((interval % 3600) // 60)|int %}
+                        {% set seconds = interval % 60 %}
+                        {% set parts = [] %}
+                        {% if days > 0 %}{% set _ = parts.append(days ~ ' 天') %}{% endif %}
+                        {% if hours > 0 %}{% set _ = parts.append(hours ~ ' 小時') %}{% endif %}
+                        {% if minutes > 0 %}{% set _ = parts.append(minutes ~ ' 分鐘') %}{% endif %}
+                        {% if seconds > 0 or parts|length == 0 %}
+                            {% if seconds == seconds|int %}
+                                {% set _ = parts.append((seconds|int) ~ ' 秒') %}
+                            {% else %}
+                                {% set _ = parts.append(seconds ~ ' 秒') %}
+                            {% endif %}
+                        {% endif %}
+                        每隔 {{ parts|join(' ') }}
+                    </span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span class="text-gray-600">錄音時長</span>
+                    <span class="font-semibold text-gray-900">{{ schedule.duration_seconds or 60 }} 秒</span>
+                </div>
+            </div>
+
+            <div class="flex gap-2 mt-6">
+                <button onclick="toggleSchedule({% if schedule.enabled %}false{% else %}true{% endif %})"
+                        class="flex-1 px-4 py-2 rounded-lg font-medium transition-colors
+                            {% if schedule.enabled %}
+                                bg-gray-100 text-gray-700 hover:bg-gray-200
+                            {% else %}
+                                bg-emerald-500 text-white hover:bg-emerald-600
+                            {% endif %}">
+                    {% if schedule.enabled %}
+                        <i class="fas fa-pause mr-1"></i> 停用
+                    {% else %}
+                        <i class="fas fa-play mr-1"></i> 啟用
+                    {% endif %}
+                </button>
+                <button onclick="openScheduleModal()"
+                        class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-edit mr-1"></i> 編輯
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 路由配置 -->
+<div class="tech-card overflow-hidden mb-8">
+    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+        <div>
+            <h3 class="text-lg font-semibold text-gray-900">路由配置</h3>
+            <p class="text-sm text-gray-500 mt-1">錄音完成後自動發送至指定路由進行分析</p>
+        </div>
+        <button onclick="openRouterConfigModal()"
+                class="px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors">
+            <i class="fas fa-cog mr-1"></i> 配置路由
+        </button>
+    </div>
+    <div class="p-6">
+        {% set assigned_routers = device.assigned_router_ids or [] %}
+        {% if assigned_routers %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for router in available_routers %}
+                {% if router.rule_id in assigned_routers %}
+                <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-200">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-semibold text-emerald-700">{{ router.rule_name }}</span>
+                        <span class="tech-badge text-xs bg-emerald-100 text-emerald-700">已啟用</span>
+                    </div>
+                    <p class="text-sm text-gray-600">{{ router.description or '無描述' }}</p>
+                    <div class="text-xs text-gray-500 mt-2">
+                        <i class="fas fa-sort-amount-up mr-1"></i>優先順序: {{ router.priority }}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <i class="fas fa-route text-4xl text-gray-300 mb-4"></i>
+            <p class="text-gray-500">尚未配置任何路由</p>
+            <p class="text-sm text-gray-400 mt-1">點擊「配置路由」按鈕選擇要使用的分析路由</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 近期錄音 -->
+<div class="tech-card overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">近期錄音</h3>
+        <a href="{{ url_for('views.edge_device_recordings', device_id=device.device_id) }}"
+           class="text-sm text-emerald-600 hover:text-emerald-700">
+            查看全部 <i class="fas fa-arrow-right ml-1"></i>
+        </a>
+    </div>
+    <div class="overflow-x-auto">
+        {% if recent_recordings %}
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分析 UUID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">檔案名稱</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">時長</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分析路由</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">建立時間</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for recording in recent_recordings %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
+                        <a href="{{ url_for('views.data_detail', analyze_uuid=recording.analyze_uuid) }}"
+                           class="text-emerald-600 hover:text-emerald-700 hover:underline">
+                            {{ recording.analyze_uuid[:16] }}...
+                        </a>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {{ recording.filename or '-' }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {{ recording.duration or '-' }}s
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {% if recording.assigned_router_ids %}
+                            <span class="tech-badge text-xs bg-emerald-100 text-emerald-700">
+                                {{ recording.assigned_router_ids|length }} 個路由
+                            </span>
+                        {% else %}
+                            <span class="tech-badge text-xs bg-gray-100 text-gray-600">無</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {% if recording.created_at %}
+                            {{ recording.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="px-6 py-12 text-center">
+            <i class="fas fa-file-audio text-4xl text-gray-300 mb-4"></i>
+            <p class="text-gray-500">尚無錄音記錄</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 排程設定 Modal -->
+<div id="schedule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-900">編輯排程</h3>
+        </div>
+        <div class="p-6">
+            <form id="schedule-form">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">間隔時間</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="schedule-interval"
+                                   min="0.1" step="0.1"
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                            <select id="schedule-interval-unit" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                <option value="1">秒</option>
+                                <option value="60">分鐘</option>
+                                <option value="3600">小時</option>
+                                <option value="86400">天</option>
+                            </select>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">間隔時間不可小於錄音時長</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">錄音時長（秒）</label>
+                        <input type="number" id="schedule-duration" value="{{ (device.schedule_config or {}).duration_seconds or 60 }}"
+                               min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+            <button onclick="closeScheduleModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                取消
+            </button>
+            <button onclick="saveSchedule()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
+                儲存
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 音訊設定 Modal -->
+<div id="audio-config-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-900">編輯音訊配置</h3>
+        </div>
+        <div class="p-6">
+            <form id="audio-config-form">
+                {% set audio = device.audio_config or {} %}
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">音訊設備索引</label>
+                        <select id="audio-device-index" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                            {% if audio.available_devices %}
+                                {% for dev in audio.available_devices %}
+                                <option value="{{ dev.index }}" {% if dev.index == audio.default_device_index %}selected{% endif %}>
+                                    {{ dev.index }}: {{ dev.name }}
+                                </option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="{{ audio.default_device_index or 0 }}">設備 {{ audio.default_device_index or 0 }}</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">取樣率 (Hz)</label>
+                        <select id="audio-sample-rate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                            <option value="8000" {% if audio.sample_rate == 8000 %}selected{% endif %}>8000</option>
+                            <option value="16000" {% if audio.sample_rate == 16000 or not audio.sample_rate %}selected{% endif %}>16000</option>
+                            <option value="22050" {% if audio.sample_rate == 22050 %}selected{% endif %}>22050</option>
+                            <option value="44100" {% if audio.sample_rate == 44100 %}selected{% endif %}>44100</option>
+                            <option value="48000" {% if audio.sample_rate == 48000 %}selected{% endif %}>48000</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">聲道數</label>
+                        <select id="audio-channels" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                            <option value="1" {% if audio.channels == 1 or not audio.channels %}selected{% endif %}>1（單聲道）</option>
+                            <option value="2" {% if audio.channels == 2 %}selected{% endif %}>2（立體聲）</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">位元深度</label>
+                        <select id="audio-bit-depth" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                            <option value="16" {% if audio.bit_depth == 16 or not audio.bit_depth %}selected{% endif %}>16 bit</option>
+                            <option value="24" {% if audio.bit_depth == 24 %}selected{% endif %}>24 bit</option>
+                            <option value="32" {% if audio.bit_depth == 32 %}selected{% endif %}>32 bit</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+            <button onclick="closeAudioConfigModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                取消
+            </button>
+            <button onclick="saveAudioConfig()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
+                儲存
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 設備資訊編輯 Modal -->
+<div id="device-info-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-900">編輯設備資訊</h3>
+        </div>
+        <div class="p-6">
+            <form id="device-info-form">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">設備 ID</label>
+                        <input type="text" id="edit-device-id" value="{{ device.device_id }}"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                               readonly disabled>
+                        <p class="text-xs text-gray-500 mt-1">設備 ID 由系統自動產生，無法修改</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">設備名稱</label>
+                        <input type="text" id="edit-device-name" value="{{ device.device_name or '' }}"
+                               placeholder="輸入設備名稱"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+            <button onclick="closeDeviceInfoModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                取消
+            </button>
+            <button onclick="saveDeviceInfo()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
+                儲存
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 路由配置 Modal -->
+<div id="router-config-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[80vh] flex flex-col">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-900">配置分析路由</h3>
+            <p class="text-sm text-gray-500 mt-1">選擇錄音完成後要自動執行的分析路由</p>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1">
+            {% if available_routers %}
+            <div class="space-y-3">
+                {% for router in available_routers %}
+                <label class="flex items-start p-4 rounded-lg border border-gray-200 hover:border-emerald-300 cursor-pointer transition-colors">
+                    <input type="checkbox" name="router_ids" value="{{ router.rule_id }}"
+                           class="router-checkbox mt-1 h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                           {% if router.rule_id in (device.assigned_router_ids or []) %}checked{% endif %}>
+                    <div class="ml-3 flex-1">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium text-gray-900">{{ router.rule_name }}</span>
+                            <span class="text-xs text-gray-500">優先順序: {{ router.priority }}</span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">{{ router.description or '無描述' }}</p>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8">
+                <i class="fas fa-route text-4xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500">目前沒有可用的路由規則</p>
+                <p class="text-sm text-gray-400 mt-1">請先在路由管理頁面建立分析路由</p>
+            </div>
+            {% endif %}
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+            <button onclick="closeRouterConfigModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                取消
+            </button>
+            <button onclick="saveRouterConfig()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
+                儲存
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+<script>
+const deviceId = '{{ device.device_id }}';
+const socket = io();
+
+socket.on('connect', function() {
+    socket.emit('subscribe', {room: 'edge_devices'});
+});
+
+// 狀態更新
+socket.on('edge_device.status_changed', function(data) {
+    if (data.device_id === deviceId) {
+        updateStatusDisplay(data.status, data.offline_reason, data.offline_reason_display);
+    }
+});
+
+// 設備離線
+socket.on('edge_device.offline', function(data) {
+    if (data.device_id === deviceId) {
+        updateStatusDisplay('offline', data.offline_reason, data.offline_reason_display);
+    }
+});
+
+// 錄音進度
+socket.on('edge_device.recording_progress', function(data) {
+    if (data.device_id === deviceId) {
+        console.log('Recording progress:', data.progress_percent + '%');
+    }
+});
+
+// 離線原因對照表
+const offlineReasonDisplay = {
+    'never_connected': '從未連線',
+    'heartbeat_timeout': '心跳超時',
+    'connection_lost': '連線中斷'
+};
+
+function updateStatusDisplay(status, offlineReason, offlineReasonText) {
+    const indicator = document.getElementById('status-indicator');
+    const badge = document.getElementById('status-badge');
+    const recordBtn = document.getElementById('record-btn');
+    const deleteBtn = document.getElementById('delete-btn');
+
+    indicator.className = 'absolute -top-1 -right-1 h-5 w-5 rounded-full border-2 border-white shadow-sm';
+    badge.className = 'tech-badge text-sm px-4 py-2';
+
+    // 判斷是否為在線狀態
+    const isOnline = (status === 'IDLE');
+
+    if (isOnline) {
+        indicator.classList.add('bg-green-500');
+        badge.classList.add('bg-green-100', 'text-green-700', 'border-green-200');
+        badge.textContent = '在線';
+        recordBtn.disabled = false;
+        deleteBtn.disabled = true;  // 在線時禁止刪除
+    } else if (status === 'RECORDING') {
+        indicator.classList.add('bg-red-500', 'animate-pulse');
+        badge.classList.add('bg-red-100', 'text-red-700', 'border-red-200');
+        badge.textContent = '錄音中';
+        recordBtn.disabled = true;
+        deleteBtn.disabled = true;  // 錄音中禁止刪除
+    } else {
+        indicator.classList.add('bg-gray-400');
+        badge.classList.add('bg-gray-100', 'text-gray-600', 'border-gray-200');
+        badge.textContent = '離線';
+        recordBtn.disabled = true;
+        deleteBtn.disabled = false;  // 離線時允許刪除
+    }
+
+    // 更新離線原因
+    let reasonSpan = document.getElementById('offline-reason');
+    if (status === 'OFFLINE' && offlineReason) {
+        const reasonText = offlineReasonText || offlineReasonDisplay[offlineReason] || '未知原因';
+        if (!reasonSpan) {
+            // 建立新的離線原因元素
+            reasonSpan = document.createElement('span');
+            reasonSpan.id = 'offline-reason';
+            reasonSpan.className = 'text-xs text-gray-500';
+            reasonSpan.title = '離線原因';
+            const badgeContainer = badge.parentElement;
+            if (badgeContainer) {
+                badgeContainer.appendChild(reasonSpan);
+            }
+        }
+        reasonSpan.innerHTML = `<i class="fas fa-info-circle mr-1"></i>${reasonText}`;
+        reasonSpan.style.display = '';
+    } else if (reasonSpan) {
+        // 隱藏離線原因
+        reasonSpan.style.display = 'none';
+    }
+}
+
+function triggerRecording() {
+    const duration = document.getElementById('record-duration').value;
+    fetch(`/api/edge-devices/${deviceId}/record`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({duration: parseInt(duration)})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('錄音已開始');
+        } else {
+            alert('錯誤: ' + (data.message || '未知錯誤'));
+        }
+    });
+}
+
+function queryAudioDevices() {
+    fetch(`/api/edge-devices/${deviceId}/audio-devices`)
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('已發送音訊設備查詢請求，請重新整理頁面查看更新的設備。');
+        } else {
+            alert('錯誤: ' + (data.message || '未知錯誤'));
+        }
+    });
+}
+
+function toggleSchedule(enabled) {
+    const action = enabled ? 'enable' : 'disable';
+    fetch(`/api/edge-devices/${deviceId}/schedule/${action}`, {method: 'POST'})
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('錯誤: ' + (data.message || '未知錯誤'));
+        }
+    });
+}
+
+function openScheduleModal() {
+    // 計算間隔時間的最佳單位顯示
+    const intervalSeconds = {{ (device.schedule_config or {}).interval_seconds or 3600 }};
+    let displayValue, unitValue;
+
+    if (intervalSeconds >= 86400 && intervalSeconds % 86400 === 0) {
+        displayValue = intervalSeconds / 86400;
+        unitValue = '86400';
+    } else if (intervalSeconds >= 3600 && intervalSeconds % 3600 === 0) {
+        displayValue = intervalSeconds / 3600;
+        unitValue = '3600';
+    } else if (intervalSeconds >= 60 && intervalSeconds % 60 === 0) {
+        displayValue = intervalSeconds / 60;
+        unitValue = '60';
+    } else {
+        displayValue = intervalSeconds;
+        unitValue = '1';
+    }
+
+    document.getElementById('schedule-interval').value = displayValue;
+    document.getElementById('schedule-interval-unit').value = unitValue;
+
+    document.getElementById('schedule-modal').classList.remove('hidden');
+    document.getElementById('schedule-modal').classList.add('flex');
+}
+
+function closeScheduleModal() {
+    document.getElementById('schedule-modal').classList.add('hidden');
+    document.getElementById('schedule-modal').classList.remove('flex');
+}
+
+function saveSchedule() {
+    const intervalValue = parseFloat(document.getElementById('schedule-interval').value);
+    const intervalUnit = parseInt(document.getElementById('schedule-interval-unit').value);
+    const intervalSeconds = intervalValue * intervalUnit;
+    const durationSeconds = parseInt(document.getElementById('schedule-duration').value);
+
+    // 前端驗證：間隔時間必須大於 0
+    if (intervalSeconds <= 0) {
+        alert('間隔時間必須大於 0');
+        return;
+    }
+
+    // 前端驗證：間隔時間不能小於錄音時長
+    if (intervalSeconds < durationSeconds) {
+        alert('間隔時間不可小於錄音時長（' + durationSeconds + ' 秒）');
+        return;
+    }
+
+    const data = {
+        interval_seconds: intervalSeconds,
+        duration_seconds: durationSeconds
+    };
+
+    fetch(`/api/edge-devices/${deviceId}/schedule`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('錯誤: ' + (data.error || data.message || '未知錯誤'));
+        }
+    });
+}
+
+function openAudioConfigModal() {
+    document.getElementById('audio-config-modal').classList.remove('hidden');
+    document.getElementById('audio-config-modal').classList.add('flex');
+}
+
+function closeAudioConfigModal() {
+    document.getElementById('audio-config-modal').classList.add('hidden');
+    document.getElementById('audio-config-modal').classList.remove('flex');
+}
+
+function saveAudioConfig() {
+    const data = {
+        default_device_index: parseInt(document.getElementById('audio-device-index').value),
+        sample_rate: parseInt(document.getElementById('audio-sample-rate').value),
+        channels: parseInt(document.getElementById('audio-channels').value),
+        bit_depth: parseInt(document.getElementById('audio-bit-depth').value)
+    };
+
+    fetch(`/api/edge-devices/${deviceId}/audio-config`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('錯誤: ' + (data.message || '未知錯誤'));
+        }
+    });
+}
+
+function deleteDevice() {
+    // 檢查設備狀態，僅允許刪除離線設備
+    const deleteBtn = document.getElementById('delete-btn');
+    if (deleteBtn && deleteBtn.disabled) {
+        alert('無法刪除在線或錄音中的設備。請等待設備離線後再試。');
+        return;
+    }
+
+    // 雙重檢查：確認狀態標籤包含「離線」
+    const statusBadge = document.getElementById('status-badge');
+    const statusText = statusBadge ? statusBadge.textContent.replace(/\s+/g, '') : '';
+    if (!statusText.includes('離線')) {
+        alert('無法刪除在線或錄音中的設備。請等待設備離線後再試。');
+        return;
+    }
+
+    if (!confirm('確定要刪除此設備嗎？此操作無法復原。')) {
+        return;
+    }
+
+    fetch(`/api/edge-devices/${deviceId}`, {
+        method: 'DELETE'
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('設備已刪除');
+            window.location.href = '{{ url_for("views.edge_devices_list") }}';
+        } else {
+            alert('刪除失敗: ' + (data.error || '未知錯誤'));
+        }
+    })
+    .catch(err => {
+        alert('刪除失敗: ' + err.message);
+    });
+}
+
+// ==================== 設備資訊編輯 ====================
+function openDeviceInfoModal() {
+    document.getElementById('device-info-modal').classList.remove('hidden');
+    document.getElementById('device-info-modal').classList.add('flex');
+}
+
+function closeDeviceInfoModal() {
+    document.getElementById('device-info-modal').classList.add('hidden');
+    document.getElementById('device-info-modal').classList.remove('flex');
+}
+
+function saveDeviceInfo() {
+    const deviceName = document.getElementById('edit-device-name').value.trim();
+
+    fetch(`/api/edge-devices/${deviceId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({device_name: deviceName})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // 更新頁面顯示
+            document.getElementById('device-name-display').textContent = deviceName || '未命名設備';
+            closeDeviceInfoModal();
+            alert('設備資訊已更新');
+        } else {
+            alert('更新失敗: ' + (data.error || '未知錯誤'));
+        }
+    })
+    .catch(err => {
+        alert('更新失敗: ' + err.message);
+    });
+}
+
+// ==================== 路由配置 ====================
+function openRouterConfigModal() {
+    document.getElementById('router-config-modal').classList.remove('hidden');
+    document.getElementById('router-config-modal').classList.add('flex');
+}
+
+function closeRouterConfigModal() {
+    document.getElementById('router-config-modal').classList.add('hidden');
+    document.getElementById('router-config-modal').classList.remove('flex');
+}
+
+function saveRouterConfig() {
+    const checkboxes = document.querySelectorAll('.router-checkbox:checked');
+    const routerIds = Array.from(checkboxes).map(cb => cb.value);
+
+    fetch(`/api/edge-devices/${deviceId}/routers`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({router_ids: routerIds})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            closeRouterConfigModal();
+            location.reload();  // 重新載入頁面以更新路由配置顯示
+        } else {
+            alert('更新失敗: ' + (data.error || '未知錯誤'));
+        }
+    })
+    .catch(err => {
+        alert('更新失敗: ' + err.message);
+    });
+}
+</script>
+{% endblock %}

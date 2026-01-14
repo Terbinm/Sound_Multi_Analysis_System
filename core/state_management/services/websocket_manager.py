@@ -266,6 +266,108 @@ class WebSocketManager:
         self._emit('config.updated', config_data, room='configs')
         logger.info(f"推送配置更新事件: {config_data.get('config_id')}")
 
+    # ==================== Edge Device 相關事件 ====================
+
+    def emit_edge_device_registered(self, device_data: Dict[str, Any]):
+        """
+        推送邊緣設備註冊事件
+
+        Args:
+            device_data: 設備數據
+        """
+        self._emit('edge_device.registered', device_data, room='edge_devices')
+        logger.info(f"推送邊緣設備註冊事件: {device_data.get('device_id')}")
+
+    def emit_edge_device_offline(self, device_data: Dict[str, Any]):
+        """
+        推送邊緣設備離線事件
+
+        Args:
+            device_data: 設備數據
+        """
+        self._emit('edge_device.offline', device_data, room='edge_devices')
+        logger.info(f"推送邊緣設備離線事件: {device_data.get('device_id')}")
+
+    def emit_edge_device_online(self, device_data: Dict[str, Any]):
+        """
+        推送邊緣設備上線事件
+
+        Args:
+            device_data: 設備數據
+        """
+        self._emit('edge_device.online', device_data, room='edge_devices')
+        logger.info(f"推送邊緣設備上線事件: {device_data.get('device_id')}")
+
+    def emit_edge_device_status_changed(self, device_data: Dict[str, Any]):
+        """
+        推送邊緣設備狀態變更事件
+
+        Args:
+            device_data: 設備數據（包含 device_id, status）
+        """
+        self._emit('edge_device.status_changed', device_data, room='edge_devices')
+        logger.info(f"推送邊緣設備狀態變更事件: {device_data.get('device_id')} -> {device_data.get('status')}")
+
+    def emit_edge_device_heartbeat(self, device_data: Dict[str, Any]):
+        """
+        推送邊緣設備心跳事件
+
+        Args:
+            device_data: 設備數據
+        """
+        self._emit('edge_device.heartbeat', device_data, room='edge_devices')
+        logger.debug(f"推送邊緣設備心跳事件: {device_data.get('device_id')}")
+
+    def emit_edge_device_recording_started(self, data: Dict[str, Any]):
+        """
+        推送邊緣設備錄音開始事件
+
+        Args:
+            data: 錄音數據（包含 device_id, recording_uuid）
+        """
+        self._emit('edge_device.recording_started', data, room='edge_devices')
+        logger.info(f"推送邊緣設備錄音開始事件: {data.get('device_id')}, recording: {data.get('recording_uuid')}")
+
+    def emit_edge_device_recording_progress(self, data: Dict[str, Any]):
+        """
+        推送邊緣設備錄音進度事件
+
+        Args:
+            data: 進度數據（包含 device_id, recording_uuid, progress_percent）
+        """
+        self._emit('edge_device.recording_progress', data, room='edge_devices')
+        logger.debug(f"推送邊緣設備錄音進度事件: {data.get('device_id')}, progress: {data.get('progress_percent')}%")
+
+    def emit_edge_device_recording_completed(self, data: Dict[str, Any]):
+        """
+        推送邊緣設備錄音完成事件
+
+        Args:
+            data: 完成數據（包含 device_id, recording_uuid, result）
+        """
+        self._emit('edge_device.recording_completed', data, room='edge_devices')
+        logger.info(f"推送邊緣設備錄音完成事件: {data.get('device_id')}, recording: {data.get('recording_uuid')}")
+
+    def emit_edge_device_recording_failed(self, data: Dict[str, Any]):
+        """
+        推送邊緣設備錄音失敗事件
+
+        Args:
+            data: 失敗數據（包含 device_id, recording_uuid, error）
+        """
+        self._emit('edge_device.recording_failed', data, room='edge_devices')
+        logger.error(f"推送邊緣設備錄音失敗事件: {data.get('device_id')}, error: {data.get('error')}")
+
+    def emit_edge_device_stats_updated(self, stats_data: Dict[str, Any]):
+        """
+        推送邊緣設備統計更新事件
+
+        Args:
+            stats_data: 統計數據
+        """
+        self._emit('edge_device.stats_updated', stats_data, room='edge_devices')
+        logger.info(f"推送邊緣設備統計更新事件: 總數={stats_data.get('total_devices')}, 在線={stats_data.get('online_devices')}")
+
     def emit_instance_updated(self, instance_data: Dict[str, Any]):
         """
         推送實例更新事件
