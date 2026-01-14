@@ -351,8 +351,8 @@ def plot_time_series(
         else:
             colors.append('gray')
 
-    # 建立圖表
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
+    # 建立圖表 (比例 1:3，寬度更長方便觀察時間序列)
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(24, 8), sharex=True)
     fig.suptitle(f'Analysis Results Over Time (n={len(valid_results)})', fontsize=14)
 
     # 子圖1: 預測結果
