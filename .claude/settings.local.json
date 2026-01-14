@@ -4,7 +4,8 @@
       "Bash(docker inspect:*)",
       "Bash(\"c:\\\\Users\\\\sixsn\\\\PycharmProjects\\\\Sound_Multi_Analysis_System\\\\.venv\\\\Scripts\\\\python.exe\":*)",
       "Bash(dir:*)",
-      "Bash(.venvScriptspython.exe -m pytest CI_test/edge/test_connection_resilience.py -v --tb=short)"
+      "Bash(.venvScriptspython.exe -m pytest CI_test/edge/test_connection_resilience.py -v --tb=short)",
+      "Bash(find:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\debug_tools"

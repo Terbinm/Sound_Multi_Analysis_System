@@ -17,42 +17,6 @@
     </div>
 </div>
 
-<!-- 篩選器 -->
-<div class="tech-card mb-6 overflow-hidden">
-    <div class="p-4">
-        <form method="get" class="flex flex-wrap items-center gap-4">
-            <div class="flex items-center gap-2">
-                <label class="text-sm text-gray-600">狀態:</label>
-                <select name="status" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500">
-                    <option value="">全部</option>
-                    <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>等待中</option>
-                    <option value="recording" {% if filters.status == 'recording' %}selected{% endif %}>錄音中</option>
-                    <option value="uploading" {% if filters.status == 'uploading' %}selected{% endif %}>上傳中</option>
-                    <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>已完成</option>
-                    <option value="failed" {% if filters.status == 'failed' %}selected{% endif %}>失敗</option>
-                </select>
-            </div>
-            <div class="flex items-center gap-2">
-                <label class="text-sm text-gray-600">觸發方式:</label>
-                <select name="trigger" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500">
-                    <option value="">全部</option>
-                    <option value="manual" {% if filters.trigger == 'manual' %}selected{% endif %}>手動</option>
-                    <option value="scheduled" {% if filters.trigger == 'scheduled' %}selected{% endif %}>排程</option>
-                </select>
-            </div>
-            <button type="submit" class="px-4 py-1.5 bg-emerald-500 text-white rounded-lg text-sm font-medium hover:bg-emerald-600 transition-colors">
-                <i class="fas fa-filter mr-1"></i> 套用
-            </button>
-            {% if filters.status or filters.trigger %}
-            <a href="{{ url_for('views.edge_device_recordings', device_id=device.device_id) }}"
-               class="px-4 py-1.5 text-gray-600 hover:text-gray-800 text-sm">
-                清除篩選
-            </a>
-            {% endif %}
-        </form>
-    </div>
-</div>
-
 <!-- 錄音列表 -->
 <div class="tech-card overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
@@ -67,84 +31,64 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">錄音 UUID</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">狀態</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">觸發方式</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">參數</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">結果</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分析 UUID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">檔案名稱</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">時長</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">檔案大小</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">指定路由</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">建立時間</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">完成時間</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 {% for recording in recordings %}
                 <tr class="hover:bg-gray-50">
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-mono text-gray-600" title="{{ recording.recording_uuid }}">
-                            {{ recording.recording_uuid[:20] }}...
+                        <div class="text-sm font-mono text-gray-600" title="{{ recording.analyze_uuid }}">
+                            {{ recording.analyze_uuid[:20] if recording.analyze_uuid else '-' }}...
                         </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="tech-badge text-xs
-                            {% if recording.status == 'completed' %}bg-green-100 text-green-700 border-green-200
-                            {% elif recording.status == 'failed' %}bg-red-100 text-red-700 border-red-200
-                            {% elif recording.status == 'recording' %}bg-blue-100 text-blue-700 border-blue-200
-                            {% elif recording.status == 'uploading' %}bg-yellow-100 text-yellow-700 border-yellow-200
-                            {% else %}bg-gray-100 text-gray-600 border-gray-200{% endif %}">
-                            {% if recording.status == 'recording' %}<i class="fas fa-circle text-xs mr-1 animate-pulse"></i>{% endif %}
-                            {{ recording.status }}
-                        </span>
-                        {% if recording.error_message %}
-                        <div class="text-xs text-red-600 mt-1 max-w-xs truncate" title="{{ recording.error_message }}">
-                            {{ recording.error_message }}
+                        <div class="text-sm text-gray-900 truncate max-w-xs" title="{{ recording.filename }}">
+                            {{ recording.filename or '-' }}
                         </div>
-                        {% endif %}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center gap-1 text-sm text-gray-600">
-                            <i class="fas {% if recording.trigger_type == 'scheduled' %}fa-clock text-blue-500{% else %}fa-hand-pointer text-gray-400{% endif %}"></i>
-                            {{ recording.trigger_type }}
+                        <span class="text-sm text-gray-600">
+                            {% if recording.duration %}
+                                {{ recording.duration|round(1) }} 秒
+                            {% else %}
+                                -
+                            {% endif %}
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm text-gray-600">
-                            {% set params = recording.parameters or {} %}
-                            <div>時長: {{ params.duration or '-' }} 秒</div>
-                            <div class="text-xs text-gray-500">
-                                {{ params.sample_rate or 16000 }}Hz / {{ params.channels or 1 }} 聲道
-                            </div>
-                        </div>
+                        <span class="text-sm text-gray-600">
+                            {% if recording.file_size %}
+                                {{ (recording.file_size / 1024)|round(1) }} KB
+                            {% else %}
+                                -
+                            {% endif %}
+                        </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        {% set result = recording.result or {} %}
-                        {% if result.filename %}
-                        <div class="text-sm">
-                            <div class="text-gray-900 truncate max-w-xs" title="{{ result.filename }}">
-                                {{ result.filename }}
-                            </div>
-                            <div class="text-xs text-gray-500">
-                                {% if result.file_size %}
-                                    {{ (result.file_size / 1024)|round(1) }} KB
-                                {% endif %}
-                                {% if result.actual_duration %}
-                                    | {{ result.actual_duration|round(1) }}s
+                        {% if recording.assigned_router_ids %}
+                            <div class="flex flex-wrap gap-1">
+                                {% for router_id in recording.assigned_router_ids[:3] %}
+                                    <span class="tech-badge text-xs bg-blue-100 text-blue-700 border-blue-200">
+                                        {{ router_id[:8] }}...
+                                    </span>
+                                {% endfor %}
+                                {% if recording.assigned_router_ids|length > 3 %}
+                                    <span class="text-xs text-gray-500">+{{ recording.assigned_router_ids|length - 3 }}</span>
                                 {% endif %}
                             </div>
-                        </div>
                         {% else %}
-                        <span class="text-gray-400">-</span>
+                            <span class="text-gray-400">-</span>
                         {% endif %}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {% if recording.created_at %}
                             {{ recording.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {% if recording.completed_at %}
-                            {{ recording.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}
                         {% else %}
                             -
                         {% endif %}
@@ -160,11 +104,11 @@
     <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
         <div class="text-sm text-gray-500">
             顯示第 {{ ((pagination.page - 1) * pagination.page_size) + 1 }} -
-            {{ min(pagination.page * pagination.page_size, pagination.total) }} 筆，共 {{ pagination.total }} 筆
+            {{ [pagination.page * pagination.page_size, pagination.total]|min }} 筆，共 {{ pagination.total }} 筆
         </div>
         <div class="flex items-center gap-2">
             {% if pagination.page > 1 %}
-            <a href="{{ url_for('views.edge_device_recordings', device_id=device.device_id, page=pagination.page-1, status=filters.status, trigger=filters.trigger) }}"
+            <a href="{{ url_for('views.edge_device_recordings', device_id=device.device_id, page=pagination.page-1) }}"
                class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
                 <i class="fas fa-chevron-left"></i> 上一頁
             </a>
@@ -174,7 +118,7 @@
                 {% if p == pagination.page %}
                     <span class="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-sm">{{ p }}</span>
                 {% elif p == 1 or p == pagination.pages or (p >= pagination.page - 2 and p <= pagination.page + 2) %}
-                    <a href="{{ url_for('views.edge_device_recordings', device_id=device.device_id, page=p, status=filters.status, trigger=filters.trigger) }}"
+                    <a href="{{ url_for('views.edge_device_recordings', device_id=device.device_id, page=p) }}"
                        class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
                         {{ p }}
                     </a>
@@ -184,7 +128,7 @@
             {% endfor %}
 
             {% if pagination.page < pagination.pages %}
-            <a href="{{ url_for('views.edge_device_recordings', device_id=device.device_id, page=pagination.page+1, status=filters.status, trigger=filters.trigger) }}"
+            <a href="{{ url_for('views.edge_device_recordings', device_id=device.device_id, page=pagination.page+1) }}"
                class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
                 下一頁 <i class="fas fa-chevron-right"></i>
             </a>
@@ -199,13 +143,7 @@
                 <i class="fas fa-file-audio text-6xl text-gray-300"></i>
             </div>
             <p class="text-lg font-medium text-gray-600">找不到錄音記錄</p>
-            <p class="text-sm text-gray-500 mt-2">
-                {% if filters.status or filters.trigger %}
-                    沒有符合篩選條件的錄音記錄，請嘗試調整篩選條件。
-                {% else %}
-                    此設備尚未進行任何錄音。
-                {% endif %}
-            </p>
+            <p class="text-sm text-gray-500 mt-2">此設備尚未上傳任何錄音。</p>
         </div>
     </div>
     {% endif %}
