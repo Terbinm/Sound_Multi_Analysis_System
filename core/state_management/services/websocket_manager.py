@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from datetime import date, datetime
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask import request
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class WebSocketManager:
         )
         return self.socketio
 
-    def _resolve_async_mode(self, preferred: Optional[str]) -> str:
+    def _resolve_async_mode(self, preferred: Optional[str]) -> Literal['threading', 'eventlet', 'gevent']:
         """
         驗證並決定 SocketIO async_mode，若指定模式無法使用則回退到 threading。
         """
@@ -66,6 +66,7 @@ class WebSocketManager:
         if normalized == 'eventlet':
             try:
                 import eventlet  # type: ignore  # noqa: F401
+                return 'eventlet'
             except Exception as exc:
                 logger.warning(
                     "Eventlet async_mode 無法使用，原因: %s。將自動回退到 threading。",
@@ -76,6 +77,7 @@ class WebSocketManager:
         elif normalized == 'gevent':
             try:
                 import gevent  # type: ignore  # noqa: F401
+                return 'gevent'
             except Exception as exc:
                 logger.warning(
                     "Gevent async_mode 無法使用，原因: %s。將自動回退到 threading。",
@@ -83,14 +85,15 @@ class WebSocketManager:
                     exc_info=True
                 )
                 return 'threading'
-        elif normalized != 'threading':
+        elif normalized == 'threading':
+            return 'threading'
+        else:
             logger.warning("未知的 async_mode '%s'，將改用 threading。", normalized)
             return 'threading'
 
-        return normalized
-
     def _register_handlers(self):
         """註冊 WebSocket 事件處理器"""
+        assert self.socketio is not None, "socketio must be initialized before registering handlers"
 
         @self.socketio.on('connect')
         def handle_connect():

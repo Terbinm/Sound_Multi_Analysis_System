@@ -12,7 +12,7 @@
 import os
 import sys
 from pathlib import Path
-from dotenv import load_dotenv, find_dotenv
+from dotenv import load_dotenv  # noqa: F401
 from typing import overload
 from env_loader import load_project_env
 
@@ -287,11 +287,13 @@ class Config:
             if Config.PORT < 1 or Config.PORT > 65535:
                 errors.append(f"STATE_MANAGEMENT_PORT 必須在 1-65535 範圍內，目前值：{Config.PORT}")
 
-            if Config.MONGODB_CONFIG['port'] < 1 or Config.MONGODB_CONFIG['port'] > 65535:
-                errors.append(f"MONGODB_PORT 必須在 1-65535 範圍內，目前值：{Config.MONGODB_CONFIG['port']}")
+            mongodb_port = int(Config.MONGODB_CONFIG['port'])
+            if mongodb_port < 1 or mongodb_port > 65535:
+                errors.append(f"MONGODB_PORT 必須在 1-65535 範圍內，目前值：{mongodb_port}")
 
-            if Config.RABBITMQ_CONFIG['port'] < 1 or Config.RABBITMQ_CONFIG['port'] > 65535:
-                errors.append(f"RABBITMQ_PORT 必須在 1-65535 範圍內，目前值：{Config.RABBITMQ_CONFIG['port']}")
+            rabbitmq_port = int(Config.RABBITMQ_CONFIG['port'])
+            if rabbitmq_port < 1 or rabbitmq_port > 65535:
+                errors.append(f"RABBITMQ_PORT 必須在 1-65535 範圍內，目前值：{rabbitmq_port}")
 
             if Config.NODE_HEARTBEAT_INTERVAL < 1:
                 errors.append(f"NODE_HEARTBEAT_INTERVAL 必須大於 0，目前值：{Config.NODE_HEARTBEAT_INTERVAL}")
@@ -356,7 +358,7 @@ config_dict = {
 }
 
 
-def get_config() -> Config:
+def get_config() -> type[Config]:
     """
     獲取當前配置
 
