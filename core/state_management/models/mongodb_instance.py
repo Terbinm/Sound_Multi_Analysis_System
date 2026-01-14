@@ -3,7 +3,7 @@ MongoDB 實例模型
 管理多個 MongoDB 實例配置
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 import logging
 from utils.mongodb_handler import get_db
@@ -41,8 +41,8 @@ class MongoDBInstance:
             'collection': config.COLLECTIONS['recordings'],
             'auth_source': mongo_cfg.get('auth_source', 'admin'),
             'enabled': True,
-            'created_at': datetime.utcnow(),
-            'updated_at': datetime.utcnow(),
+            'created_at': datetime.now(timezone.utc),
+            'updated_at': datetime.now(timezone.utc),
             'is_system': True
         }
 
@@ -73,8 +73,8 @@ class MongoDBInstance:
             self.collection = ""  # 必須明確指定
             self.auth_source = ""  # 必須明確指定
             self.enabled = True
-            self.created_at = datetime.utcnow()
-            self.updated_at = datetime.utcnow()
+            self.created_at = datetime.now(timezone.utc)
+            self.updated_at = datetime.now(timezone.utc)
             self.is_system = False
 
     def from_dict(self, data: Dict[str, Any]):
@@ -91,8 +91,8 @@ class MongoDBInstance:
         self.collection = data.get('collection')  # 不提供預設值
         self.auth_source = data.get('auth_source')  # 不提供預設值
         self.enabled = data.get('enabled', True)
-        self.created_at = data.get('created_at', datetime.utcnow())
-        self.updated_at = data.get('updated_at', datetime.utcnow())
+        self.created_at = data.get('created_at', datetime.now(timezone.utc))
+        self.updated_at = data.get('updated_at', datetime.now(timezone.utc))
         self.is_system = data.get('is_system', False)
         return self
 
@@ -185,8 +185,8 @@ class MongoDBInstance:
             instance.collection = instance_data.get('collection')  # 必須明確提供
             instance.auth_source = instance_data.get('auth_source')  # 必須明確提供
             instance.enabled = instance_data.get('enabled', True)
-            instance.created_at = datetime.utcnow()
-            instance.updated_at = datetime.utcnow()
+            instance.created_at = datetime.now(timezone.utc)
+            instance.updated_at = datetime.now(timezone.utc)
             instance.is_system = instance_data.get('is_system', False)
 
             # 驗證
@@ -297,7 +297,7 @@ class MongoDBInstance:
                 return False
 
             # 更新時間
-            update_data['updated_at'] = datetime.utcnow()
+            update_data['updated_at'] = datetime.now(timezone.utc)
 
             result = collection.update_one(
                 {'instance_id': instance_id},

@@ -5,7 +5,7 @@
 """
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from utils.mongodb_handler import get_db
@@ -169,7 +169,7 @@ class EdgeDevice:
         try:
             db = get_db()
             collection = db[EdgeDevice._get_collection_name()]
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             is_new_device = False
 
@@ -283,8 +283,8 @@ class EdgeDevice:
             collection = db[EdgeDevice._get_collection_name()]
 
             update_data = {
-                'connection_info.last_heartbeat': datetime.utcnow(),
-                'updated_at': datetime.utcnow()
+                'connection_info.last_heartbeat': datetime.now(timezone.utc),
+                'updated_at': datetime.now(timezone.utc)
             }
 
             if status:
@@ -337,7 +337,7 @@ class EdgeDevice:
                         'offline_reason': reason,
                         'connection_info.socket_id': None,
                         'connection_info.current_recording': None,
-                        'updated_at': datetime.utcnow()
+                        'updated_at': datetime.now(timezone.utc)
                     }
                 }
             )
@@ -373,7 +373,7 @@ class EdgeDevice:
                 {
                     '$set': {
                         'status': status,
-                        'updated_at': datetime.utcnow()
+                        'updated_at': datetime.now(timezone.utc)
                     }
                 }
             )
@@ -412,7 +412,11 @@ class EdgeDevice:
             if not last_heartbeat:
                 return False
 
-            elapsed = (datetime.utcnow() - last_heartbeat).total_seconds()
+            # 確保 last_heartbeat 是時區感知的
+            if last_heartbeat.tzinfo is None:
+                last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
+
+            elapsed = (datetime.now(timezone.utc) - last_heartbeat).total_seconds()
             return elapsed <= timeout
 
         except Exception as e:
@@ -437,7 +441,11 @@ class EdgeDevice:
         if not last_heartbeat:
             return False, -1, timeout
 
-        now = datetime.utcnow()
+        # 確保 last_heartbeat 是時區感知的（處理 MongoDB 可能返回的 offset-naive datetime）
+        if last_heartbeat.tzinfo is None:
+            last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
+
+        now = datetime.now(timezone.utc)
         elapsed = (now - last_heartbeat).total_seconds()
 
         # 偵錯日誌：記錄時間比較細節
@@ -605,7 +613,7 @@ class EdgeDevice:
             db = get_db()
             collection = db[EdgeDevice._get_collection_name()]
             timeout = EdgeDevice._get_timeout()
-            threshold = datetime.utcnow() - timedelta(seconds=timeout)
+            threshold = datetime.now(timezone.utc) - timedelta(seconds=timeout)
 
             devices = []
             cursor = collection.find({
@@ -680,7 +688,7 @@ class EdgeDevice:
                 {
                     '$set': {
                         'device_name': device_name,
-                        'updated_at': datetime.utcnow()
+                        'updated_at': datetime.now(timezone.utc)
                     }
                 }
             )
@@ -714,7 +722,7 @@ class EdgeDevice:
             update_fields = {}
             for key, value in audio_config.items():
                 update_fields[f'audio_config.{key}'] = value
-            update_fields['updated_at'] = datetime.utcnow()
+            update_fields['updated_at'] = datetime.now(timezone.utc)
 
             result = collection.update_one(
                 {'_id': device_id},
@@ -751,7 +759,7 @@ class EdgeDevice:
                 {
                     '$set': {
                         'audio_config.available_devices': devices,
-                        'updated_at': datetime.utcnow()
+                        'updated_at': datetime.now(timezone.utc)
                     }
                 }
             )
@@ -785,7 +793,7 @@ class EdgeDevice:
             update_fields = {}
             for key, value in schedule_config.items():
                 update_fields[f'schedule_config.{key}'] = value
-            update_fields['updated_at'] = datetime.utcnow()
+            update_fields['updated_at'] = datetime.now(timezone.utc)
 
             result = collection.update_one(
                 {'_id': device_id},
@@ -824,7 +832,7 @@ class EdgeDevice:
                 {
                     '$set': {
                         'assigned_router_ids': router_ids,
-                        'updated_at': datetime.utcnow()
+                        'updated_at': datetime.now(timezone.utc)
                     }
                 }
             )
@@ -863,8 +871,8 @@ class EdgeDevice:
                     'statistics.success_count' if success else 'statistics.error_count': 1
                 },
                 '$set': {
-                    'statistics.last_recording_at': datetime.utcnow(),
-                    'updated_at': datetime.utcnow()
+                    'statistics.last_recording_at': datetime.now(timezone.utc),
+                    'updated_at': datetime.now(timezone.utc)
                 }
             }
 
@@ -898,7 +906,7 @@ class EdgeDevice:
                             {'_id': device_id},
                             {'$set': {
                                 'schedule_config.enabled': False,
-                                'updated_at': datetime.utcnow()
+                                'updated_at': datetime.now(timezone.utc)
                             }}
                         )
                         schedule_disabled = True
@@ -1002,7 +1010,7 @@ class EdgeDevice:
             db = get_db()
             collection = db[EdgeDevice._get_collection_name()]
             timeout = EdgeDevice._get_timeout()
-            threshold = datetime.utcnow() - timedelta(seconds=timeout)
+            threshold = datetime.now(timezone.utc) - timedelta(seconds=timeout)
 
             return collection.count_documents({
                 'connection_info.last_heartbeat': {'$gte': threshold}

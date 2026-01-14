@@ -12,7 +12,7 @@ import argparse
 import copy
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -208,7 +208,7 @@ def upsert_step(
     metadata: Dict[str, Any],
 ) -> None:
     """將轉換結果寫入指定 run 的步驟。"""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     step_doc = {
         "display_order": step_id,
         "step_name": step_label,
@@ -305,7 +305,7 @@ def main() -> None:
                 'direction': 'B->A',
                 'checkpoint': str(args.checkpoint),
                 'device': str(device),
-                'converted_at': datetime.utcnow(),
+                'converted_at': datetime.now(timezone.utc),
                 'num_samples': len(converted_features),
                 'analysis_run_id': run_id,
             }

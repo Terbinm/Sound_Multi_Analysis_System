@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify, session
 from werkzeug.utils import secure_filename
 import gridfs
@@ -333,8 +333,8 @@ def temp_upload_model(file_key):
                 'file_key': file_key,
                 'session_id': session_id,
                 'temp': True,  # 標記為暫存檔案
-                'created_at': datetime.utcnow(),
-                'expires_at': datetime.utcnow() + timedelta(hours=24),  # 24小時後過期
+                'created_at': datetime.now(timezone.utc),
+                'expires_at': datetime.now(timezone.utc) + timedelta(hours=24),  # 24小時後過期
                 'size': len(file_content)
             }
         )
@@ -518,7 +518,7 @@ def link_temp_files_to_config():
                         '$set': {
                             'metadata.temp': False,
                             'metadata.config_id': config_id,
-                            'metadata.linked_at': datetime.utcnow()
+                            'metadata.linked_at': datetime.now(timezone.utc)
                         },
                         '$unset': {
                             'metadata.expires_at': '',
@@ -534,7 +534,7 @@ def link_temp_files_to_config():
                         file_info = {
                             'file_id': str(file_id),
                             'filename': file_doc.get('filename'),
-                            'uploaded_at': datetime.utcnow(),
+                            'uploaded_at': datetime.now(timezone.utc),
                             'size': file_doc.get('metadata', {}).get('size', 0)
                         }
                         # 更新配置的 model_files
@@ -577,7 +577,7 @@ def cleanup_expired_temp_files():
         # 查找過期的暫存檔案
         expired_files = list(files_collection.find({
             'metadata.temp': True,
-            'metadata.expires_at': {'$lt': datetime.utcnow()}
+            'metadata.expires_at': {'$lt': datetime.now(timezone.utc)}
         }))
 
         deleted_count = 0
@@ -1149,7 +1149,7 @@ def upload_model_for_config(config_id, file_key):
         file_info = {
             'file_id': str(file_id),
             'filename': filename,
-            'uploaded_at': datetime.utcnow(),
+            'uploaded_at': datetime.now(timezone.utc),
             'size': len(file_content)
         }
 

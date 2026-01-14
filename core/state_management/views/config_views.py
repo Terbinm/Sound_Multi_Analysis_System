@@ -14,7 +14,7 @@ from models.analysis_config import AnalysisConfig
 from models.node_status import NodeStatus
 from utils.mongodb_handler import get_db
 from bson.objectid import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 import gridfs
 import json
 import logging
@@ -46,7 +46,7 @@ def _link_temp_files_to_config(config_id: str, session_id: str, temp_files: dict
                     '$set': {
                         'metadata.temp': False,
                         'metadata.config_id': config_id,
-                        'metadata.linked_at': datetime.utcnow()
+                        'metadata.linked_at': datetime.now(timezone.utc)
                     },
                     '$unset': {
                         'metadata.expires_at': '',
@@ -62,7 +62,7 @@ def _link_temp_files_to_config(config_id: str, session_id: str, temp_files: dict
                     file_info = {
                         'file_id': str(file_id),
                         'filename': file_doc.get('filename'),
-                        'uploaded_at': datetime.utcnow(),
+                        'uploaded_at': datetime.now(timezone.utc),
                         'size': file_doc.get('metadata', {}).get('size', 0)
                     }
                     # 更新配置的 model_files

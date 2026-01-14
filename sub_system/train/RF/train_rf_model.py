@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import pickle
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Tuple, Optional
 from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -619,7 +619,7 @@ class ModelTrainer:
             'normalize': ModelConfig.FEATURE_CONFIG['normalize'],
             'label_encoder': self.label_encoder,
             'label_decoder': self.label_decoder,
-            'training_date': datetime.now().isoformat(),
+            'training_date': datetime.now(timezone.utc).isoformat(),
             'model_params': ModelConfig.MODEL_CONFIG['rf_params'],
             'training_history': self.training_history
         }

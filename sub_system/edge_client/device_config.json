@@ -1,10 +1,10 @@
 {
   "device_id": "1189d524-4a7f-47a3-9c4b-1d9a7918d6ab",
-  "device_name": "Device_a741b2ef",
+  "device_name": "led",
   "server_url": "http://localhost:55103",
   "audio_config": {
     "default_device_index": 0,
-    "channels": 2,
+    "channels": 1,
     "sample_rate": 16000,
     "bit_depth": 32
   },

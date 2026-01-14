@@ -4,7 +4,7 @@
 """
 import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Tuple
 from models.routing_rule import RoutingRule
 from models.analysis_config import AnalysisConfig
@@ -149,7 +149,7 @@ class TaskDispatcher:
                     {'AnalyzeUUID': analyze_uuid},
                     {
                         '$addToSet': {'assigned_router_ids': router_id},
-                        '$set': {'last_router_dispatch': datetime.utcnow()}
+                        '$set': {'last_router_dispatch': datetime.now(timezone.utc)}
                     }
                 )
 
@@ -382,7 +382,7 @@ class TaskDispatcher:
                     'analyze_uuid': analyze_uuid,
                     'analysis_method_id': analysis_method_id,
                     'config_id': config_id,
-                    'created_at': datetime.utcnow().isoformat(),
+                    'created_at': datetime.now(timezone.utc).isoformat(),
                     'retry_count': 0,
                     'metadata': {
                         'rule_id': rule.rule_id,

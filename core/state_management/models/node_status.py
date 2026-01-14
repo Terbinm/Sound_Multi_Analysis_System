@@ -3,7 +3,7 @@
 使用 MongoDB 存儲節點狀態，取代 Redis
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from utils.mongodb_handler import get_db
@@ -58,7 +58,7 @@ class NodeStatus:
             db = get_db()
             collection = db[NodeStatus._get_collection_name()]
 
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             # 使用 upsert 插入或更新
             result = collection.update_one(
@@ -101,8 +101,8 @@ class NodeStatus:
             collection = db[NodeStatus._get_collection_name()]
 
             update_data = {
-                'last_heartbeat': datetime.utcnow(),
-                'updated_at': datetime.utcnow()
+                'last_heartbeat': datetime.now(timezone.utc),
+                'updated_at': datetime.now(timezone.utc)
             }
 
             if current_tasks is not None:
@@ -151,8 +151,12 @@ class NodeStatus:
             if not last_heartbeat:
                 return False
 
+            # 確保 last_heartbeat 是時區感知的
+            if last_heartbeat.tzinfo is None:
+                last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
+
             # 計算心跳時間差
-            elapsed = (datetime.utcnow() - last_heartbeat).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - last_heartbeat).total_seconds()
 
             return elapsed <= timeout
 
@@ -309,7 +313,7 @@ class NodeStatus:
             collection = db[NodeStatus._get_collection_name()]
             config = get_config()
             timeout = timeout_seconds or config.NODE_HEARTBEAT_TIMEOUT
-            threshold = datetime.utcnow() - timedelta(seconds=timeout)
+            threshold = datetime.now(timezone.utc) - timedelta(seconds=timeout)
 
             return collection.count_documents({
                 'last_heartbeat': {'$gte': threshold}
@@ -326,7 +330,7 @@ class NodeStatus:
             db = get_db()
             collection = db[NodeStatus._get_collection_name()]
             config = get_config()
-            threshold = datetime.utcnow() - timedelta(seconds=config.NODE_HEARTBEAT_TIMEOUT)
+            threshold = datetime.now(timezone.utc) - timedelta(seconds=config.NODE_HEARTBEAT_TIMEOUT)
 
             cursor = collection.find({
                 'last_heartbeat': {'$gte': threshold}

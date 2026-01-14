@@ -272,14 +272,25 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 <script>
-// WebSocket 連線
+// WebSocket 連線（使用 base.html 已加載的 socket.io 庫）
 const socket = io();
 
-// 訂閱 edge_devices 房間
-socket.on('connect', function() {
+// 訂閱房間的函數
+function subscribeToEdgeDevices() {
     socket.emit('subscribe', {room: 'edge_devices'});
+    console.log('[EdgeDevices] 已訂閱 edge_devices 房間');
+}
+
+// 如果 socket 已經連接，立即訂閱
+if (socket.connected) {
+    subscribeToEdgeDevices();
+}
+
+// 連接事件處理器（用於首次連接或重連）
+socket.on('connect', function() {
+    console.log('[EdgeDevices] Socket 已連接');
+    subscribeToEdgeDevices();
 });
 
 // 設備狀態變更

@@ -7,6 +7,7 @@ import shutil
 import sys
 import threading
 import datetime
+from datetime import timezone
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -250,7 +251,7 @@ def process_audio(analyze_uuid: str):
     run_id: Optional[str] = None
     try:
         _, run_id, update_path = resolve_step_context(analyze_uuid)
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(timezone.utc)
         recordings_col.update_one(
             {'AnalyzeUUID': analyze_uuid},
             {'$set': {
@@ -267,7 +268,7 @@ def process_audio(analyze_uuid: str):
             {'$set': {
                 f'{update_path}.features_state': 'completed',
                 f'{update_path}.features_data': results,
-                f'{update_path}.completed_at': datetime.datetime.utcnow(),
+                f'{update_path}.completed_at': datetime.datetime.now(timezone.utc),
                 f'{update_path}.error_message': None,
                 'analysis_status': 'completed',
             }}
@@ -307,7 +308,7 @@ def send_completion_notification(analyze_uuid: str, run_id: Optional[str]):
             'run_id': run_id,
             'step': TARGET_STEP,
             'status': 'completed',
-            'timestamp': datetime.datetime.utcnow().isoformat(),
+            'timestamp': datetime.datetime.now(timezone.utc).isoformat(),
         }
         channel.basic_publish(
             exchange=RABBITMQ_CONFIG['exchange'],

@@ -3,7 +3,7 @@
 記錄路由規則觸發的任務執行歷史
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 import logging
 from utils.mongodb_handler import get_db
@@ -39,7 +39,7 @@ class TaskExecutionLog:
             self.node_id = None
             self.node_info = {}
             self.status = "pending"  # pending, processing, completed, failed
-            self.created_at = datetime.utcnow()
+            self.created_at = datetime.now(timezone.utc)
             self.started_at = None
             self.completed_at = None
             self.error_message = None
@@ -59,7 +59,7 @@ class TaskExecutionLog:
         self.node_id = data.get('node_id')
         self.node_info = data.get('node_info', {})
         self.status = data.get('status', 'pending')
-        self.created_at = data.get('created_at', datetime.utcnow())
+        self.created_at = data.get('created_at', datetime.now(timezone.utc))
         self.started_at = data.get('started_at')
         self.completed_at = data.get('completed_at')
         self.error_message = data.get('error_message')
@@ -112,7 +112,7 @@ class TaskExecutionLog:
             log.node_id = log_data.get('node_id')
             log.node_info = log_data.get('node_info', {})
             log.status = log_data.get('status', 'pending')
-            log.created_at = datetime.utcnow()
+            log.created_at = datetime.now(timezone.utc)
             log.started_at = log_data.get('started_at')
             log.completed_at = log_data.get('completed_at')
             log.error_message = log_data.get('error_message')
@@ -192,10 +192,10 @@ class TaskExecutionLog:
             update_data = {'status': status}
 
             if status == 'processing' and not collection.find_one({'task_id': task_id, 'started_at': {'$ne': None}}):
-                update_data['started_at'] = datetime.utcnow()
+                update_data['started_at'] = datetime.now(timezone.utc)
 
             if status in ['completed', 'failed']:
-                update_data['completed_at'] = datetime.utcnow()
+                update_data['completed_at'] = datetime.now(timezone.utc)
 
             if error_message:
                 update_data['error_message'] = error_message

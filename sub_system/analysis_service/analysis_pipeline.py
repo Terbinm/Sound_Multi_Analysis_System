@@ -1,7 +1,7 @@
 # analysis_pipeline.py - 分析流程管理器（加入 Step 0 轉檔）
 
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import traceback
 from bson.objectid import ObjectId
@@ -777,7 +777,7 @@ class AnalysisPipeline:
         try:
             if analysis_id:
                 # 標記指定 run 的錯誤
-                current_time = datetime.utcnow()
+                current_time = datetime.now(timezone.utc)
                 self.mongodb.collection.update_one(
                     {'AnalyzeUUID': analyze_uuid},
                     {

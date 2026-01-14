@@ -11,7 +11,7 @@ import logging
 import threading
 import requests
 import socketio
-from datetime import datetime
+from datetime import datetime, timezone
 
 from audio_manager import AudioManager
 from config_manager import ConfigManager
@@ -250,7 +250,7 @@ class EdgeClient:
                         'device_id': self.config.device_id,
                         'status': self.status,
                         'current_recording': self.current_recording_uuid,
-                        'timestamp': datetime.now().isoformat()
+                        'timestamp': datetime.now(timezone.utc).isoformat()
                     }
                     self.sio.emit('edge.heartbeat', heartbeat_data)
                     logger.debug(f"已發送心跳: status={self.status}")

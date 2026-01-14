@@ -3,7 +3,7 @@
 from pymongo import MongoClient, ASCENDING
 from pymongo.errors import PyMongoError
 from typing import Dict, Any, Optional, List, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 from copy import deepcopy
 from config import MONGODB_CONFIG, DATABASE_INDEXES
@@ -255,7 +255,7 @@ class MongoDBHandler:
         existing_runs = container.get('runs', {})
 
         analysis_id = request_context.get('analysis_id') or f"run_{uuid4().hex}"
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         requested_at = request_context.get('requested_at', current_time)
         routing_ctx = request_context.get('routing_rule', {}) if isinstance(request_context, dict) else {}
         config_ctx = request_context.get('analysis_config', {}) if isinstance(request_context, dict) else {}
@@ -321,8 +321,8 @@ class MongoDBHandler:
                 },
                 {
                     '$set': {
-                        'processing_started_at': datetime.utcnow(),
-                        'updated_at': datetime.utcnow()
+                        'processing_started_at': datetime.now(timezone.utc),
+                        'updated_at': datetime.now(timezone.utc)
                     }
                 }
             )
@@ -375,7 +375,7 @@ class MongoDBHandler:
             是否儲存成功
         """
         try:
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
 
             conversion_step = {
                 'display_order': 0,
@@ -418,7 +418,7 @@ class MongoDBHandler:
             是否儲存成功
         """
         try:
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
 
             slice_step = {
                 'display_order': 1,
@@ -465,7 +465,7 @@ class MongoDBHandler:
             是否儲存成功
         """
         try:
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
 
             leaf_step = {
                 'display_order': 2,
@@ -508,7 +508,7 @@ class MongoDBHandler:
             是否儲存成功
         """
         try:
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
 
             # 統一格式：與其他步驟一致
             classify_step = {

@@ -4,7 +4,7 @@
 """
 import copy
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 import logging
 from utils.mongodb_handler import get_db
@@ -37,8 +37,8 @@ class RoutingRule:
             self.enabled = True
             self.router_ids = []  # routerID 列表，用於上傳方指定
             self.backfill_enabled = False  # 是否追溯歷史資料
-            self.created_at = datetime.utcnow()
-            self.updated_at = datetime.utcnow()
+            self.created_at = datetime.now(timezone.utc)
+            self.updated_at = datetime.now(timezone.utc)
 
     def from_dict(self, data: Dict[str, Any]):
         """從字典加載"""
@@ -51,8 +51,8 @@ class RoutingRule:
         self.enabled = data.get('enabled', True)
         self.router_ids = data.get('router_ids', [])
         self.backfill_enabled = data.get('backfill_enabled', False)
-        self.created_at = data.get('created_at', datetime.utcnow())
-        self.updated_at = data.get('updated_at', datetime.utcnow())
+        self.created_at = data.get('created_at', datetime.now(timezone.utc))
+        self.updated_at = data.get('updated_at', datetime.now(timezone.utc))
         return self
 
     def to_dict(self) -> Dict[str, Any]:
@@ -240,8 +240,8 @@ class RoutingRule:
                 rule.router_ids = [rule.rule_id]
 
             rule.backfill_enabled = rule_data.get('backfill_enabled', False)
-            rule.created_at = datetime.utcnow()
-            rule.updated_at = datetime.utcnow()
+            rule.created_at = datetime.now(timezone.utc)
+            rule.updated_at = datetime.now(timezone.utc)
 
             # 驗證
             valid, error = rule.validate()
@@ -329,7 +329,7 @@ class RoutingRule:
             collection = RoutingRule._get_collection()
 
             # 更新時間
-            update_data['updated_at'] = datetime.utcnow()
+            update_data['updated_at'] = datetime.now(timezone.utc)
 
             result = collection.update_one(
                 {'rule_id': rule_id},
@@ -436,7 +436,7 @@ class RoutingRule:
         stats = {
             'total': 0,
             'status_counts': {},
-            'generated_at': datetime.utcnow()
+            'generated_at': datetime.now(timezone.utc)
         }
 
         try:

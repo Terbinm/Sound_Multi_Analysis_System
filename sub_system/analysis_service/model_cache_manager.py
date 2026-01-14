@@ -7,7 +7,7 @@ Downloads models from MongoDB GridFS and maintains local cache.
 import json
 import os
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -144,7 +144,7 @@ class ModelCacheManager:
             self._cache_index[file_id] = {
                 'local_path': str(local_path),
                 'filename': filename,
-                'downloaded_at': datetime.utcnow().isoformat(),
+                'downloaded_at': datetime.now(timezone.utc).isoformat(),
                 'size': len(file_data)
             }
             self._save_cache_index()

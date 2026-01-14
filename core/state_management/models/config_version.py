@@ -3,7 +3,7 @@
 使用 MongoDB 存儲配置版本號,取代 Redis
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from utils.mongodb_handler import get_db
 from config import get_config
 
@@ -42,8 +42,8 @@ class ConfigVersion:
                 collection.insert_one({
                     '_id': ConfigVersion.VERSION_KEY,
                     'value': 0,
-                    'created_at': datetime.utcnow(),
-                    'updated_at': datetime.utcnow()
+                    'created_at': datetime.now(timezone.utc),
+                    'updated_at': datetime.now(timezone.utc)
                 })
                 return 0
 
@@ -68,8 +68,8 @@ class ConfigVersion:
                 {'_id': ConfigVersion.VERSION_KEY},
                 {
                     '$inc': {'value': 1},
-                    '$set': {'updated_at': datetime.utcnow()},
-                    '$setOnInsert': {'created_at': datetime.utcnow()}
+                    '$set': {'updated_at': datetime.now(timezone.utc)},
+                    '$setOnInsert': {'created_at': datetime.now(timezone.utc)}
                 },
                 upsert=True,
                 return_document=True  # 返回更新後的文檔
@@ -104,9 +104,9 @@ class ConfigVersion:
                 {
                     '$set': {
                         'value': version,
-                        'updated_at': datetime.utcnow()
+                        'updated_at': datetime.now(timezone.utc)
                     },
-                    '$setOnInsert': {'created_at': datetime.utcnow()}
+                    '$setOnInsert': {'created_at': datetime.now(timezone.utc)}
                 },
                 upsert=True
             )

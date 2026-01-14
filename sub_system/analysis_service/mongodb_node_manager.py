@@ -5,7 +5,7 @@
 """
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from threading import Thread, Event
 from typing import Dict, Any, Optional
 from pymongo.errors import PyMongoError
@@ -63,7 +63,7 @@ class MongoDBNodeManager:
         try:
             collection = self.mongodb_handler.get_collection('node_status')
             
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             # 使用 upsert 插入或更新節點資訊
             result = collection.update_one(
@@ -173,7 +173,7 @@ class MongoDBNodeManager:
         try:
             collection = self.mongodb_handler.get_collection('node_status')
 
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             update_data = {
                 'last_heartbeat': now,

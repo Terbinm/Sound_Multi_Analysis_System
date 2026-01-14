@@ -2,7 +2,7 @@
 分析子系統儀表板視圖
 顯示分析配置、路由規則、節點狀態等統計資訊
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import render_template
 from flask_login import login_required
 from views import views_bp
@@ -90,7 +90,7 @@ def _get_recent_analysis_stats(logs_col) -> dict:
     統計最近24小時的任務狀態分布
     """
     try:
-        yesterday = datetime.utcnow() - timedelta(hours=24)
+        yesterday = datetime.now(timezone.utc) - timedelta(hours=24)
 
         pipeline = [
             {'$match': {'created_at': {'$gte': yesterday}}},

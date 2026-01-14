@@ -2,7 +2,7 @@
 用户模型
 支持基于角色的访问控制 (RBAC)
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from flask_login import UserMixin
 from utils.mongodb_handler import MongoDBHandler
@@ -155,7 +155,7 @@ class User(UserMixin):
                 return None
 
             # 创建用户文档
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             user_data = {
                 'username': username,
                 'email': email,
@@ -229,7 +229,7 @@ class User(UserMixin):
                 return True
 
             # 添加更新时间
-            update_data['updated_at'] = datetime.utcnow()
+            update_data['updated_at'] = datetime.now(timezone.utc)
 
             collection = self.get_collection()
             result = collection.update_one(
@@ -252,7 +252,7 @@ class User(UserMixin):
     def update_last_login(self) -> bool:
         """更新最后登录时间"""
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             collection = self.get_collection()
             result = collection.update_one(
                 {'username': self.username},

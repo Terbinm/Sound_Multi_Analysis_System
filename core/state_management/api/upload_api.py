@@ -5,7 +5,7 @@
 import logging
 import uuid
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
@@ -111,7 +111,7 @@ def submit_upload():
         # 添加上傳者資訊
         info_features.update({
             'uploaded_by': current_user.username,
-            'uploaded_at': datetime.utcnow().isoformat(),
+            'uploaded_at': datetime.now(timezone.utc).isoformat(),
             'upload_source': 'web_ui'
         })
         
@@ -134,7 +134,7 @@ def submit_upload():
             file_content,
             filename=filename,
             content_type=file.content_type,
-            upload_date=datetime.utcnow(),
+            upload_date=datetime.now(timezone.utc),
             metadata={
                 'uploaded_by': current_user.username,
                 'original_filename': file.filename,
@@ -160,8 +160,8 @@ def submit_upload():
             'info_features': info_features,
             'analyze_features': {},
             'assigned_router_ids': [],  # 將由 TaskDispatcher 更新
-            'created_at': datetime.utcnow(),
-            'updated_at': datetime.utcnow()
+            'created_at': datetime.now(timezone.utc),
+            'updated_at': datetime.now(timezone.utc)
         }
         
         result = db['recordings'].insert_one(document)

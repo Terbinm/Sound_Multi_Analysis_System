@@ -5,7 +5,7 @@
 """
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 import gridfs
@@ -15,6 +15,7 @@ from services.websocket_manager import websocket_manager
 from services.edge_schedule_service import edge_schedule_service
 from services.edge_device_manager import edge_device_manager
 from utils.mongodb_handler import get_db
+from utils.task_dispatcher import TaskDispatcher
 from config import get_config
 
 logger = logging.getLogger(__name__)
@@ -1140,7 +1141,7 @@ def upload_recording():
             file_content,
             filename=filename,
             content_type=f'audio/{file_extension}',
-            upload_date=datetime.utcnow(),
+            upload_date=datetime.now(timezone.utc),
             metadata={
                 'device_id': device_id,
                 'recording_uuid': recording_uuid,
@@ -1149,7 +1150,7 @@ def upload_recording():
                 'file_hash': file_hash,
                 'duration': duration,
                 'source': 'edge_client',
-                'uploaded_at': datetime.utcnow().isoformat()
+                'uploaded_at': datetime.now(timezone.utc).isoformat()
             }
         )
 
@@ -1160,6 +1161,8 @@ def upload_recording():
         assigned_router_ids = device.get('assigned_router_ids', [])
 
         # 6. 在 recordings 集合建立分析記錄
+        # 注意：assigned_router_ids 初始為空，由 task_dispatcher 處理後添加
+        # 這樣 task_dispatcher 可以正確判斷哪些路由已處理過
         recordings_collection = db[config.COLLECTIONS.get('recordings', 'recordings')]
 
         recordings_document = {
@@ -1178,12 +1181,12 @@ def upload_recording():
                 'duration': duration,
                 'file_size': actual_file_size,
                 'file_hash': file_hash,
-                'uploaded_at': datetime.utcnow().isoformat()
+                'uploaded_at': datetime.now(timezone.utc).isoformat()
             },
             'analyze_features': {},
-            'assigned_router_ids': assigned_router_ids,
-            'created_at': datetime.utcnow(),
-            'updated_at': datetime.utcnow()
+            'assigned_router_ids': [],  # 初始為空，由 task_dispatcher 處理後添加
+            'created_at': datetime.now(timezone.utc),
+            'updated_at': datetime.now(timezone.utc)
         }
 
         recordings_collection.insert_one(recordings_document)
@@ -1215,6 +1218,30 @@ def upload_recording():
             'assigned_router_ids': assigned_router_ids
         }, room='edge_devices')
 
+        # 9. 觸發路由系統進行分析（如果有配置路由）
+        dispatch_result = None
+        if assigned_router_ids:
+            try:
+                task_dispatcher = TaskDispatcher()
+                dispatch_result = task_dispatcher.dispatch_by_router_ids(
+                    analyze_uuid=recording_uuid,
+                    router_ids=assigned_router_ids,
+                    sequential=True
+                )
+                if dispatch_result['success']:
+                    logger.info(
+                        f"已觸發路由分析: recording_uuid={recording_uuid}, "
+                        f"tasks_created={len(dispatch_result.get('tasks_created', []))}"
+                    )
+                else:
+                    logger.warning(
+                        f"路由分析觸發部分失敗: recording_uuid={recording_uuid}, "
+                        f"errors={dispatch_result.get('errors', [])}"
+                    )
+            except Exception as e:
+                logger.error(f"觸發路由分析失敗: {e}", exc_info=True)
+                dispatch_result = {'success': False, 'error': str(e)}
+
         return jsonify({
             'success': True,
             'message': '上傳成功',
@@ -1222,7 +1249,8 @@ def upload_recording():
             'device_id': device_id,
             'recording_uuid': recording_uuid,
             'analyze_uuid': recording_uuid,
-            'assigned_router_ids': assigned_router_ids
+            'assigned_router_ids': assigned_router_ids,
+            'dispatch_result': dispatch_result
         }), 200
 
     except Exception as e:

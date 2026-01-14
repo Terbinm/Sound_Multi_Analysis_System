@@ -3,7 +3,7 @@
 管理分析方法的配置信息
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 import logging
 from utils.mongodb_handler import get_db
@@ -33,8 +33,8 @@ class AnalysisConfig:
             self.description = ""
             self.parameters = {}
             self.model_files = {}
-            self.created_at = datetime.utcnow()
-            self.updated_at = datetime.utcnow()
+            self.created_at = datetime.now(timezone.utc)
+            self.updated_at = datetime.now(timezone.utc)
             self.enabled = True
             self.is_system = False
 
@@ -46,8 +46,8 @@ class AnalysisConfig:
         self.description = data.get('description', '')
         self.parameters = data.get('parameters', {})
         self.model_files = data.get('model_files', {})
-        self.created_at = data.get('created_at', datetime.utcnow())
-        self.updated_at = data.get('updated_at', datetime.utcnow())
+        self.created_at = data.get('created_at', datetime.now(timezone.utc))
+        self.updated_at = data.get('updated_at', datetime.now(timezone.utc))
         self.enabled = data.get('enabled', True)
         self.is_system = data.get('is_system', False)
         return self
@@ -121,8 +121,8 @@ class AnalysisConfig:
             analysis_config.description = config_data.get('description', '')
             analysis_config.parameters = config_data.get('parameters', {})
             analysis_config.model_files = config_data.get('model_files', {})
-            analysis_config.created_at = datetime.utcnow()
-            analysis_config.updated_at = datetime.utcnow()
+            analysis_config.created_at = datetime.now(timezone.utc)
+            analysis_config.updated_at = datetime.now(timezone.utc)
             analysis_config.enabled = config_data.get('enabled', True)
             analysis_config.is_system = config_data.get('is_system', False)
 
@@ -218,7 +218,7 @@ class AnalysisConfig:
                 return False
 
             # 更新時間
-            update_data['updated_at'] = datetime.utcnow()
+            update_data['updated_at'] = datetime.now(timezone.utc)
 
             result = collection.update_one(
                 {'config_id': config_id},
@@ -361,7 +361,7 @@ class AnalysisConfig:
                 {
                     '$set': {
                         f'model_files.files.{file_key}': file_info,
-                        'updated_at': datetime.utcnow()
+                        'updated_at': datetime.now(timezone.utc)
                     }
                 }
             )
@@ -400,7 +400,7 @@ class AnalysisConfig:
                 {'config_id': config_id},
                 {
                     '$unset': {f'model_files.files.{file_key}': ''},
-                    '$set': {'updated_at': datetime.utcnow()}
+                    '$set': {'updated_at': datetime.now(timezone.utc)}
                 }
             )
 
@@ -439,7 +439,7 @@ class AnalysisConfig:
                 {
                     '$set': {
                         'model_files.classification_method': method,
-                        'updated_at': datetime.utcnow()
+                        'updated_at': datetime.now(timezone.utc)
                     }
                 }
             )

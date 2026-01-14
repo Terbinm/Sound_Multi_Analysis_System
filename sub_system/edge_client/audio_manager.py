@@ -9,7 +9,7 @@ import sys
 import logging
 from contextlib import contextmanager
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 import sounddevice as sd
 import soundfile as sf
@@ -275,7 +275,7 @@ class AudioManager:
             logger.info(f"錄音完成，資料形狀: {recording.shape}")
 
             # 生成檔案名稱
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
             filename = os.path.join(self.temp_dir, f"{device_name}_{timestamp}.wav")
 
             # 儲存為 WAV 檔案
