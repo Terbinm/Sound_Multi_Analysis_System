@@ -56,15 +56,15 @@ services:
     ports:
       - "${STATE_MANAGEMENT_PORT:-55103}:${STATE_MANAGEMENT_PORT:-55103}"   # 狀態管理系統端口
     environment:
-      # MongoDB 配置（連接宿主機）
-      - MONGODB_HOST=${DOCKER_MONGODB_HOST:-host.docker.internal}
+      # MongoDB 配置（使用 Docker 服務名稱，Linux 相容）
+      - MONGODB_HOST=mongodb
       - MONGODB_PORT=${MONGODB_PORT:-55101}
       - MONGODB_USERNAME=${MONGODB_USERNAME:-web_ui}
       - MONGODB_PASSWORD=${MONGODB_PASSWORD:-hod2iddfsgsrl}
       - MONGODB_DATABASE=${MONGODB_DATABASE:-web_db}
 
-      # RabbitMQ 配置（連接宿主機）
-      - RABBITMQ_HOST=${DOCKER_RABBITMQ_HOST:-host.docker.internal}
+      # RabbitMQ 配置（使用 Docker 服務名稱，Linux 相容）
+      - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=${RABBITMQ_PORT:-55102}
       - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-admin}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-rabbitmq_admin_pass}
@@ -73,8 +73,11 @@ services:
       - FLASK_ENV=${STATE_MANAGEMENT_FLASK_ENV:-production}
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=${STATE_MANAGEMENT_LOG_LEVEL:-INFO}
-
-# 使用宿主機網路模式，不需要自定義網路
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   mongodb_data:
