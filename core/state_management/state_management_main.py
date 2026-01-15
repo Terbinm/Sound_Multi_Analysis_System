@@ -8,7 +8,11 @@
 import os
 if os.environ.get('WEBSOCKET_ASYNC_MODE') == 'gevent':
     from gevent import monkey
-    monkey.patch_all()
+    # 檢查是否已經被 patched（gunicorn GeventWebSocketWorker 會自動 patch）
+    if not monkey.is_module_patched('socket'):
+        monkey.patch_all()
+    else:
+        print("Gevent monkey patching 已由 gunicorn worker 完成，跳過重複 patching")
 
 import sys
 import logging

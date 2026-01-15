@@ -43,7 +43,10 @@ class WebSocketManager:
             logger=True,
             engineio_logger=False,
             ping_timeout=ping_timeout,
-            ping_interval=ping_interval
+            ping_interval=ping_interval,
+            # Docker/gunicorn 環境優化設置
+            manage_session=False,  # 讓 Flask 管理 session，避免 gevent 衝突
+            always_connect=True,   # 確保連接事件總是被觸發
         )
 
         # 註冊事件處理器
