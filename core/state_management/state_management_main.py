@@ -2,12 +2,13 @@
 狀態管理系統主應用
 提供 REST API 和 Web UI 管理界面
 """
-# Eventlet monkey patching 必須在所有其他導入之前執行
-# 這是為了確保 pymongo 等庫能正確使用 eventlet 的非同步 I/O
+# Gevent monkey patching 必須在所有其他導入之前執行
+# 這是為了確保 pymongo 等庫能正確使用 gevent 的非同步 I/O
+# 注意：eventlet 與 pymongo 不兼容，必須使用 gevent
 import os
-if os.environ.get('WEBSOCKET_ASYNC_MODE') == 'eventlet':
-    import eventlet
-    eventlet.monkey_patch()
+if os.environ.get('WEBSOCKET_ASYNC_MODE') == 'gevent':
+    from gevent import monkey
+    monkey.patch_all()
 
 import sys
 import logging

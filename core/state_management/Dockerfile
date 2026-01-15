@@ -31,5 +31,6 @@ EXPOSE 55103
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_APP=state_management_main.py
 
-# 啟動命令（使用 gunicorn + eventlet worker 支援 WebSocket）
-CMD ["gunicorn", "-k", "eventlet", "--bind", "0.0.0.0:55103", "--workers", "1", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "state_management_main:app"]
+# 啟動命令（使用 gunicorn + gevent worker 支援 WebSocket）
+# 注意：eventlet 與 pymongo 不兼容，必須使用 gevent
+CMD ["gunicorn", "-k", "geventwebsocket.gunicorn.workers.GeventWebSocketWorker", "--bind", "0.0.0.0:55103", "--workers", "1", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "state_management_main:app"]

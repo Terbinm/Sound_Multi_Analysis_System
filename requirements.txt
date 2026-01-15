@@ -14,7 +14,8 @@ gunicorn==21.2.0
 
 # Socket.IO workers (pick one in production)
 eventlet==0.33.3
-gevent  # optional fallback worker
+gevent  # required for WebSocket support (eventlet 與 pymongo 不兼容)
+gevent-websocket  # required for gunicorn GeventWebSocketWorker
 
 # Data stores & messaging
 pymongo==4.6.1          # also provides bson/gridfs
