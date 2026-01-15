@@ -186,18 +186,12 @@ jobs:
           docker pull ${{ needs.build_and_push.outputs.state_image }}:${{ env.VERSION }}
           docker pull ${{ needs.build_and_push.outputs.analysis_image }}:${{ env.VERSION }}
 
-      - name: 產生部署覆蓋檔
-        shell: cmd
-        run: |
-          echo services:> core\docker-compose.override.ci.yml
-          echo   state_management:>> core\docker-compose.override.ci.yml
-          echo     image: ${{ needs.build_and_push.outputs.state_image }}:${{ env.VERSION }}>> core\docker-compose.override.ci.yml
-          echo   analysis_service:>> core\docker-compose.override.ci.yml
-          echo     image: ${{ needs.build_and_push.outputs.analysis_image }}:${{ env.VERSION }}>> core\docker-compose.override.ci.yml
-
       - name: 啟動服務
         shell: cmd
-        run: docker compose -f core/docker-compose.yml -f core/docker-compose.override.ci.yml up -d --remove-orphans mongodb rabbitmq state_management analysis_service
+        env:
+          STATE_IMAGE: ${{ needs.build_and_push.outputs.state_image }}:${{ env.VERSION }}
+          ANALYSIS_IMAGE: ${{ needs.build_and_push.outputs.analysis_image }}:${{ env.VERSION }}
+        run: docker compose -f core/docker-compose.yml -f core/docker-compose.ci.yml --env-file .env up -d --remove-orphans mongodb rabbitmq state_management analysis_service
 
       - name: 查看容器狀態與日誌
         shell: cmd

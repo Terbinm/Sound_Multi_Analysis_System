@@ -26,7 +26,7 @@ EXPOSE 55103
 
 # 設置環境變數
 ENV PYTHONUNBUFFERED=1
-ENV FLASK_APP=app.py
+ENV FLASK_APP=state_management_main.py
 
 # 啟動命令（使用 gunicorn）
-CMD ["gunicorn", "--bind", "0.0.0.0:55103", "--workers", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:55103", "--workers", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "state_management_main:app"]

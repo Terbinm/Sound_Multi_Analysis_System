@@ -1,0 +1,25 @@
+# CI/CD 部署用覆蓋檔
+# 使用環境變數 STATE_IMAGE 和 ANALYSIS_IMAGE 來設定映像
+
+services:
+  state_management:
+    image: ${STATE_IMAGE}
+
+  analysis_service:
+    image: ${ANALYSIS_IMAGE}
+    container_name: analysis_service
+    restart: unless-stopped
+    environment:
+      - MONGODB_HOST=${MONGODB_HOST}
+      - MONGODB_PORT=${MONGODB_PORT}
+      - MONGODB_USERNAME=${MONGODB_USERNAME}
+      - MONGODB_PASSWORD=${MONGODB_PASSWORD}
+      - MONGODB_DATABASE=${MONGODB_DATABASE}
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - STATE_MANAGEMENT_URL=${STATE_MANAGEMENT_URL}
+    volumes:
+      - ../sub_system/analysis_service/logs:/app/logs
+    depends_on:
+      - mongodb
+      - rabbitmq

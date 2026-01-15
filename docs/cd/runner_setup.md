@@ -71,3 +71,40 @@ Expand-Archive actions-runner-win-x64.zip -DestinationPath .
 - 在 GitHub Actions Runner 列表確認 runner 變為 Online（綠點）。
 - 手動觸發 `CD Pipeline` 的 `workflow_dispatch`，填入對應環境 tag（如 `staging_v1.0.0.0_init`）驗證。
 - 在 runner 上檢查 `docker ps` / `docker compose ps`，或查看 Actions log 確認 compose 已啟動。
+
+## 7. 常見問題排除
+
+### 7.1 Windows Docker 權限問題
+
+**錯誤訊息**：
+```
+permission denied while trying to connect to the docker API at npipe:////./pipe/docker_engine
+```
+
+**原因**：GitHub Actions runner 服務帳號沒有權限存取 Docker Desktop。
+
+**解決方式**（以系統管理員身份執行 PowerShell）：
+
+```powershell
+# 1) 查看目前 runner 服務用什麼帳號執行
+Get-Service actions.runner.* | Select-Object Name, StartType, Status
+
+# 2) 將帳號加入 docker-users 群組（把 USERNAME 換成實際的使用者名稱）
+Add-LocalGroupMember -Group "docker-users" -Member "USERNAME"
+
+# 如果 runner 是用 SYSTEM 帳號執行：
+Add-LocalGroupMember -Group "docker-users" -Member "NT AUTHORITY\SYSTEM"
+
+# 如果 runner 是用 NETWORK SERVICE 帳號執行：
+Add-LocalGroupMember -Group "docker-users" -Member "NT AUTHORITY\NETWORK SERVICE"
+
+# 3) 重啟 runner 服務
+Restart-Service actions.runner.*
+```
+
+**手動方式**：
+1. 開啟「電腦管理」(Computer Management)
+2. 展開「本機使用者和群組」→「群組」
+3. 找到 `docker-users` 群組，雙擊
+4. 點「新增」，加入執行 GitHub Actions runner 的使用者帳號
+5. 重新啟動 runner 服務

@@ -10,8 +10,12 @@ BASE_DIR = os.path.abspath(
 )
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 
-print(">>> loading env from:", ENV_PATH)
-load_dotenv(ENV_PATH, override=True)
+# 只有在 .env 檔案存在時才載入（Docker 環境中環境變數已透過 docker-compose 注入）
+if os.path.exists(ENV_PATH):
+    print(">>> loading env from:", ENV_PATH)
+    load_dotenv(ENV_PATH, override=True)
+else:
+    print(">>> using environment variables (no .env file found at:", ENV_PATH, ")")
 
 MONGODB_CONFIG: Dict[str, Any] = {
     'host': os.getenv("MONGODB_HOST"),
