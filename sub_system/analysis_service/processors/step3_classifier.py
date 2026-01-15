@@ -12,7 +12,24 @@ from sub_system.train.py_cyclegan.inference import CycleGANConverter
 from sub_system.train.RF.inference import RFClassifier
 from utils.logger import logger
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+def _get_project_root() -> Path:
+    """
+    本地開發：step3_classifier.py 在 sub_system/analysis_service/processors/，需要往上 3 層
+    Docker：step3_classifier.py 在 /app/processors/，需要往上 1 層到 /app
+    """
+    file_path = Path(__file__).resolve()
+    # Docker 環境：檔案在 /app/processors/step3_classifier.py
+    if file_path.parent.parent == Path("/app"):
+        return file_path.parent.parent  # /app
+    # 本地開發：檔案在 sub_system/analysis_service/processors/step3_classifier.py
+    try:
+        return file_path.parents[3]
+    except IndexError:
+        return file_path.parent.parent
+
+
+PROJECT_ROOT = _get_project_root()
 DEFAULT_RF_MODEL_DIR = PROJECT_ROOT / "sub_system" / "train" / "RF" / "models"
 DEFAULT_CYCLEGAN_CKPT = (
     PROJECT_ROOT / "sub_system" / "train" / "py_cyclegan" / "checkpoints" / "last.ckpt"
