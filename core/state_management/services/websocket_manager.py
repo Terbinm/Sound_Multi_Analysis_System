@@ -41,12 +41,11 @@ class WebSocketManager:
             cors_allowed_origins=cors_allowed_origins,
             async_mode=async_mode,
             logger=True,
-            engineio_logger=False,
+            engineio_logger=True,  # 開啟 Engine.IO 日誌以便診斷 WebSocket 升級問題
             ping_timeout=ping_timeout,
             ping_interval=ping_interval,
             # Docker/gunicorn 環境優化設置
             manage_session=False,  # 讓 Flask 管理 session，避免 gevent 衝突
-            always_connect=True,   # 確保連接事件總是被觸發
         )
 
         # 註冊事件處理器
