@@ -18,6 +18,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 複製應用程式代碼
 COPY core/state_management/ .
 
+# 複製共用模組
+COPY env_loader.py .
+
 # 創建日誌目錄
 RUN mkdir -p logs
 
