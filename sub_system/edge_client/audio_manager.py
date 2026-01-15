@@ -27,13 +27,15 @@ class AudioDevice:
         name: str,
         max_input_channels: int,
         max_output_channels: int,
-        default_sample_rate: float
+        default_sample_rate: float,
+        supported_bit_depths: List[int] = None
     ):
         self.index = index
         self.name = name
         self.max_input_channels = max_input_channels
         self.max_output_channels = max_output_channels
         self.default_sample_rate = default_sample_rate
+        self.supported_bit_depths = supported_bit_depths or []
 
     def to_dict(self) -> Dict[str, Any]:
         """轉換為字典格式"""
@@ -42,7 +44,8 @@ class AudioDevice:
             'name': self.name,
             'max_input_channels': self.max_input_channels,
             'max_output_channels': self.max_output_channels,
-            'default_sample_rate': self.default_sample_rate
+            'default_sample_rate': self.default_sample_rate,
+            'supported_bit_depths': self.supported_bit_depths
         }
 
     @classmethod
@@ -53,7 +56,8 @@ class AudioDevice:
             name=data.get('name', ''),
             max_input_channels=data.get('max_input_channels', 0),
             max_output_channels=data.get('max_output_channels', 0),
-            default_sample_rate=data.get('default_sample_rate', 44100)
+            default_sample_rate=data.get('default_sample_rate', 44100),
+            supported_bit_depths=data.get('supported_bit_depths', [])
         )
 
 
@@ -117,6 +121,50 @@ class AudioManager:
         else:
             yield
 
+    def _detect_supported_bit_depths(self, device_index: int, channels: int, sample_rate: float) -> List[int]:
+        """
+        偵測設備支援的位元深度
+
+        Args:
+            device_index: 設備索引
+            channels: 聲道數（用於測試）
+            sample_rate: 採樣率（用於測試）
+
+        Returns:
+            支援的位元深度列表（例如 [16, 24, 32]）
+        """
+        # dtype 對應位元深度
+        dtype_to_bits = {
+            'int16': 16,
+            'int24': 24,
+            'int32': 32,
+            'float32': 32
+        }
+
+        supported = []
+        test_channels = max(1, channels)
+        test_rate = sample_rate if sample_rate > 0 else 44100
+
+        for dtype, bits in dtype_to_bits.items():
+            try:
+                with self.suppress_alsa_errors():
+                    sd.check_input_settings(
+                        device=device_index,
+                        channels=test_channels,
+                        dtype=dtype,
+                        samplerate=test_rate
+                    )
+                # 避免重複添加相同位元深度（int32 和 float32 都是 32-bit）
+                if bits not in supported:
+                    supported.append(bits)
+            except Exception:
+                # 該格式不支援
+                pass
+
+        # 排序後返回
+        supported.sort()
+        return supported
+
     def list_devices(self) -> List[AudioDevice]:
         """
         列出所有可用的音訊輸入設備
@@ -131,13 +179,24 @@ class AudioManager:
 
             for idx, dev in enumerate(device_list):
                 # 僅列出有輸入通道的設備
-                if dev.get('max_input_channels', 0) > 0:
+                max_input_channels = dev.get('max_input_channels', 0)
+                if max_input_channels > 0:
+                    default_sample_rate = dev.get('default_samplerate', 44100)
+
+                    # 偵測支援的位元深度
+                    supported_bit_depths = self._detect_supported_bit_depths(
+                        device_index=idx,
+                        channels=1,
+                        sample_rate=default_sample_rate
+                    )
+
                     devices.append(AudioDevice(
                         index=idx,
                         name=dev.get('name', f'Device {idx}'),
-                        max_input_channels=dev.get('max_input_channels', 0),
+                        max_input_channels=max_input_channels,
                         max_output_channels=dev.get('max_output_channels', 0),
-                        default_sample_rate=dev.get('default_samplerate', 44100)
+                        default_sample_rate=default_sample_rate,
+                        supported_bit_depths=supported_bit_depths
                     ))
 
             logger.info(f"找到 {len(devices)} 個音訊輸入設備")
@@ -171,12 +230,23 @@ class AudioManager:
                 dev = sd.query_devices(device_index, 'input')
 
             if dev:
+                max_input_channels = dev.get('max_input_channels', 0)
+                default_sample_rate = dev.get('default_samplerate', 44100)
+
+                # 偵測支援的位元深度
+                supported_bit_depths = self._detect_supported_bit_depths(
+                    device_index=device_index,
+                    channels=1,
+                    sample_rate=default_sample_rate
+                )
+
                 return AudioDevice(
                     index=device_index,
                     name=dev.get('name', f'Device {device_index}'),
-                    max_input_channels=dev.get('max_input_channels', 0),
+                    max_input_channels=max_input_channels,
                     max_output_channels=dev.get('max_output_channels', 0),
-                    default_sample_rate=dev.get('default_samplerate', 44100)
+                    default_sample_rate=default_sample_rate,
+                    supported_bit_depths=supported_bit_depths
                 )
 
         except Exception as e:
