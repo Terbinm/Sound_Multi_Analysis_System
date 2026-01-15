@@ -441,16 +441,25 @@ jobs:
         run: |
           cd ${{ env.EDGE_CLIENT_DIR }}
 
+          # 顯示當前路徑
+          echo "當前工作目錄: $(pwd)"
+          echo "Python 版本: $(python3 --version)"
+
           # 建立或更新 venv
           if [ ! -d "venv" ]; then
             echo "建立 Python 虛擬環境..."
             python3 -m venv venv
+          else
+            echo "venv 已存在，將更新依賴..."
           fi
 
-          # 安裝依賴
+          # 安裝/更新依賴（強制重新安裝）
           echo "安裝依賴..."
           ./venv/bin/pip install --upgrade pip
-          ./venv/bin/pip install -r requirements.txt
+          ./venv/bin/pip install --upgrade --force-reinstall -r requirements.txt
+
+          echo "已安裝的套件:"
+          ./venv/bin/pip list
 
       - name: 自動生成 device_config.json
         shell: bash
@@ -531,11 +540,16 @@ jobs:
           sudo cp /tmp/edge-client.service /etc/systemd/system/edge-client.service
           sudo systemctl daemon-reload
 
-      - name: 啟用並啟動服務
+      - name: 啟用並重啟服務
         shell: bash
         run: |
+          echo "=== 安裝的 service 文件內容 ==="
+          cat /etc/systemd/system/edge-client.service
+
+          echo ""
+          echo "=== 啟用並重啟服務 ==="
           sudo systemctl enable edge-client
-          sudo systemctl start edge-client
+          sudo systemctl restart edge-client
 
           # 等待服務啟動
           sleep 5
@@ -544,8 +558,27 @@ jobs:
         shell: bash
         run: |
           echo "=== 服務狀態 ==="
-          sudo systemctl status edge-client --no-pager
+          sudo systemctl status edge-client --no-pager || true
+
+          echo ""
+          echo "=== 服務是否啟用自動啟動 ==="
+          systemctl is-enabled edge-client || true
+
+          echo ""
+          echo "=== 服務是否正在運行 ==="
+          if systemctl is-active --quiet edge-client; then
+            echo "✅ edge-client 服務正在運行"
+          else
+            echo "❌ edge-client 服務未運行"
+            echo "嘗試查看失敗原因..."
+            sudo journalctl -u edge-client -n 50 --no-pager
+            exit 1
+          fi
 
           echo ""
           echo "=== 最近日誌 ==="
-          sudo journalctl -u edge-client -n 20 --no-pager
+          sudo journalctl -u edge-client -n 30 --no-pager
+
+          echo ""
+          echo "=== device_config.json 內容 ==="
+          cat ${{ env.EDGE_CLIENT_DIR }}/device_config.json || true
