@@ -23,6 +23,9 @@ requests==2.31.0
 urllib3>=2.0.0
 pytz==2024.1
 
+# Scheduling
+APScheduler>=3.10.0
+
 # Audio & data prep
 numpy>=1.24.3
 pandas>=2.0.0

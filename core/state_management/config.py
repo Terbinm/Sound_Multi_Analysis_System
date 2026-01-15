@@ -17,7 +17,23 @@ from typing import overload
 from env_loader import load_project_env
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# 計算專案根目錄（支援本地開發和 Docker 環境）
+def _get_project_root() -> Path:
+    """
+    本地開發：config.py 在 core/state_management/，需要往上 2 層
+    Docker：config.py 在 /app/，直接使用 /app
+    """
+    config_path = Path(__file__).resolve()
+    # Docker 環境：檔案在 /app/config.py
+    if config_path.parent == Path("/app"):
+        return config_path.parent
+    # 本地開發：檔案在 core/state_management/config.py
+    try:
+        return config_path.parents[2]
+    except IndexError:
+        return config_path.parent
+
+PROJECT_ROOT = _get_project_root()
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
