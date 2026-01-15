@@ -141,7 +141,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy_staging:
-    name: 部署到 Staging
+    name: 部署到 Staging (Windows)
     needs:
       - parse_version
       - build_and_push
@@ -150,60 +150,26 @@ jobs:
     env:
       VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
-      - name: 清理工作目錄（Windows）
-        if: runner.os == 'Windows'
+      - name: 清理工作目錄
         shell: pwsh
         run: |
-          Write-Host "[Cleanup] Cleaning workspace (Windows)..."
+          Write-Host "[Cleanup] Cleaning workspace..."
           $workspace = "${{ github.workspace }}"
-
-          # 刪除 __pycache__ 目錄和 .pyc 檔案
           if (Test-Path $workspace) {
             Get-ChildItem -Path $workspace -Recurse -Directory -Filter '__pycache__' -ErrorAction SilentlyContinue |
               Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
             Get-ChildItem -Path $workspace -Recurse -File -Filter '*.pyc' -ErrorAction SilentlyContinue |
               Remove-Item -Force -ErrorAction SilentlyContinue
           }
-
           Write-Host "[Cleanup] Done"
-
-      - name: 清理工作目錄（Linux）
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          echo "[Cleanup] Cleaning workspace (Linux)..."
-          WORKSPACE="${{ github.workspace }}"
-
-          # 修復整個工作目錄的權限（包含子目錄）
-          if [ -d "$WORKSPACE" ]; then
-            echo "Fixing directory permissions: $WORKSPACE"
-            sudo chown -R $(whoami):$(id -gn) "$WORKSPACE" || true
-            sudo chmod -R u+rwX "$WORKSPACE" || true
-          fi
-
-          # 也修復上層目錄（actions-runner/_work/repo_name/）
-          PARENT_DIR=$(dirname "$WORKSPACE")
-          if [ -d "$PARENT_DIR" ]; then
-            echo "Fixing parent directory permissions: $PARENT_DIR"
-            sudo chown -R $(whoami):$(id -gn) "$PARENT_DIR" || true
-            sudo chmod -R u+rwX "$PARENT_DIR" || true
-          fi
-
-          # 強制刪除 __pycache__ 和 .pyc 檔案
-          if [ -d "$WORKSPACE" ]; then
-            sudo find "$WORKSPACE" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
-            sudo find "$WORKSPACE" -type f -name '*.pyc' -delete 2>/dev/null || true
-          fi
-
-          echo "[Cleanup] Done"
 
       - name: 取得程式碼
         uses: actions/checkout@v4
 
       - name: 建立 .env 檔案
-        shell: bash
+        shell: pwsh
         run: |
-          cat <<EOF > .env
+          $envContent = @"
           # Staging 環境設定（由 GitHub Actions 自動產生）
 
           # MongoDB 設定
@@ -222,36 +188,35 @@ jobs:
           # State Management 設定
           STATE_MANAGEMENT_PORT=${{ secrets.STAGING_STATE_MANAGEMENT_PORT }}
           STATE_MANAGEMENT_URL=${{ secrets.STAGING_STATE_MANAGEMENT_URL }}
-          EOF
+          "@
+          $envContent | Out-File -FilePath ".env" -Encoding utf8NoBOM
+          Write-Host ".env file created"
 
-          echo ".env file created"
-          chmod 600 .env
-
-      - name: 設定映像名稱（轉換為小寫）
+      - name: 設定映像名稱
         id: image_names
-        shell: bash
+        shell: pwsh
         run: |
-          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          echo "state_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-state-management" >> "$GITHUB_OUTPUT"
-          echo "analysis_image=${{ env.REGISTRY }}/${OWNER_LOWER}/sound-analysis-service" >> "$GITHUB_OUTPUT"
+          $ownerLower = "${{ github.repository_owner }}".ToLower()
+          "state_image=ghcr.io/$ownerLower/sound-state-management" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
+          "analysis_image=ghcr.io/$ownerLower/sound-analysis-service" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
 
       - name: 登入 GHCR
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 拉取映像
-        shell: bash
+        shell: pwsh
         run: |
           docker pull ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
           docker pull ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
 
-      - name: 產出部署覆蓋檔
-        shell: bash
+      - name: 產生部署覆蓋檔
+        shell: pwsh
         run: |
-          cat <<YAML > core/docker-compose.override.ci.yml
+          $overrideContent = @"
           services:
             state_management:
               image: ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
@@ -263,66 +228,90 @@ jobs:
               env_file:
                 - ../.env
               environment:
-                MONGODB_HOST: \${MONGODB_HOST}
-                MONGODB_PORT: \${MONGODB_PORT}
-                MONGODB_USERNAME: \${MONGODB_USERNAME}
-                MONGODB_PASSWORD: \${MONGODB_PASSWORD}
-                MONGODB_DATABASE: \${MONGODB_DATABASE}
-                RABBITMQ_HOST: \${RABBITMQ_HOST}
-                RABBITMQ_PORT: \${RABBITMQ_PORT}
-                STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL}
+                MONGODB_HOST: `${MONGODB_HOST}
+                MONGODB_PORT: `${MONGODB_PORT}
+                MONGODB_USERNAME: `${MONGODB_USERNAME}
+                MONGODB_PASSWORD: `${MONGODB_PASSWORD}
+                MONGODB_DATABASE: `${MONGODB_DATABASE}
+                RABBITMQ_HOST: `${RABBITMQ_HOST}
+                RABBITMQ_PORT: `${RABBITMQ_PORT}
+                STATE_MANAGEMENT_URL: `${STATE_MANAGEMENT_URL}
               volumes:
                 - ../sub_system/analysis_service/logs:/app/logs
               depends_on:
                 - mongodb
                 - rabbitmq
-          YAML
+          "@
+          $overrideContent | Out-File -FilePath "core/docker-compose.override.ci.yml" -Encoding utf8NoBOM
 
       - name: 重新部署核心與分析服務
-        shell: bash
+        shell: pwsh
         run: |
           docker compose -f core/docker-compose.yml -f core/docker-compose.override.ci.yml up -d --remove-orphans mongodb rabbitmq state_management analysis_service
 
       - name: 等待 MongoDB 就緒
-        shell: bash
+        shell: pwsh
         run: |
-          echo "等待 MongoDB 啟動..."
-          for i in {1..30}; do
-            if docker compose -f core/docker-compose.yml exec -T mongodb mongosh --port ${{ secrets.STAGING_MONGODB_PORT }} --eval "db.adminCommand('ping')" 2>/dev/null; then
-              echo "MongoDB is ready"
-              break
-            fi
-            echo "等待中... ($i/30)"
-            sleep 2
-          done
+          Write-Host "Waiting for MongoDB to start..."
+          $maxRetries = 30
+          $retryCount = 0
+          $ready = $false
+
+          while (-not $ready -and $retryCount -lt $maxRetries) {
+            $retryCount++
+            try {
+              $result = docker compose -f core/docker-compose.yml exec -T mongodb mongosh --port ${{ secrets.STAGING_MONGODB_PORT }} --eval "db.adminCommand('ping')" 2>&1
+              if ($LASTEXITCODE -eq 0) {
+                Write-Host "MongoDB is ready"
+                $ready = $true
+              }
+            } catch { }
+
+            if (-not $ready) {
+              Write-Host "Waiting... ($retryCount/$maxRetries)"
+              Start-Sleep -Seconds 2
+            }
+          }
+
+          if (-not $ready) {
+            Write-Error "MongoDB failed to start within timeout"
+            exit 1
+          }
 
       - name: 初始化管理員帳號
-        shell: bash
+        shell: pwsh
         run: |
-          echo "初始化管理員帳號..."
-          docker compose -f core/docker-compose.yml exec -T state_management python init_admin.py \
-            --username admin \
-            --password "${{ secrets.ADMIN_PASSWORD }}" \
-            --email "${{ secrets.ADMIN_EMAIL }}"
+          Write-Host "Initializing admin account..."
+          docker compose -f core/docker-compose.yml exec -T state_management python init_admin.py --username admin --password "${{ secrets.ADMIN_PASSWORD }}" --email "${{ secrets.ADMIN_EMAIL }}"
 
       - name: 語法 smoke test
-        shell: bash
+        shell: pwsh
         run: |
           docker run --rm ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }} python -m compileall /app
           docker run --rm ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }} python -m compileall /app
 
       - name: 健康檢查
-        shell: bash
-        run: |
-          sleep 10
-          curl -f http://localhost:${{ secrets.STAGING_STATE_MANAGEMENT_PORT }}/health
-
-      - name: 清理 Docker 產生的檔案權限（Windows）
-        if: always() && runner.os == 'Windows'
         shell: pwsh
         run: |
-          Write-Host "[Cleanup] Cleaning file permissions (Windows)..."
-          # Windows 上 Docker 產生的檔案權限問題較少，僅清理快取檔案
+          Start-Sleep -Seconds 10
+          try {
+            $response = Invoke-WebRequest -Uri "http://localhost:${{ secrets.STAGING_STATE_MANAGEMENT_PORT }}/health" -UseBasicParsing -TimeoutSec 30
+            if ($response.StatusCode -eq 200) {
+              Write-Host "Health check passed"
+            } else {
+              Write-Error "Health check failed with status code: $($response.StatusCode)"
+              exit 1
+            }
+          } catch {
+            Write-Error "Health check failed: $_"
+            exit 1
+          }
+
+      - name: 清理快取檔案
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "[Cleanup] Cleaning cache files..."
           $workspace = "${{ github.workspace }}"
           if (Test-Path $workspace) {
             Get-ChildItem -Path $workspace -Recurse -Directory -Filter '__pycache__' -ErrorAction SilentlyContinue |
@@ -331,15 +320,6 @@ jobs:
               Remove-Item -Force -ErrorAction SilentlyContinue
           }
           Write-Host "[Cleanup] Done"
-
-      - name: 清理 Docker 產生的檔案權限（Linux）
-        if: always() && runner.os == 'Linux'
-        shell: bash
-        run: |
-          echo "[Cleanup] Cleaning file permissions (Linux)..."
-          sudo chown -R $(whoami):$(id -gn) "${{ github.workspace }}" || true
-          sudo chown -R $(whoami):$(id -gn) "$(dirname '${{ github.workspace }}')" || true
-          echo "[Cleanup] Done"
 
   deploy_server_production:
     name: 部署到 Server Production
