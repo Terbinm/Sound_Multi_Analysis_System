@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # MongoDB 資料庫
   mongodb:
@@ -49,8 +47,8 @@ services:
   # 狀態管理系統
   state_management:
     build:
-      context: ./state_management
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: core/state_management/Dockerfile
     container_name: core_state_management
     restart: unless-stopped
     env_file:
