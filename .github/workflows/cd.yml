@@ -89,7 +89,7 @@ jobs:
   build_and_push:
     name: 建置並推送映像
     needs: parse_version
-    if: needs.parse_version.outputs.should_deploy == 'true'
+    if: needs.parse_version.outputs.should_deploy == 'true' && needs.parse_version.outputs.env != 'edge_production'
     runs-on: ubuntu-latest
     outputs:
       state_image: ${{ steps.image_names.outputs.state_image }}
@@ -549,3 +549,4 @@ jobs:
           echo ""
           echo "=== 最近日誌 ==="
           sudo journalctl -u edge-client -n 20 --no-pager
+

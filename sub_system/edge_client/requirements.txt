@@ -1,0 +1,13 @@
+# Edge Client Dependencies
+# For Raspberry Pi 5 / Linux
+
+# HTTP requests
+requests>=2.31.0
+
+# WebSocket client
+python-socketio[client]>=5.11.0
+
+# Audio processing
+sounddevice>=0.4.6
+soundfile>=0.12.1
+numpy>=1.24.0
