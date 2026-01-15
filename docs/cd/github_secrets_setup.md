@@ -1,18 +1,27 @@
 # GitHub Secrets 設定指南
 
-> **最後更新**：2025-12
+> **最後更新**：2025-01
 > **適用對象**：專案管理員
 > **預計耗時**：約 10-15 分鐘
+
+---
+
+## 重要更新（2025-01）
+
+- **移除硬編碼密碼**：CD Pipeline 的 `docker-compose.override.ci.yml` 不再包含預設密碼
+- **新增通用 Secrets**：現在需要設定 `ADMIN_PASSWORD` 和 `ADMIN_EMAIL` 用於初始化管理員帳號
+- **環境一致性**：Staging 與 Production 使用相同的部署和驗證流程
 
 ---
 
 ## 目錄
 
 1. [為什麼需要設定 GitHub Secrets](#1-為什麼需要設定-github-secrets)
-2. [設定 Staging 環境的 Secrets](#2-設定-staging-環境的-secrets)
-3. [設定 Production 環境的 Secrets](#3-設定-production-環境的-secrets)
-4. [驗證設定](#4-驗證設定)
-5. [安全最佳實踐](#5-安全最佳實踐)
+2. [通用 Secrets（所有環境）](#2-通用-secrets所有環境)
+3. [設定 Staging 環境的 Secrets](#3-設定-staging-環境的-secrets)
+4. [設定 Production 環境的 Secrets](#4-設定-production-環境的-secrets)
+5. [驗證設定](#5-驗證設定)
+6. [安全最佳實踐](#6-安全最佳實踐)
 
 ---
 
@@ -39,7 +48,20 @@ env file /path/to/.env not found: no such file or directory
 
 ---
 
-## 2. 設定 Staging 環境的 Secrets
+## 2. 通用 Secrets（所有環境）
+
+在設定環境特定的 Secrets 之前，請先新增以下通用 Secrets：
+
+| Secret Name | 說明 | 範例 |
+|-------------|------|------|
+| `ADMIN_PASSWORD` | 管理員帳號密碼 | 請使用強密碼 |
+| `ADMIN_EMAIL` | 管理員帳號電子郵件 | `admin@example.com` |
+
+這些 Secrets 用於 CD Pipeline 執行 `init_admin.py` 初始化管理員帳號。
+
+---
+
+## 3. 設定 Staging 環境的 Secrets
 
 ### 步驟 1：開啟 GitHub Settings
 
@@ -102,9 +124,9 @@ env file /path/to/.env not found: no such file or directory
 
 ---
 
-## 3. 設定 Production 環境的 Secrets
+## 4. 設定 Production 環境的 Secrets
 
-### 3.1 Server Production（伺服器生產環境）
+### 4.1 Server Production（伺服器生產環境）
 
 依照相同步驟，新增以下 secrets（前綴改為 `PRODUCTION_`）：
 
@@ -134,7 +156,7 @@ env file /path/to/.env not found: no such file or directory
 | `PRODUCTION_STATE_MANAGEMENT_PORT`      | `55103`                           |
 | `PRODUCTION_STATE_MANAGEMENT_URL`       | `http://state_management:55103` |
 
-### 3.2 Edge Production（邊緣設備生產環境）
+### 4.2 Edge Production（邊緣設備生產環境）
 
 新增以下 secrets（前綴改為 `EDGE_`）：
 
@@ -166,7 +188,7 @@ env file /path/to/.env not found: no such file or directory
 
 ---
 
-## 4. 驗證設定
+## 5. 驗證設定
 
 ### 方法 1：檢視 Secrets 列表
 
@@ -242,27 +264,27 @@ MONGODB_USERNAME=web_ui
 
 ---
 
-## 5. 安全最佳實踐
+## 6. 安全最佳實踐
 
-### 5.1 密碼管理
+### 6.1 密碼管理
 
 - ✅ **使用強密碼**：至少 16 字元，包含大小寫字母、數字、特殊符號
 - ✅ **不同環境使用不同密碼**：Staging 和 Production 的密碼應該不同
 - ✅ **定期更換密碼**：建議每 3-6 個月更換一次
 
-### 5.2 存取控制
+### 6.2 存取控制
 
 - ✅ **限制 GitHub 存取權限**：只有管理員能修改 Secrets
 - ✅ **啟用 2FA**：GitHub 帳號應啟用雙因素驗證
 - ✅ **審核 Workflow 變更**：任何修改 `.github/workflows/` 的 PR 都應仔細審查
 
-### 5.3 監控與稽核
+### 6.3 監控與稽核
 
 - ✅ **定期檢查 Secrets 使用狀況**：前往 Settings → Security → Actions
 - ✅ **監控 Actions 執行記錄**：異常的部署應立即調查
 - ✅ **備份重要設定**：將 secrets 列表（不含值）記錄在安全的地方
 
-### 5.4 如果懷疑 Secrets 洩漏
+### 6.4 如果懷疑 Secrets 洩漏
 
 **立即執行以下步驟：**
 

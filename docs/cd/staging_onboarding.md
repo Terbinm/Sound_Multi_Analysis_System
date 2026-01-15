@@ -1,6 +1,6 @@
 # Staging 環境 Onboarding 完整指南（從重灌 Windows 開始）
 
-> **最後更新**：2024-12
+> **最後更新**：2025-01
 > **適用環境**：Staging Server
 > **預計耗時**：約 60-90 分鐘（含下載時間）
 
@@ -21,6 +21,12 @@
 ---
 
 ## 1. 前言與預設條件
+
+### 重要更新（2025-01）
+
+- **移除硬編碼密碼**：CD Pipeline 的 `docker-compose.override.ci.yml` 不再包含預設密碼
+- **所有敏感資訊由 GitHub Secrets 提供**：包括連接埠設定
+- **容器引用改進**：使用 `docker compose exec` 取代硬編碼容器名稱
 
 ### 1.1 本指南的目標
 
@@ -679,7 +685,14 @@ Runner 應該顯示以下標籤：
 3. 左側選單選擇 **Secrets and variables** → **Actions**
 4. 點選 **New repository secret**
 
-**步驟 2**：新增以下 11 個 Secrets
+**步驟 2**：新增通用 Secrets（2 個）
+
+| Secret Name | Value 範例 | 說明 |
+|-------------|------------|------|
+| `ADMIN_PASSWORD` | `your_admin_password` | 管理員帳號密碼 |
+| `ADMIN_EMAIL` | `admin@example.com` | 管理員帳號電子郵件 |
+
+**步驟 3**：新增以下 11 個 Staging Secrets
 
 依序新增（每次點選 **New repository secret**）：
 
@@ -709,11 +722,13 @@ Runner 應該顯示以下標籤：
 | `STAGING_STATE_MANAGEMENT_PORT`     | `55103`                           | State Management 連接埠      |
 | `STAGING_STATE_MANAGEMENT_URL`      | `http://state_management:55103` | State Management 完整 URL    |
 
-**步驟 3**：驗證 Secrets 已新增
+**步驟 4**：驗證 Secrets 已新增
 
-在 **Secrets and variables → Actions** 頁面，應該看到以下 11 個 secrets：
+在 **Secrets and variables → Actions** 頁面，應該看到以下 13 個 secrets：
 
 ```
+✅ ADMIN_PASSWORD（通用）
+✅ ADMIN_EMAIL（通用）
 ✅ STAGING_MONGODB_HOST
 ✅ STAGING_MONGODB_PORT
 ✅ STAGING_MONGODB_USERNAME
@@ -1324,7 +1339,7 @@ CD Pipeline 透過 commit message 觸發，格式為：
 - [ ] Docker 服務會在 WSL 啟動時自動啟動
 - [ ] GitHub Runner 已安裝且狀態為 Idle（綠色）
 - [ ] Runner 標籤包含 `self-hosted`、`staging`、`linux`
-- [ ] **GitHub Secrets 已設定（11 個 STAGING_* secrets）** ⭐ 重要
+- [ ] **GitHub Secrets 已設定（2 個通用 + 11 個 STAGING_* secrets）** ⭐ 重要
 - [ ] 專案已 Clone 到 `/opt/repos/Sound_Multi_Analysis_System`
 - [ ] 首次部署測試成功（不再出現 `.env not found` 錯誤）
 - [ ] 健康檢查 `curl http://localhost:55103/health` 回傳正常
