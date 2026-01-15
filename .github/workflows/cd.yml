@@ -91,6 +91,9 @@ jobs:
     needs: parse_version
     if: needs.parse_version.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      state_image: ${{ steps.image_names.outputs.state_image }}
+      analysis_image: ${{ steps.image_names.outputs.analysis_image }}
     env:
       VERSION: ${{ needs.parse_version.outputs.version }}
       ENV_NAME: ${{ needs.parse_version.outputs.env }}
@@ -180,8 +183,8 @@ jobs:
       - name: 拉取映像
         shell: cmd
         run: |
-          docker pull ghcr.io/${{ github.repository_owner }}/sound-state-management:${{ env.VERSION }}
-          docker pull ghcr.io/${{ github.repository_owner }}/sound-analysis-service:${{ env.VERSION }}
+          docker pull ${{ needs.build_and_push.outputs.state_image }}:${{ env.VERSION }}
+          docker pull ${{ needs.build_and_push.outputs.analysis_image }}:${{ env.VERSION }}
 
       - name: 產生部署覆蓋檔
         shell: cmd
@@ -189,10 +192,10 @@ jobs:
           (
             echo services:
             echo   state_management:
-            echo     image: ghcr.io/${{ github.repository_owner }}/sound-state-management:${{ env.VERSION }}
+            echo     image: ${{ needs.build_and_push.outputs.state_image }}:${{ env.VERSION }}
             echo     command: ["python", "state_management_main.py"]
             echo   analysis_service:
-            echo     image: ghcr.io/${{ github.repository_owner }}/sound-analysis-service:${{ env.VERSION }}
+            echo     image: ${{ needs.build_and_push.outputs.analysis_image }}:${{ env.VERSION }}
             echo     container_name: analysis_service
             echo     restart: unless-stopped
             echo     env_file:
