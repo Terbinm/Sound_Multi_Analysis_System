@@ -7,7 +7,7 @@
 | 環境 | 標籤格式 | Runner 標籤 | 部署內容 | 驗證步驟 |
 |------|----------|-------------|----------|----------|
 | Server Production | `server_production_v*` | `[self-hosted, server_production]` | MongoDB + RabbitMQ + State Management + Analysis Service | Smoke Test + 健康檢查 |
-| Edge Production | `edge_production_v*` | `[self-hosted, edge_production]` | 僅 Analysis Service | 無自動驗證 |
+| Edge Production | `edge_production_v*` | `[self-hosted, edge_production]` | Edge Client (systemd 服務) | systemd 狀態檢查 |
 
 ### 重要更新（2025-01）
 
@@ -126,22 +126,71 @@ docker compose -f core/docker-compose.yml -f core/docker-compose.override.ci.yml
 
 ## 5. Edge Production
 
-Edge Production 僅部署 Analysis Service，需連線到外部的核心服務。
+Edge Production 部署 **Edge Client** 作為 systemd 服務，連線至核心服務（State Management）。
 
 ### 5.1 必要的 Secrets
 
-在 GitHub Secrets 新增以下變數（前綴為 `EDGE_`）：
-- `EDGE_MONGODB_HOST`、`EDGE_MONGODB_PORT` 等（指向核心服務位址）
-- `EDGE_STATE_MANAGEMENT_URL`（指向 Server Production 的 State Management）
+在 GitHub Secrets 新增以下變數（僅 1 個）：
 
-### 5.2 驗證
+| Secret Name | 說明 | 範例值 |
+|-------------|------|--------|
+| `EDGE_SERVER_URL` | State Management 伺服器 URL | `http://192.168.71.43:55103` |
+
+### 5.2 RPi5 前置需求
+
+在 Runner 上需要確保：
 
 ```bash
-# 檢查容器狀態
-docker compose -f core/docker-compose.edge.override.yml ps
+# Python 3 及 venv
+sudo apt install python3 python3-venv python3-pip
 
-# 檢查連線狀態
-docker logs analysis_service --tail 50
+# 音訊支援 (sounddevice 依賴)
+sudo apt install libportaudio2 portaudio19-dev
+
+# 用戶有 sudo 權限（用於 systemctl）
+sudo usermod -aG sudo <runner_user>
+```
+
+### 5.3 部署流程
+
+CD Pipeline 會自動執行：
+1. 建立 Python 虛擬環境並安裝依賴
+2. 自動生成 `device_config.json`（使用 hostname 作為 device_name）
+3. 安裝並啟用 `edge-client.service` systemd 服務
+4. 驗證服務狀態
+
+### 5.4 驗證
+
+```bash
+# 檢查 systemd 服務狀態
+sudo systemctl status edge-client
+
+# 查看即時日誌
+sudo journalctl -u edge-client -f
+
+# 檢查是否自動啟動已啟用
+systemctl is-enabled edge-client
+
+# 測試重啟後自動恢復
+sudo reboot
+# (重啟後)
+sudo systemctl status edge-client
+```
+
+### 5.5 手動操作
+
+```bash
+# 停止服務
+sudo systemctl stop edge-client
+
+# 啟動服務
+sudo systemctl start edge-client
+
+# 重啟服務
+sudo systemctl restart edge-client
+
+# 查看完整日誌
+sudo journalctl -u edge-client --no-pager
 ```
 
 ## 6. 常見問題

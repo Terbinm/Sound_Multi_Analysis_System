@@ -11,7 +11,7 @@
 | Dev | `dev_v*` | N/A | 僅 CI，不部署 |
 | Staging | `staging_v*` | `[self-hosted, staging]` | Smoke Test + 健康檢查 |
 | Server Production | `server_production_v*` | `[self-hosted, server_production]` | Smoke Test + 健康檢查 |
-| Edge Production | `edge_production_v*` | `[self-hosted, edge_production]` | 僅 Analysis Service |
+| Edge Production | `edge_production_v*` | `[self-hosted, edge_production]` | Edge Client (systemd) |
 
 ### 驗證步驟說明
 
@@ -47,4 +47,4 @@
 
 **Production 環境（11 個）：** `PRODUCTION_MONGODB_*`、`PRODUCTION_RABBITMQ_*`、`PRODUCTION_STATE_MANAGEMENT_*`
 
-**Edge 環境（11 個）：** `EDGE_MONGODB_*`、`EDGE_RABBITMQ_*`、`EDGE_STATE_MANAGEMENT_*`
+**Edge 環境（1 個）：** `EDGE_SERVER_URL`（Edge Client 連線至核心服務的 URL）

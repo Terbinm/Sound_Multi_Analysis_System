@@ -39,7 +39,7 @@ CD 流程以 **commit message** 作為觸發依據，格式如下：
 | `dev_v*` | 開發 | **僅 CI，不部署** |
 | `staging_v*` | Staging | 部署到 staging runner，執行語法檢查與健康檢查 |
 | `server_production_v*` | Server Production | 部署到 server_production runner |
-| `edge_production_v*` | Edge Production | 部署到 edge_production runner（僅 Analysis Service） |
+| `edge_production_v*` | Edge Production | 部署到 edge_production runner（Edge Client + systemd 服務） |
 
 **使用方式：**
 ```bash
@@ -69,7 +69,7 @@ git push origin main
 |------|-------------|----------|
 | Staging | `[self-hosted, staging]` | MongoDB + RabbitMQ + State Management + Analysis Service |
 | Server Production | `[self-hosted, server_production]` | MongoDB + RabbitMQ + State Management + Analysis Service |
-| Edge Production | `[self-hosted, edge_production]` | Analysis Service（連線至遠端核心服務） |
+| Edge Production | `[self-hosted, edge_production]` | Edge Client（systemd 服務，連線至核心服務） |
 
 ---
 
@@ -201,26 +201,20 @@ STATE_MANAGEMENT_PORT=55103
 STATE_MANAGEMENT_URL=http://localhost:55103
 ```
 
-### Edge Production 範例
+### Edge Production 說明
 
-```env
-# 遠端 MongoDB（核心環境提供）
-MONGODB_HOST=<core-mongodb-host>
-MONGODB_PORT=55101
-MONGODB_USERNAME=web_ui
-MONGODB_PASSWORD=hod2iddfsgsrl
-MONGODB_DATABASE=web_db
+Edge Production 環境部署 **Edge Client**（原生 Python 程式），而非 Docker 容器。
+配置由 CD workflow 自動生成，無需手動建立 `.env` 檔案。
 
-# 遠端 RabbitMQ（核心環境提供）
-RABBITMQ_HOST=<core-rabbitmq-host>
-RABBITMQ_PORT=55102
-RABBITMQ_USERNAME=admin
-RABBITMQ_PASSWORD=rabbitmq_admin_pass
+**需要的 GitHub Secret（僅 1 個）：**
+| Secret 名稱 | 說明 | 範例值 |
+|-------------|------|--------|
+| `EDGE_SERVER_URL` | State Management 伺服器 URL | `http://192.168.71.43:55103` |
 
-# 核心狀態管理服務 URL
-STATE_MANAGEMENT_PORT=55103
-STATE_MANAGEMENT_URL=http://<core-state-host>:55103
-```
+**自動生成的配置：**
+- `device_config.json` - 包含 device_id、server_url 等設定
+- `device_name` - 自動使用 hostname
+- systemd service - 自動安裝並啟用
 
 ### 建立 .env
 
@@ -273,14 +267,18 @@ git push origin main
 
 ### Edge Production
 
-僅部署 Analysis Service，連線至遠端核心服務。
+部署 **Edge Client** 作為 systemd 服務，連線至核心服務。
 
 ```bash
 git commit -m "edge_production_v1.0.0.0_edge-node-1"
 git push origin main
 ```
 
-部署會產生 `core/docker-compose.edge.override.yml`，只啟動 Analysis Service。
+部署流程：
+1. 建立 Python 虛擬環境並安裝依賴
+2. 自動生成 `device_config.json`（使用 hostname 作為 device_name）
+3. 安裝並啟用 `edge-client.service` systemd 服務
+4. 服務設定為 `Restart=always`，任何情況都會自動重啟
 
 ---
 
@@ -296,9 +294,19 @@ curl http://localhost:55103/health
 
 **Edge Production：**
 ```bash
-docker compose -f core/docker-compose.edge.override.yml ps
-# 檢查 Analysis Service 日誌確認連線狀態
-docker logs analysis_service
+# 檢查 systemd 服務狀態
+sudo systemctl status edge-client
+
+# 查看即時日誌
+sudo journalctl -u edge-client -f
+
+# 檢查是否自動啟動已啟用
+systemctl is-enabled edge-client
+
+# 測試重啟後自動恢復
+sudo reboot
+# (重啟後)
+sudo systemctl status edge-client
 ```
 
 ### 回滾方式

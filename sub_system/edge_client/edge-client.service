@@ -1,0 +1,26 @@
+# Edge Client systemd service 範本
+# 注意：此文件為範本，實際部署時由 CD workflow 動態生成
+# 實際的 service 文件會根據部署路徑自動調整
+
+[Unit]
+Description=Sound Analysis Edge Client
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# User 會在 CD 部署時自動設定為當前用戶
+User=led
+# WorkingDirectory 會在 CD 部署時自動設定為實際路徑
+WorkingDirectory=/home/led/actions-runner/_work/Sound_Multi_Analysis_System/Sound_Multi_Analysis_System/sub_system/edge_client
+# ExecStart 會在 CD 部署時自動設定為 venv 中的 python
+ExecStart=/home/led/actions-runner/_work/Sound_Multi_Analysis_System/Sound_Multi_Analysis_System/sub_system/edge_client/venv/bin/python edge_client.py
+# 任何情況都會自動重啟
+Restart=always
+RestartSec=10
+# 日誌輸出到 systemd journal
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
