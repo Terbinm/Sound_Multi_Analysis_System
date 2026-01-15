@@ -151,7 +151,7 @@ jobs:
       VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
       - name: 清理工作目錄
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "[Cleanup] Cleaning workspace..."
           $workspace = "${{ github.workspace }}"
@@ -167,7 +167,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 建立 .env 檔案
-        shell: pwsh
+        shell: powershell
         run: |
           $envContent = @"
           # Staging 環境設定（由 GitHub Actions 自動產生）
@@ -189,16 +189,16 @@ jobs:
           STATE_MANAGEMENT_PORT=${{ secrets.STAGING_STATE_MANAGEMENT_PORT }}
           STATE_MANAGEMENT_URL=${{ secrets.STAGING_STATE_MANAGEMENT_URL }}
           "@
-          $envContent | Out-File -FilePath ".env" -Encoding utf8NoBOM
+          $envContent | Out-File -FilePath ".env" -Encoding UTF8
           Write-Host ".env file created"
 
       - name: 設定映像名稱
         id: image_names
-        shell: pwsh
+        shell: powershell
         run: |
           $ownerLower = "${{ github.repository_owner }}".ToLower()
-          "state_image=ghcr.io/$ownerLower/sound-state-management" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
-          "analysis_image=ghcr.io/$ownerLower/sound-analysis-service" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
+          "state_image=ghcr.io/$ownerLower/sound-state-management" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding UTF8
+          "analysis_image=ghcr.io/$ownerLower/sound-analysis-service" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding UTF8
 
       - name: 登入 GHCR
         uses: docker/login-action@v3
@@ -208,13 +208,13 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 拉取映像
-        shell: pwsh
+        shell: powershell
         run: |
           docker pull ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
           docker pull ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }}
 
       - name: 產生部署覆蓋檔
-        shell: pwsh
+        shell: powershell
         run: |
           $overrideContent = @"
           services:
@@ -242,15 +242,15 @@ jobs:
                 - mongodb
                 - rabbitmq
           "@
-          $overrideContent | Out-File -FilePath "core/docker-compose.override.ci.yml" -Encoding utf8NoBOM
+          $overrideContent | Out-File -FilePath "core/docker-compose.override.ci.yml" -Encoding UTF8
 
       - name: 重新部署核心與分析服務
-        shell: pwsh
+        shell: powershell
         run: |
           docker compose -f core/docker-compose.yml -f core/docker-compose.override.ci.yml up -d --remove-orphans mongodb rabbitmq state_management analysis_service
 
       - name: 等待 MongoDB 就緒
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "Waiting for MongoDB to start..."
           $maxRetries = 30
@@ -279,19 +279,19 @@ jobs:
           }
 
       - name: 初始化管理員帳號
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "Initializing admin account..."
           docker compose -f core/docker-compose.yml exec -T state_management python init_admin.py --username admin --password "${{ secrets.ADMIN_PASSWORD }}" --email "${{ secrets.ADMIN_EMAIL }}"
 
       - name: 語法 smoke test
-        shell: pwsh
+        shell: powershell
         run: |
           docker run --rm ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }} python -m compileall /app
           docker run --rm ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }} python -m compileall /app
 
       - name: 健康檢查
-        shell: pwsh
+        shell: powershell
         run: |
           Start-Sleep -Seconds 10
           try {
@@ -309,7 +309,7 @@ jobs:
 
       - name: 清理快取檔案
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "[Cleanup] Cleaning cache files..."
           $workspace = "${{ github.workspace }}"
