@@ -549,4 +549,3 @@ jobs:
           echo ""
           echo "=== 最近日誌 ==="
           sudo journalctl -u edge-client -n 20 --no-pager
-
