@@ -146,7 +146,7 @@ jobs:
       - parse_version
       - build_and_push
     if: needs.parse_version.outputs.env == 'staging'
-    runs-on: [self-hosted, staging, linux]
+    runs-on: [self-hosted, staging]
     env:
       VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
@@ -314,7 +314,7 @@ jobs:
       - parse_version
       - build_and_push
     if: needs.parse_version.outputs.env == 'server_production'
-    runs-on: [self-hosted, server_production, linux]
+    runs-on: [self-hosted, server_production]
     env:
       VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
@@ -470,7 +470,7 @@ jobs:
       - parse_version
       - build_and_push
     if: needs.parse_version.outputs.env == 'edge_production'
-    runs-on: [self-hosted, edge_production, linux]
+    runs-on: [self-hosted, edge_production]
     env:
       VERSION: ${{ needs.parse_version.outputs.version }}
     steps:
