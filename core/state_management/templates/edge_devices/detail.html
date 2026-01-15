@@ -175,6 +175,11 @@
                         <div class="text-xs text-gray-500 mt-1">
                             {{ dev.max_input_channels }} 輸入聲道 | {{ dev.default_sample_rate }} Hz
                         </div>
+                        {% if dev.supported_bit_depths %}
+                        <div class="text-xs text-gray-500 mt-1">
+                            支援位元深度: {{ dev.supported_bit_depths | join(', ') }} bit
+                        </div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
