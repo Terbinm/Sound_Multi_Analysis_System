@@ -8,30 +8,26 @@
 - **Docker Compose** v2.0+
 - **Git**
 
-## 目錄結構
+---
 
-```
-Sound_Multi_Analysis_System/
-├── .env                          # 環境變數設定檔
-├── core/
-│   ├── docker-compose.yml        # 主要 Docker Compose 設定
-│   ├── docker-compose.ci.yml     # CI/CD 覆蓋設定
-│   ├── rabbitmq.conf             # RabbitMQ 設定
-│   └── state_management/         # 狀態管理系統原始碼
-└── docs/
+## 部署步驟
+
+### Step 1: Clone 專案
+
+```bash
+git clone https://github.com/Terbinm/Sound_Multi_Analysis_System.git
+cd Sound_Multi_Analysis_System
 ```
 
-## 快速啟動
+### Step 2: 設定環境變數
 
-### 1. 設定環境變數
-
-複製範例環境變數檔案並修改：
+複製範例環境變數檔案：
 
 ```bash
 cp .env.example .env
 ```
 
-確保以下變數已正確設定：
+編輯 `.env` 檔案，確保以下變數已正確設定：
 
 ```env
 # MongoDB
@@ -58,14 +54,14 @@ INIT_ADMIN_EMAIL=admin@example.com
 INIT_ADMIN_PASSWORD=your_admin_password
 ```
 
-### 2. 啟動服務
+### Step 3: 啟動 Docker 服務
 
 ```bash
 cd core
 docker compose up -d
 ```
 
-### 3. 確認服務狀態
+### Step 4: 確認服務狀態
 
 ```bash
 docker compose ps
@@ -79,7 +75,9 @@ docker compose ps
 | core_rabbitmq | Up (healthy) | 55102, 55112 |
 | core_state_management | Up | 55103 |
 
-### 4. 初始化管理員帳號
+等待所有服務顯示 `healthy` 或 `Up` 狀態（約 30 秒）。
+
+### Step 5: 初始化管理員帳號
 
 首次啟動時需要建立管理員帳號：
 
@@ -90,16 +88,41 @@ docker exec core_state_management python init_admin.py \
   --password your_admin_password
 ```
 
-或使用環境變數（如果已在 .env 設定）：
-
-```bash
-docker exec core_state_management python init_admin.py
+成功輸出：
+```
+✓ 管理員使用者建立成功
+  使用者名稱: admin
+  電子郵件: admin@example.com
+  角色: 管理員
 ```
 
-### 5. 驗證服務
+### Step 6: 驗證部署
+
+開啟瀏覽器訪問：
 
 - **Web UI**: http://localhost:55103
 - **RabbitMQ 管理介面**: http://localhost:55112
+
+使用 Step 5 建立的帳號登入。
+
+---
+
+## 目錄結構
+
+```
+Sound_Multi_Analysis_System/
+├── .env                          # 環境變數設定檔
+├── .env.example                  # 環境變數範例
+├── core/
+│   ├── docker-compose.yml        # Docker Compose 設定
+│   ├── rabbitmq.conf             # RabbitMQ 設定
+│   └── state_management/         # 狀態管理系統原始碼
+├── sub_system/
+│   └── analysis_service/         # 分析服務原始碼
+└── docs/
+```
+
+---
 
 ## 服務說明
 
@@ -125,6 +148,8 @@ docker exec core_state_management python init_admin.py
   - 任務調度與監控
   - 節點狀態管理
   - WebSocket 即時通訊
+
+---
 
 ## 常用命令
 
@@ -168,6 +193,8 @@ docker compose build --no-cache state_management
 docker compose up -d --build state_management
 ```
 
+---
+
 ## 常見問題
 
 ### Q: 端口被佔用
@@ -179,8 +206,11 @@ Error: Bind for 0.0.0.0:55103 failed: port is already allocated
 **解決方案**:
 
 ```bash
-# 查看佔用端口的程序
+# Windows - 查看佔用端口的程序
 netstat -ano | findstr "55103"
+
+# Linux/macOS
+lsof -i :55103
 
 # 停止舊容器
 docker ps -a
@@ -197,8 +227,8 @@ MongoDB 連接失敗: Connection refused
 **解決方案**:
 
 1. 確認 MongoDB 容器正在運行: `docker compose ps`
-2. 檢查 `.env` 中的 `MONGODB_HOST` 設定
-3. Docker 內部服務應使用 `host.docker.internal` 連接宿主機
+2. 等待 MongoDB 完成初始化（首次啟動約需 30 秒）
+3. 檢查 `.env` 中的連線設定
 
 ### Q: 環境變數未載入
 
@@ -209,8 +239,7 @@ EnvironmentError: 必要環境變數 'XXX' 未設定
 **解決方案**:
 
 1. 確認 `.env` 檔案存在於專案根目錄
-2. 確認 `docker-compose.yml` 中有 `env_file: ../.env`
-3. 重新建立容器: `docker compose up -d --force-recreate`
+2. 重新建立容器: `docker compose up -d --force-recreate`
 
 ### Q: 忘記管理員密碼
 
@@ -224,8 +253,13 @@ db.users.deleteOne({username: "admin"})
 exit
 
 # 重新建立管理員
-docker exec core_state_management python init_admin.py
+docker exec core_state_management python init_admin.py \
+  --username admin \
+  --email admin@example.com \
+  --password new_password
 ```
+
+---
 
 ## 進階設定
 
@@ -239,6 +273,11 @@ RABBITMQ_PORT=5672
 STATE_MANAGEMENT_PORT=8080
 ```
 
+```bash
+docker compose down
+docker compose up -d
+```
+
 ### 生產環境建議
 
 1. **修改預設密碼**: 更換所有預設密碼
@@ -246,8 +285,9 @@ STATE_MANAGEMENT_PORT=8080
 3. **備份策略**: 定期備份 MongoDB 資料
 4. **監控**: 設定日誌收集與告警
 
+---
+
 ## 相關文件
 
 - [Edge Device 部署指南](./edge_device_guide.md)
 - [CD Pipeline 設定](./cd/runner_setup.md)
-- [環境變數說明](./env/)
