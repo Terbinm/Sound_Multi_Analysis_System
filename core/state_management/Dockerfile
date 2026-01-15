@@ -31,5 +31,5 @@ EXPOSE 55103
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_APP=state_management_main.py
 
-# 啟動命令（使用 gunicorn）
-CMD ["gunicorn", "--bind", "0.0.0.0:55103", "--workers", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "state_management_main:app"]
+# 啟動命令（使用 gunicorn + eventlet worker 支援 WebSocket）
+CMD ["gunicorn", "-k", "eventlet", "--bind", "0.0.0.0:55103", "--workers", "1", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "state_management_main:app"]

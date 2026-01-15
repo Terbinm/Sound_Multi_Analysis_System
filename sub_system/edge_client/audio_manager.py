@@ -90,19 +90,30 @@ class AudioManager:
         """
         # 僅在 Linux 系統上抑制 ALSA 錯誤
         if sys.platform == 'linux':
+            devnull = None
+            old_stderr = None
             try:
                 devnull = os.open(os.devnull, os.O_WRONLY)
                 old_stderr = os.dup(2)
                 sys.stderr.flush()
                 os.dup2(devnull, 2)
                 os.close(devnull)
-                try:
-                    yield
-                finally:
-                    os.dup2(old_stderr, 2)
-                    os.close(old_stderr)
-            except Exception:
+                devnull = None
+            except OSError:
+                # stderr 重導向設定失敗，清理已開啟的資源
+                if devnull is not None:
+                    os.close(devnull)
+                old_stderr = None
+
+            try:
                 yield
+            finally:
+                if old_stderr is not None:
+                    try:
+                        os.dup2(old_stderr, 2)
+                        os.close(old_stderr)
+                    except OSError:
+                        pass
         else:
             yield
 

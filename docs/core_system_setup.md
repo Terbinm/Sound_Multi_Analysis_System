@@ -82,13 +82,10 @@ docker compose ps
 首次啟動時需要建立管理員帳號：
 
 ```bash
-docker exec core_state_management python init_admin.py \
-  --username admin \
-  --email admin@example.com \
-  --password your_admin_password
-```
-
-成功輸出：
+  docker exec core_state_management python init_admin.py \
+    --username admin \
+    --email admin@example.com \
+    --password admin123
 ```
 ✓ 管理員使用者建立成功
   使用者名稱: admin
