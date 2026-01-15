@@ -33,8 +33,15 @@ RUN pip install --no-cache-dir \
 # 複製應用程式檔案
 COPY sub_system/analysis_service/ .
 
+# 複製推論所需的訓練模組
+COPY sub_system/train/py_cyclegan/ /app/sub_system/train/py_cyclegan/
+COPY sub_system/train/RF/ /app/sub_system/train/RF/
+
 # 建立日誌目錄
 RUN mkdir -p /app/logs
+
+# 建立 sub_system 的 __init__.py
+RUN touch /app/sub_system/__init__.py && touch /app/sub_system/train/__init__.py
 
 # 設定環境變數
 ENV PYTHONUNBUFFERED=1
