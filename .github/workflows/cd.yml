@@ -185,27 +185,27 @@ jobs:
       - name: 建立 .env 檔案
         shell: bash
         run: |
-          cat <<'EOF' > .env
+          cat <<EOF > .env
           # Staging 環境設定（由 GitHub Actions 自動產生）
-          
+
           # MongoDB 設定
           MONGODB_HOST=${{ secrets.STAGING_MONGODB_HOST }}
           MONGODB_PORT=${{ secrets.STAGING_MONGODB_PORT }}
           MONGODB_USERNAME=${{ secrets.STAGING_MONGODB_USERNAME }}
           MONGODB_PASSWORD=${{ secrets.STAGING_MONGODB_PASSWORD }}
           MONGODB_DATABASE=${{ secrets.STAGING_MONGODB_DATABASE }}
-          
+
           # RabbitMQ 設定
           RABBITMQ_HOST=${{ secrets.STAGING_RABBITMQ_HOST }}
           RABBITMQ_PORT=${{ secrets.STAGING_RABBITMQ_PORT }}
           RABBITMQ_USERNAME=${{ secrets.STAGING_RABBITMQ_USERNAME }}
           RABBITMQ_PASSWORD=${{ secrets.STAGING_RABBITMQ_PASSWORD }}
-          
+
           # State Management 設定
           STATE_MANAGEMENT_PORT=${{ secrets.STAGING_STATE_MANAGEMENT_PORT }}
           STATE_MANAGEMENT_URL=${{ secrets.STAGING_STATE_MANAGEMENT_URL }}
           EOF
-          
+
           echo "✅ .env 檔案已建立"
           chmod 600 .env
 
@@ -233,7 +233,7 @@ jobs:
       - name: 產出部署覆蓋檔
         shell: bash
         run: |
-          cat <<'YAML' > core/docker-compose.override.ci.yml
+          cat <<YAML > core/docker-compose.override.ci.yml
           services:
             state_management:
               image: ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
@@ -245,14 +245,14 @@ jobs:
               env_file:
                 - ../.env
               environment:
-                MONGODB_HOST: ${MONGODB_HOST:-mongodb}
-                MONGODB_PORT: ${MONGODB_PORT:-55101}
-                MONGODB_USERNAME: ${MONGODB_USERNAME:-web_ui}
-                MONGODB_PASSWORD: ${MONGODB_PASSWORD:-hod2iddfsgsrl}
-                MONGODB_DATABASE: ${MONGODB_DATABASE:-web_db}
-                RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
-                RABBITMQ_PORT: ${RABBITMQ_PORT:-55102}
-                STATE_MANAGEMENT_URL: ${STATE_MANAGEMENT_URL:-http://state_management:${STATE_MANAGEMENT_PORT:-55103}}
+                MONGODB_HOST: \${MONGODB_HOST}
+                MONGODB_PORT: \${MONGODB_PORT}
+                MONGODB_USERNAME: \${MONGODB_USERNAME}
+                MONGODB_PASSWORD: \${MONGODB_PASSWORD}
+                MONGODB_DATABASE: \${MONGODB_DATABASE}
+                RABBITMQ_HOST: \${RABBITMQ_HOST}
+                RABBITMQ_PORT: \${RABBITMQ_PORT}
+                STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL}
               volumes:
                 - ../sub_system/analysis_service/logs:/app/logs
               depends_on:
@@ -270,7 +270,7 @@ jobs:
         run: |
           echo "等待 MongoDB 啟動..."
           for i in {1..30}; do
-            if docker exec core_mongodb mongosh --port 55101 --eval "db.adminCommand('ping')" 2>/dev/null; then
+            if docker compose -f core/docker-compose.yml exec -T mongodb mongosh --port ${{ secrets.STAGING_MONGODB_PORT }} --eval "db.adminCommand('ping')" 2>/dev/null; then
               echo "✅ MongoDB 已就緒"
               break
             fi
@@ -282,7 +282,7 @@ jobs:
         shell: bash
         run: |
           echo "初始化管理員帳號..."
-          docker exec core_state_management python init_admin.py \
+          docker compose -f core/docker-compose.yml exec -T state_management python init_admin.py \
             --username admin \
             --password "${{ secrets.ADMIN_PASSWORD }}" \
             --email "${{ secrets.ADMIN_EMAIL }}"
@@ -297,7 +297,7 @@ jobs:
         shell: bash
         run: |
           sleep 10
-          curl -f http://localhost:${STATE_MANAGEMENT_PORT:-55103}/health
+          curl -f http://localhost:${{ secrets.STAGING_STATE_MANAGEMENT_PORT }}/health
 
       - name: 清理 Docker 產生的檔案權限（確保下次 CI 可正常運行）
         if: always()
@@ -353,27 +353,27 @@ jobs:
       - name: 建立 .env 檔案
         shell: bash
         run: |
-          cat <<'EOF' > .env
+          cat <<EOF > .env
           # Server Production 環境設定（由 GitHub Actions 自動產生）
-          
+
           # MongoDB 設定
           MONGODB_HOST=${{ secrets.PRODUCTION_MONGODB_HOST }}
           MONGODB_PORT=${{ secrets.PRODUCTION_MONGODB_PORT }}
           MONGODB_USERNAME=${{ secrets.PRODUCTION_MONGODB_USERNAME }}
           MONGODB_PASSWORD=${{ secrets.PRODUCTION_MONGODB_PASSWORD }}
           MONGODB_DATABASE=${{ secrets.PRODUCTION_MONGODB_DATABASE }}
-          
+
           # RabbitMQ 設定
           RABBITMQ_HOST=${{ secrets.PRODUCTION_RABBITMQ_HOST }}
           RABBITMQ_PORT=${{ secrets.PRODUCTION_RABBITMQ_PORT }}
           RABBITMQ_USERNAME=${{ secrets.PRODUCTION_RABBITMQ_USERNAME }}
           RABBITMQ_PASSWORD=${{ secrets.PRODUCTION_RABBITMQ_PASSWORD }}
-          
+
           # State Management 設定
           STATE_MANAGEMENT_PORT=${{ secrets.PRODUCTION_STATE_MANAGEMENT_PORT }}
           STATE_MANAGEMENT_URL=${{ secrets.PRODUCTION_STATE_MANAGEMENT_URL }}
           EOF
-          
+
           echo "✅ .env 檔案已建立"
           chmod 600 .env
 
@@ -401,7 +401,7 @@ jobs:
       - name: 產出部署覆蓋檔
         shell: bash
         run: |
-          cat <<'YAML' > core/docker-compose.override.ci.yml
+          cat <<YAML > core/docker-compose.override.ci.yml
           services:
             state_management:
               image: ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }}
@@ -413,14 +413,14 @@ jobs:
               env_file:
                 - ../.env
               environment:
-                MONGODB_HOST: ${MONGODB_HOST:-mongodb}
-                MONGODB_PORT: ${MONGODB_PORT:-55101}
-                MONGODB_USERNAME: ${MONGODB_USERNAME:-web_ui}
-                MONGODB_PASSWORD: ${MONGODB_PASSWORD:-hod2iddfsgsrl}
-                MONGODB_DATABASE: ${MONGODB_DATABASE:-web_db}
-                RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
-                RABBITMQ_PORT: ${RABBITMQ_PORT:-55102}
-                STATE_MANAGEMENT_URL: ${STATE_MANAGEMENT_URL:-http://state_management:${STATE_MANAGEMENT_PORT:-55103}}
+                MONGODB_HOST: \${MONGODB_HOST}
+                MONGODB_PORT: \${MONGODB_PORT}
+                MONGODB_USERNAME: \${MONGODB_USERNAME}
+                MONGODB_PASSWORD: \${MONGODB_PASSWORD}
+                MONGODB_DATABASE: \${MONGODB_DATABASE}
+                RABBITMQ_HOST: \${RABBITMQ_HOST}
+                RABBITMQ_PORT: \${RABBITMQ_PORT}
+                STATE_MANAGEMENT_URL: \${STATE_MANAGEMENT_URL}
               volumes:
                 - ../sub_system/analysis_service/logs:/app/logs
               depends_on:
@@ -438,7 +438,7 @@ jobs:
         run: |
           echo "等待 MongoDB 啟動..."
           for i in {1..30}; do
-            if docker exec core_mongodb mongosh --port 55101 --eval "db.adminCommand('ping')" 2>/dev/null; then
+            if docker compose -f core/docker-compose.yml exec -T mongodb mongosh --port ${{ secrets.PRODUCTION_MONGODB_PORT }} --eval "db.adminCommand('ping')" 2>/dev/null; then
               echo "✅ MongoDB 已就緒"
               break
             fi
@@ -450,10 +450,22 @@ jobs:
         shell: bash
         run: |
           echo "初始化管理員帳號..."
-          docker exec core_state_management python init_admin.py \
+          docker compose -f core/docker-compose.yml exec -T state_management python init_admin.py \
             --username admin \
             --password "${{ secrets.ADMIN_PASSWORD }}" \
             --email "${{ secrets.ADMIN_EMAIL }}"
+
+      - name: 語法 smoke test
+        shell: bash
+        run: |
+          docker run --rm ${{ steps.image_names.outputs.state_image }}:${{ env.VERSION }} python -m compileall /app
+          docker run --rm ${{ steps.image_names.outputs.analysis_image }}:${{ env.VERSION }} python -m compileall /app
+
+      - name: 健康檢查
+        shell: bash
+        run: |
+          sleep 10
+          curl -f http://localhost:${{ secrets.PRODUCTION_STATE_MANAGEMENT_PORT }}/health
 
       - name: 清理 Docker 產生的檔案權限（確保下次 CI 可正常運行）
         if: always()
