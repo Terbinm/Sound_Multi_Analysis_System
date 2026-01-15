@@ -86,15 +86,24 @@ class RFClassifier:
         self,
         model_dir: Path | str,
         scaler_path: Optional[Path | str] = None,
-        metadata_path: Optional[Path | str] = None
+        metadata_path: Optional[Path | str] = None,
+        model_file: Optional[Path | str] = None
     ):
         self.model_dir = Path(model_dir).resolve()
         if not self.model_dir.exists():
             raise FileNotFoundError(f"找不到 RF 模型目錄: {self.model_dir}")
 
-        self.model_path = self.model_dir / "mimii_fan_rf_classifier.pkl"
+        # 必須指定模型檔案路徑
+        if not model_file:
+            raise FileNotFoundError(
+                f"未指定 RF 模型檔案路徑 (model_file)。目錄: {self.model_dir}"
+            )
+
+        self.model_path = Path(model_file).resolve()
         if not self.model_path.exists():
-            raise FileNotFoundError(f"找不到 RF 模型檔案: {self.model_path}")
+            raise FileNotFoundError(
+                f"RF 模型檔案不存在: {self.model_path}"
+            )
 
         logger.debug(f"[Step 3] RF 模型載入中: {self.model_path}")
         with self.model_path.open("rb") as f:

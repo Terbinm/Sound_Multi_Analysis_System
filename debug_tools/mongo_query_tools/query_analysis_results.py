@@ -429,7 +429,7 @@ def main():
                 print()
 
         # 2. 查詢特定 Router ID 的分析結果
-        target_identifier = "HGJKJKGH"  # 可以是 Rule Name 或 Router ID
+        target_identifier = "c0178fbd-2041-442d-897f-bc158da10753"  # 可以是 Rule Name 或 Router ID
 
         # 解析實際的 Router ID
         actual_router_id, rule_name = resolve_router_id(db, target_identifier)

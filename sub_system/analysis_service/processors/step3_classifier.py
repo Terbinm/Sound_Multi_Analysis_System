@@ -102,7 +102,9 @@ class AudioClassifier:
                 if 'cyclegan_checkpoint' in local_paths:
                     self.config['cyclegan_checkpoint'] = str(local_paths['cyclegan_checkpoint'])
                 if 'rf_model' in local_paths:
-                    self.config['model_path'] = str(local_paths['rf_model'].parent)
+                    rf_model_path = local_paths['rf_model']
+                    self.config['model_path'] = str(rf_model_path.parent)
+                    self.config['rf_model_file'] = str(rf_model_path)  # 完整模型檔案路徑
                 if 'cyclegan_normalization' in local_paths:
                     self.config['cyclegan_normalization_path'] = str(local_paths['cyclegan_normalization'])
                 if 'rf_metadata' in local_paths:
@@ -111,7 +113,9 @@ class AudioClassifier:
 
             elif classification_method == 'rf_model':
                 if 'rf_model' in local_paths:
-                    self.config['model_path'] = str(local_paths['rf_model'].parent)
+                    rf_model_path = local_paths['rf_model']
+                    self.config['model_path'] = str(rf_model_path.parent)
+                    self.config['rf_model_file'] = str(rf_model_path)  # 完整模型檔案路徑
                 if 'rf_scaler' in local_paths:
                     self.config['scaler_path'] = str(local_paths['rf_scaler'])
                 if 'rf_metadata' in local_paths:
@@ -256,7 +260,15 @@ class AudioClassifier:
             apply_normalization=bool(apply_norm),
             device=device,
         )
-        self.rf_classifier = RFClassifier(model_dir, scaler_path=scaler_path, metadata_path=metadata_path)
+
+        # 取得完整的模型檔案路徑
+        rf_model_file = self.config.get('rf_model_file')
+        self.rf_classifier = RFClassifier(
+            model_dir,
+            scaler_path=scaler_path,
+            metadata_path=metadata_path,
+            model_file=rf_model_file  # 傳遞完整模型檔案路徑
+        )
         self.metadata = getattr(self.rf_classifier, 'metadata', None)
         self.model = None
         self.scaler = None
@@ -270,8 +282,23 @@ class AudioClassifier:
             model_dir: 模型目錄路徑
         """
         try:
-            model_dir = Path(model_dir)
-            model_path = model_dir / 'mimii_fan_rf_classifier.pkl'
+            model_dir_path = Path(model_dir)
+
+            # 必須從配置中指定完整模型檔案路徑
+            rf_model_file = self.config.get('rf_model_file')
+
+            if not rf_model_file:
+                raise FileNotFoundError(
+                    f"未指定 RF 模型檔案路徑。請確認配置中包含 rf_model_file。"
+                    f"目錄: {model_dir_path}"
+                )
+
+            model_path = Path(rf_model_file)
+            if not model_path.exists():
+                raise FileNotFoundError(
+                    f"RF 模型檔案不存在: {model_path}"
+                )
+
             with open(model_path, 'rb') as f:
                 self.model = pickle.load(f)
             logger.info(f"✓ 模型載入成功: {model_path}")
@@ -282,7 +309,7 @@ class AudioClassifier:
                 metadata_path = Path(config_metadata_path)
             else:
                 # 備用：嘗試模型目錄下的 metadata 檔案
-                metadata_path = model_dir / 'model_metadata.json'
+                metadata_path = model_dir_path / 'model_metadata.json'
 
             if metadata_path.exists():
                 with open(metadata_path, 'r', encoding='utf-8') as f:
