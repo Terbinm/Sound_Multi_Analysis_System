@@ -220,15 +220,30 @@ jobs:
         shell: cmd
         run: docker compose -f core/docker-compose.yml -f core/docker-compose.override.ci.yml up -d --remove-orphans mongodb rabbitmq state_management analysis_service
 
-      - name: 等待服務就緒
+      - name: 等待 state_management 容器就緒
         shell: cmd
         run: |
-          echo Waiting for services to start...
-          ping -n 31 127.0.0.1 > nul
+          echo Waiting for state_management container...
+          for /L %%i in (1,1,30) do (
+            docker inspect --format="{{.State.Running}}" state_management 2>nul | findstr "true" >nul && (
+              echo Container is running
+              exit /b 0
+            )
+            echo Attempt %%i/30 - waiting...
+            ping -n 6 127.0.0.1 >nul
+          )
+          echo Container did not start in time
+          exit /b 1
 
       - name: 初始化管理員帳號
         shell: cmd
-        run: docker compose -f core/docker-compose.yml exec -T state_management python init_admin.py --username admin --password "${{ secrets.ADMIN_PASSWORD }}" --email "${{ secrets.ADMIN_EMAIL }}"
+        run: |
+          for /L %%i in (1,1,5) do (
+            docker compose -f core/docker-compose.yml exec -T state_management python init_admin.py --username admin --password "${{ secrets.ADMIN_PASSWORD }}" --email "${{ secrets.ADMIN_EMAIL }}" && exit /b 0
+            echo Retry %%i/5...
+            ping -n 11 127.0.0.1 >nul
+          )
+          exit /b 1
 
       - name: 健康檢查
         shell: cmd
