@@ -189,43 +189,35 @@ jobs:
       - name: 產生部署覆蓋檔
         shell: cmd
         run: |
-          (
-            echo services:
-            echo   state_management:
-            echo     image: ${{ needs.build_and_push.outputs.state_image }}:${{ env.VERSION }}
-            echo     command: ["python", "state_management_main.py"]
-            echo   analysis_service:
-            echo     image: ${{ needs.build_and_push.outputs.analysis_image }}:${{ env.VERSION }}
-            echo     container_name: analysis_service
-            echo     restart: unless-stopped
-            echo     env_file:
-            echo       - ../.env
-            echo     environment:
-            echo       MONGODB_HOST: ${MONGODB_HOST}
-            echo       MONGODB_PORT: ${MONGODB_PORT}
-            echo       MONGODB_USERNAME: ${MONGODB_USERNAME}
-            echo       MONGODB_PASSWORD: ${MONGODB_PASSWORD}
-            echo       MONGODB_DATABASE: ${MONGODB_DATABASE}
-            echo       RABBITMQ_HOST: ${RABBITMQ_HOST}
-            echo       RABBITMQ_PORT: ${RABBITMQ_PORT}
-            echo       STATE_MANAGEMENT_URL: ${STATE_MANAGEMENT_URL}
-            echo     volumes:
-            echo       - ../sub_system/analysis_service/logs:/app/logs
-            echo     depends_on:
-            echo       - mongodb
-            echo       - rabbitmq
-          ) > core\docker-compose.override.ci.yml
+          echo services:> core\docker-compose.override.ci.yml
+          echo   state_management:>> core\docker-compose.override.ci.yml
+          echo     image: ${{ needs.build_and_push.outputs.state_image }}:${{ env.VERSION }}>> core\docker-compose.override.ci.yml
+          echo   analysis_service:>> core\docker-compose.override.ci.yml
+          echo     image: ${{ needs.build_and_push.outputs.analysis_image }}:${{ env.VERSION }}>> core\docker-compose.override.ci.yml
 
       - name: 啟動服務
         shell: cmd
         run: docker compose -f core/docker-compose.yml -f core/docker-compose.override.ci.yml up -d --remove-orphans mongodb rabbitmq state_management analysis_service
 
+      - name: 查看容器狀態與日誌
+        shell: cmd
+        if: always()
+        run: |
+          echo === Container Status ===
+          docker ps -a
+          echo.
+          echo === state_management logs ===
+          docker logs core_state_management 2>&1 || echo No logs available
+          echo.
+          echo === analysis_service logs ===
+          docker logs analysis_service 2>&1 || echo No logs available
+
       - name: 等待 state_management 容器就緒
         shell: cmd
         run: |
-          echo Waiting for state_management container...
+          echo Waiting for core_state_management container...
           for /L %%i in (1,1,30) do (
-            docker inspect --format="{{.State.Running}}" state_management 2>nul | findstr "true" >nul && (
+            docker inspect --format="{{.State.Running}}" core_state_management 2>nul | findstr "true" >nul && (
               echo Container is running
               exit /b 0
             )
@@ -233,6 +225,7 @@ jobs:
             ping -n 6 127.0.0.1 >nul
           )
           echo Container did not start in time
+          docker logs core_state_management 2>&1
           exit /b 1
 
       - name: 初始化管理員帳號
