@@ -224,7 +224,7 @@ jobs:
         shell: cmd
         run: |
           echo Waiting for services to start...
-          timeout /t 30 /nobreak
+          ping -n 31 127.0.0.1 > nul
 
       - name: 初始化管理員帳號
         shell: cmd
