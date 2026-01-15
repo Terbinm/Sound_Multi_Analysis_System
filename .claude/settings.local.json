@@ -6,7 +6,15 @@
       "Bash(dir:*)",
       "Bash(.venvScriptspython.exe -m pytest CI_test/edge/test_connection_resilience.py -v --tb=short)",
       "Bash(find:*)",
-      "Skill(superpowers-chrome:browsing)"
+      "Skill(superpowers-chrome:browsing)",
+      "Bash(gh workflow run:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(docker build:*)",
+      "Bash(docker run:*)",
+      "Bash(curl:*)",
+      "Bash(timeout /t 15 /nobreak)"
     ],
     "additionalDirectories": [
       "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\debug_tools"
