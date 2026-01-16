@@ -79,6 +79,54 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  # 分析服務
+  analysis_service:
+    build:
+      context: ..
+      dockerfile: sub_system/analysis_service/Dockerfile
+    container_name: core_analysis_service
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      # MongoDB 配置（使用 Docker 服務名稱）
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=${MONGODB_PORT:-55101}
+      - MONGODB_USERNAME=${MONGODB_USERNAME:-web_ui}
+      - MONGODB_PASSWORD=${MONGODB_PASSWORD:-hod2iddfsgsrl}
+      - MONGODB_DATABASE=${MONGODB_DATABASE:-web_db}
+      - MONGODB_COLLECTION=${MONGODB_COLLECTION:-recordings}
+      - MONGODB_AUTH_SOURCE=${MONGODB_AUTH_SOURCE:-admin}
+
+      # RabbitMQ 配置（使用 Docker 服務名稱）
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-55102}
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-admin}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-rabbitmq_admin_pass}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE:-analysis_tasks_exchange}
+      - RABBITMQ_QUEUE=${RABBITMQ_QUEUE:-analysis_tasks_queue}
+
+      # 狀態管理配置（使用 Docker 服務名稱）
+      - STATE_MANAGEMENT_URL=http://state_management:${STATE_MANAGEMENT_PORT:-55103}
+
+      # 節點配置
+      - ANALYSIS_NODE_ID=${ANALYSIS_NODE_ID:-}
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=${ANALYSIS_LOG_LEVEL:-INFO}
+    volumes:
+      - analysis_logs:/app/logs
+      - analysis_model_cache:/app/model_cache
+      - analysis_temp:/app/temp
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
 volumes:
   mongodb_data:
   rabbitmq_data:
+  analysis_logs:
+  analysis_model_cache:
+  analysis_temp:
