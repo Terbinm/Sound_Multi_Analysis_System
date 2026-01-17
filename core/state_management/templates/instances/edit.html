@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}{% if mode == 'create' %}新增實例{% else %}編輯實例{% endif %}{% endblock %}
-{% block page_title %}{% if mode == 'create' %}新增 MongoDB 實例{% else %}編輯 MongoDB 實例{% endif %}{% endblock %}
+{% block title %}{% if mode == 'create' %}新增instance{% else %}編輯instance{% endif %}{% endblock %}
+{% block page_title %}{% if mode == 'create' %}新增 MongoDB instance{% else %}編輯 MongoDB instance{% endif %}{% endblock %}
 
 {% block head %}
 {{ super() }}
@@ -13,11 +13,11 @@
     <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900">
         <p class="font-semibold">填寫建議</p>
         <ul class="mt-2 list-disc space-y-1 pl-5">
-            <li><span class="font-semibold">實例名稱</span> 建議對應用途（如 Production/QA），日後可在路由規則的 <code class="bg-white px-1.5 py-0.5 rounded text-xs">mongodb_instance</code> 引用。</li>
+            <li><span class="font-semibold">instance名稱</span> 建議對應用途（如 Production/QA），日後可在路由規則的 <code class="bg-white px-1.5 py-0.5 rounded text-xs">mongodb_instance</code> 引用。</li>
             <li><span class="font-semibold">host/port/database</span> 需與實際 MongoDB 服務一致，並確保帳號具備讀寫 <code>recordings</code> 集合的權限。</li>
-            <li>啟用後 TaskScheduler 會開始監聽此實例的 <code>info_features.upload_time</code> 變動；若僅作為分析輸出用，可指定但不啟用監聽。</li>
+            <li>啟用後 TaskScheduler 會開始監聽此instance的 <code>info_features.upload_time</code> 變動；若僅作為分析輸出用，可指定但不啟用監聽。</li>
         </ul>
-        <p class="mt-2 text-xs text-slate-600">更多說明：<code>docs/設定規則說明.html</code>（MongoDB 實例章節）。</p>
+        <p class="mt-2 text-xs text-slate-600">更多說明：<code>docs/設定規則說明.html</code>（MongoDB instance章節）。</p>
     </div>
     <form method="POST" class="space-y-6">
         {{ form.hidden_tag() }}
@@ -25,10 +25,10 @@
         <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
             <div class="px-4 py-6 sm:p-8">
                 <div class="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
-                    <!-- 實例名稱 -->
+                    <!-- instance名稱 -->
                     <div class="sm:col-span-4">
                         <label for="instance_name" class="block text-sm font-medium leading-6 text-gray-900">
-                            實例名稱 <span class="text-red-500">*</span>
+                            instance名稱 <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-2">
                             {{ form.instance_name(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6") }}
@@ -149,7 +149,7 @@
                         <div class="flex items-center">
                             {{ form.enabled(class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600") }}
                             <label for="enabled" class="ml-2 block text-sm text-gray-900">
-                                啟用此實例
+                                啟用此instance
                             </label>
                         </div>
                     </div>

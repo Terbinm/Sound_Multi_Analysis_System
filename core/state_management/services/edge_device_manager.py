@@ -28,7 +28,7 @@ class EdgeDeviceManager:
         初始化 SocketIO 並註冊事件處理器
 
         Args:
-            socketio: SocketIO 實例
+            socketio: SocketIO instance
         """
         self.socketio = socketio
         self._register_handlers()
@@ -599,5 +599,5 @@ class EdgeDeviceManager:
             return False
 
 
-# 全局邊緣設備管理器實例
+# 全局邊緣設備管理器instance
 edge_device_manager = EdgeDeviceManager()

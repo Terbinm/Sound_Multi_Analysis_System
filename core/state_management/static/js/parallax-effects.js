@@ -419,7 +419,7 @@ class LoadingManager {
   }
 }
 
-// 全局實例
+// 全局instance
 let techMotion;
 
 /**

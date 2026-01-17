@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}實例詳情{% endblock %}
-{% block page_title %}MongoDB 實例詳情{% endblock %}
+{% block title %}instance詳情{% endblock %}
+{% block page_title %}MongoDB instance詳情{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl space-y-4">
@@ -24,11 +24,11 @@
     </div>
 
     <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-900">
-        <p class="font-semibold">實例與路由的關係</p>
+        <p class="font-semibold">instance與路由的關係</p>
         <ul class="mt-2 list-disc space-y-1 pl-5">
-            <li>TaskScheduler 會針對每個啟用實例啟動監聽，偵測 <code class="bg-white px-1.5 py-0.5 rounded text-xs">info_features.upload_time</code> 新增紀錄。</li>
-            <li>路由規則 action 若指定 <code class="bg-white px-1.5 py-0.5 rounded text-xs">mongodb_instance</code>，分析節點會使用該實例讀取資料或寫入結果。</li>
-            <li>若此實例僅供分析輸出，可維持停用狀態並只在 action 中引用。</li>
+            <li>TaskScheduler 會針對每個啟用instance啟動監聽，偵測 <code class="bg-white px-1.5 py-0.5 rounded text-xs">info_features.upload_time</code> 新增紀錄。</li>
+            <li>路由規則 action 若指定 <code class="bg-white px-1.5 py-0.5 rounded text-xs">mongodb_instance</code>，分析節點會使用該instance讀取資料或寫入結果。</li>
+            <li>若此instance僅供分析輸出，可維持停用狀態並只在 action 中引用。</li>
         </ul>
         <p class="mt-2 text-xs text-slate-600">參考文件：<code>docs/設定規則說明.html</code>。</p>
     </div>
@@ -36,18 +36,18 @@
     <!-- 基本資訊 -->
     <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
         <div class="px-6 py-5 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">實例資訊</h3>
+            <h3 class="text-lg font-medium text-gray-900">instance資訊</h3>
         </div>
         <div class="px-6 py-4">
             <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
                 <div>
-                    <dt class="text-sm font-medium text-gray-500">實例 ID</dt>
+                    <dt class="text-sm font-medium text-gray-500">instance ID</dt>
                     <dd class="mt-1 text-sm text-gray-900">
                         <code class="bg-gray-100 px-2 py-1 rounded">{{ instance.instance_id }}</code>
                     </dd>
                 </div>
         <div>
-            <dt class="text-sm font-medium text-gray-500">實例名稱</dt>
+            <dt class="text-sm font-medium text-gray-500">instance名稱</dt>
             <dd class="mt-1 text-sm text-gray-900 font-semibold">
                 {{ instance.instance_name }}
                 {% if instance.is_system %}

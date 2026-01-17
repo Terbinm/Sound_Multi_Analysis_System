@@ -1,7 +1,7 @@
 """
 基於 MongoDB 的節點管理器
 直接操作 MongoDB 進行節點註冊與心跳，無需 HTTP 連接
-適用於多個 analysis_service_v2 實例並行運作的場景
+適用於多個 analysis_service_v2 instance並行運作的場景
 """
 import logging
 import time

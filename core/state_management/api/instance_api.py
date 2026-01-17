@@ -1,6 +1,6 @@
 """
-MongoDB 實例管理 API
-提供 MongoDB 實例配置的 CRUD 操作
+MongoDB instance管理 API
+提供 MongoDB instance配置的 CRUD 操作
 """
 import logging
 from flask import Blueprint, request, jsonify
@@ -13,7 +13,7 @@ instance_bp = Blueprint('instance_api', __name__)
 
 @instance_bp.route('', methods=['GET'])
 def get_all_instances():
-    """獲取所有 MongoDB 實例"""
+    """獲取所有 MongoDB instance"""
     try:
         enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
         include_password = request.args.get('include_password', 'false').lower() == 'true'
@@ -34,7 +34,7 @@ def get_all_instances():
         }), 200
 
     except Exception as e:
-        logger.error(f"獲取實例列表失敗: {e}", exc_info=True)
+        logger.error(f"獲取instance列表失敗: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)
@@ -43,7 +43,7 @@ def get_all_instances():
 
 @instance_bp.route('/<instance_id>', methods=['GET'])
 def get_instance(instance_id):
-    """獲取單個 MongoDB 實例"""
+    """獲取單個 MongoDB instance"""
     try:
         include_password = request.args.get('include_password', 'false').lower() == 'true'
 
@@ -52,7 +52,7 @@ def get_instance(instance_id):
         if not instance:
             return jsonify({
                 'success': False,
-                'error': '實例配置不存在'
+                'error': 'instance配置不存在'
             }), 404
 
         return jsonify({
@@ -61,7 +61,7 @@ def get_instance(instance_id):
         }), 200
 
     except Exception as e:
-        logger.error(f"獲取實例失敗: {e}", exc_info=True)
+        logger.error(f"獲取instance失敗: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)
@@ -70,7 +70,7 @@ def get_instance(instance_id):
 
 @instance_bp.route('', methods=['POST'])
 def create_instance():
-    """創建新 MongoDB 實例"""
+    """創建新 MongoDB instance"""
     try:
         data = request.get_json()
 
@@ -89,23 +89,23 @@ def create_instance():
                     'error': f'缺少必填欄位: {field}'
                 }), 400
 
-        # 創建實例
+        # 創建instance
         instance = MongoDBInstance.create(data)
 
         if not instance:
             return jsonify({
                 'success': False,
-                'error': '創建實例配置失敗'
+                'error': '創建instance配置失敗'
             }), 500
 
         return jsonify({
             'success': True,
             'data': instance.to_dict(include_password=False),
-            'message': '實例配置已創建'
+            'message': 'instance配置已創建'
         }), 201
 
     except Exception as e:
-        logger.error(f"創建實例配置失敗: {e}", exc_info=True)
+        logger.error(f"創建instance配置失敗: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)
@@ -114,7 +114,7 @@ def create_instance():
 
 @instance_bp.route('/<instance_id>', methods=['PUT'])
 def update_instance(instance_id):
-    """更新 MongoDB 實例"""
+    """更新 MongoDB instance"""
     try:
         data = request.get_json()
 
@@ -124,18 +124,18 @@ def update_instance(instance_id):
                 'error': '缺少請求數據'
             }), 400
 
-        # 檢查實例是否存在
+        # 檢查instance是否存在
         instance = MongoDBInstance.get_by_id(instance_id)
         if not instance:
             return jsonify({
                 'success': False,
-                'error': '實例配置不存在'
+                'error': 'instance配置不存在'
             }), 404
 
         if instance.is_system:
             return jsonify({
                 'success': False,
-                'error': '系統內建實例不可修改'
+                'error': '系統內建instance不可修改'
             }), 403
 
         # 不允許修改的欄位
@@ -144,24 +144,24 @@ def update_instance(instance_id):
             if field in data:
                 del data[field]
 
-        # 更新實例
+        # 更新instance
         success = MongoDBInstance.update(instance_id, data)
 
         if not success:
             return jsonify({
                 'success': False,
-                'error': '更新實例配置失敗'
+                'error': '更新instance配置失敗'
             }), 500
 
-        # 獲取更新後的實例
+        # 獲取更新後的instance
         return jsonify({
             'success': True,
             'data': MongoDBInstance.get_by_id(instance_id).to_dict(include_password=False),
-            'message': '實例配置已更新'
+            'message': 'instance配置已更新'
         }), 200
 
     except Exception as e:
-        logger.error(f"更新實例配置失敗: {e}", exc_info=True)
+        logger.error(f"更新instance配置失敗: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)
@@ -170,38 +170,38 @@ def update_instance(instance_id):
 
 @instance_bp.route('/<instance_id>', methods=['DELETE'])
 def delete_instance(instance_id):
-    """刪除 MongoDB 實例"""
+    """刪除 MongoDB instance"""
     try:
-        # 檢查實例是否存在
+        # 檢查instance是否存在
         instance = MongoDBInstance.get_by_id(instance_id)
         if not instance:
             return jsonify({
                 'success': False,
-                'error': '實例配置不存在'
+                'error': 'instance配置不存在'
             }), 404
 
         if instance.is_system:
             return jsonify({
                 'success': False,
-                'error': '系統內建實例不可刪除'
+                'error': '系統內建instance不可刪除'
             }), 403
 
-        # 刪除實例
+        # 刪除instance
         success = MongoDBInstance.delete(instance_id)
 
         if not success:
             return jsonify({
                 'success': False,
-                'error': '刪除實例配置失敗'
+                'error': '刪除instance配置失敗'
             }), 500
 
         return jsonify({
             'success': True,
-            'message': '實例配置已刪除'
+            'message': 'instance配置已刪除'
         }), 200
 
     except Exception as e:
-        logger.error(f"刪除實例配置失敗: {e}", exc_info=True)
+        logger.error(f"刪除instance配置失敗: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)
@@ -210,7 +210,7 @@ def delete_instance(instance_id):
 
 @instance_bp.route('/<instance_id>/test', methods=['POST'])
 def test_connection(instance_id):
-    """測試 MongoDB 實例連接"""
+    """測試 MongoDB instance連接"""
     try:
         # 測試連接
         success, message = MongoDBInstance.test_connection_by_id(instance_id)

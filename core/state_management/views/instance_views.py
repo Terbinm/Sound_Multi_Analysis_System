@@ -1,6 +1,6 @@
 """
-MongoDB 實例管理視圖
-處理 MongoDB 實例的 CRUD 操作
+MongoDB instance管理視圖
+處理 MongoDB instance的 CRUD 操作
 """
 from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required
@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 @login_required
 def instances_list():
     """
-    MongoDB 實例列表頁面
+    MongoDB instance列表頁面
     """
     try:
         # 取得查詢參數
         enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
 
-        # 取得實例列表（不包含密碼）
+        # 取得instance列表（不包含密碼）
         instances = MongoDBInstance.get_all(
             enabled_only=enabled_only,
             include_password=False,
@@ -37,8 +37,8 @@ def instances_list():
         )
 
     except Exception as e:
-        logger.error(f"載入 MongoDB 實例列表失敗: {str(e)}")
-        flash('載入實例列表失敗', 'danger')
+        logger.error(f"載入 MongoDB instance列表失敗: {str(e)}")
+        flash('載入instance列表失敗', 'danger')
         return render_template('instances/list.html', instances=[], enabled_only=False)
 
 
@@ -46,13 +46,13 @@ def instances_list():
 @admin_required
 def instance_create():
     """
-    建立新 MongoDB 實例
+    建立新 MongoDB instance
     """
     form = MongoDBInstanceForm()
 
     if form.validate_on_submit():
         try:
-            # 建立實例
+            # 建立instance
             instance = MongoDBInstance.create({
                 'instance_name': form.instance_name.data,
                 'description': form.description.data,
@@ -67,15 +67,15 @@ def instance_create():
             })
 
             if instance:
-                logger.info(f"MongoDB 實例建立成功: {instance.instance_id}")
-                flash('MongoDB 實例建立成功', 'success')
+                logger.info(f"MongoDB instance建立成功: {instance.instance_id}")
+                flash('MongoDB instance建立成功', 'success')
                 return redirect(url_for('views.instances_list'))
             else:
-                flash('MongoDB 實例建立失敗', 'danger')
+                flash('MongoDB instance建立失敗', 'danger')
 
         except Exception as e:
-            logger.error(f"建立 MongoDB 實例失敗: {str(e)}")
-            flash(f'建立實例失敗: {str(e)}', 'danger')
+            logger.error(f"建立 MongoDB instance失敗: {str(e)}")
+            flash(f'建立instance失敗: {str(e)}', 'danger')
 
     return render_template('instances/edit.html', form=form, mode='create')
 
@@ -84,22 +84,22 @@ def instance_create():
 @admin_required
 def instance_edit(instance_id):
     """
-    編輯 MongoDB 實例
+    編輯 MongoDB instance
     """
     instance = MongoDBInstance.get_by_id(instance_id, include_password=True)
     if not instance:
-        flash('MongoDB 實例不存在', 'danger')
+        flash('MongoDB instance不存在', 'danger')
         return redirect(url_for('views.instances_list'))
 
     if instance.is_system:
-        flash('系統內建 MongoDB 實例不可修改', 'warning')
+        flash('系統內建 MongoDB instance不可修改', 'warning')
         return redirect(url_for('views.instances_list'))
 
     form = MongoDBInstanceForm()
 
     if form.validate_on_submit():
         try:
-            # 更新實例
+            # 更新instance
             success = instance.update(
                 instance_name=form.instance_name.data,
                 description=form.description.data,
@@ -114,15 +114,15 @@ def instance_edit(instance_id):
             )
 
             if success:
-                logger.info(f"MongoDB 實例更新成功: {instance_id}")
-                flash('MongoDB 實例更新成功', 'success')
+                logger.info(f"MongoDB instance更新成功: {instance_id}")
+                flash('MongoDB instance更新成功', 'success')
                 return redirect(url_for('views.instances_list'))
             else:
-                flash('MongoDB 實例更新失敗', 'danger')
+                flash('MongoDB instance更新失敗', 'danger')
 
         except Exception as e:
-            logger.error(f"更新 MongoDB 實例失敗: {str(e)}")
-            flash(f'更新實例失敗: {str(e)}', 'danger')
+            logger.error(f"更新 MongoDB instance失敗: {str(e)}")
+            flash(f'更新instance失敗: {str(e)}', 'danger')
 
     elif request.method == 'GET':
         # 填充表单数据
@@ -149,11 +149,11 @@ def instance_edit(instance_id):
 @login_required
 def instance_view(instance_id):
     """
-    查看 MongoDB 實例詳情
+    查看 MongoDB instance詳情
     """
     instance = MongoDBInstance.get_by_id(instance_id, include_password=False)
     if not instance:
-        flash('MongoDB 實例不存在', 'danger')
+        flash('MongoDB instance不存在', 'danger')
         return redirect(url_for('views.instances_list'))
 
     return render_template('instances/view.html', instance=instance)
@@ -163,29 +163,29 @@ def instance_view(instance_id):
 @admin_required
 def instance_delete(instance_id):
     """
-    刪除 MongoDB 實例
+    刪除 MongoDB instance
     """
     try:
         instance = MongoDBInstance.get_by_id(instance_id)
         if not instance:
-            flash('MongoDB 實例不存在', 'danger')
+            flash('MongoDB instance不存在', 'danger')
             return redirect(url_for('views.instances_list'))
 
         if instance.is_system:
-            flash('系統內建 MongoDB 實例不可刪除', 'warning')
+            flash('系統內建 MongoDB instance不可刪除', 'warning')
             return redirect(url_for('views.instances_list'))
 
         success = MongoDBInstance.delete(instance_id)
 
         if success:
-            logger.info(f"MongoDB 實例刪除成功: {instance_id}")
-            flash('MongoDB 實例刪除成功', 'success')
+            logger.info(f"MongoDB instance刪除成功: {instance_id}")
+            flash('MongoDB instance刪除成功', 'success')
         else:
-            flash('MongoDB 實例刪除失敗', 'danger')
+            flash('MongoDB instance刪除失敗', 'danger')
 
     except Exception as e:
-        logger.error(f"刪除 MongoDB 實例失敗: {str(e)}")
-        flash(f'刪除實例失敗: {str(e)}', 'danger')
+        logger.error(f"刪除 MongoDB instance失敗: {str(e)}")
+        flash(f'刪除instance失敗: {str(e)}', 'danger')
 
     return redirect(url_for('views.instances_list'))
 
@@ -194,31 +194,31 @@ def instance_delete(instance_id):
 @admin_required
 def instance_toggle(instance_id):
     """
-    切換 MongoDB 實例啟用狀態
+    切換 MongoDB instance啟用狀態
     """
     try:
         instance = MongoDBInstance.get_by_id(instance_id)
         if not instance:
-            return jsonify({'success': False, 'message': '實例不存在'}), 404
+            return jsonify({'success': False, 'message': 'instance不存在'}), 404
 
         if instance.is_system:
-            return jsonify({'success': False, 'message': '系統實例不可變更狀態'}), 403
+            return jsonify({'success': False, 'message': '系統instance不可變更狀態'}), 403
 
         new_status = not instance.enabled
         success = instance.update(enabled=new_status)
 
         if success:
-            logger.info(f"MongoDB 實例狀態切換成功: {instance_id} -> {new_status}")
+            logger.info(f"MongoDB instance狀態切換成功: {instance_id} -> {new_status}")
             return jsonify({
                 'success': True,
                 'enabled': new_status,
-                'message': f'實例已{"啟用" if new_status else "停用"}'
+                'message': f'instance已{"啟用" if new_status else "停用"}'
             })
         else:
             return jsonify({'success': False, 'message': '更新失敗'}), 500
 
     except Exception as e:
-        logger.error(f"切換 MongoDB 實例狀態失敗: {str(e)}")
+        logger.error(f"切換 MongoDB instance狀態失敗: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
@@ -226,12 +226,12 @@ def instance_toggle(instance_id):
 @admin_required
 def instance_test(instance_id):
     """
-    測試 MongoDB 實例連線
+    測試 MongoDB instance連線
     """
     try:
         instance = MongoDBInstance.get_by_id(instance_id, include_password=True)
         if not instance:
-            return jsonify({'success': False, 'message': '實例不存在'}), 404
+            return jsonify({'success': False, 'message': 'instance不存在'}), 404
 
         # 測試連線
         success, message = instance.test_connection()

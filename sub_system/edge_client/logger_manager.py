@@ -357,7 +357,7 @@ class LoggerManager:
 
     @classmethod
     def get_instance(cls) -> Optional['LoggerManager']:
-        """取得日誌管理器實例"""
+        """取得日誌管理器instance"""
         return cls._instance
 
     def get_log_dir(self) -> Optional[str]:

@@ -121,7 +121,7 @@ class IntegrationUploadCLI:
         except Exception as e:
             print(f"連線狀態: ✗ 連線失敗")
             print(f"失敗原因: {str(e)}")
-            print(f"可能原因: 資料庫未啟動 或 切換至其他資料庫實例")
+            print(f"可能原因: 資料庫未啟動 或 切換至其他資料庫instance")
 
         print("=" * 70)
         print()

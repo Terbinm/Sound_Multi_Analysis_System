@@ -261,7 +261,7 @@ def create_app():
     return app, socketio
 
 
-# 創建應用實例
+# 創建應用instance
 app, socketio = create_app()
 
 if __name__ == '__main__':

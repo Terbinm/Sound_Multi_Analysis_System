@@ -50,7 +50,7 @@ class ConfigManager:
             # 加載路由規則
             self._cache['routing_rules'] = self._load_routing_rules()
 
-            # 加載 MongoDB 實例
+            # 加載 MongoDB instance
             self._cache['mongodb_instances'] = self._load_mongodb_instances()
 
             # 更新版本
@@ -74,7 +74,7 @@ class ConfigManager:
         return [rule.to_dict() for rule in rules]
 
     def _load_mongodb_instances(self) -> List[Dict[str, Any]]:
-        """加載 MongoDB 實例配置"""
+        """加載 MongoDB instance配置"""
         instances = MongoDBInstance.get_all(
             enabled_only=True,
             ensure_default=True
@@ -112,7 +112,7 @@ class ConfigManager:
         return None
 
     def get_mongodb_instance(self, instance_id: str) -> Optional[Dict[str, Any]]:
-        """獲取 MongoDB 實例配置"""
+        """獲取 MongoDB instance配置"""
         # 檢查緩存
         if 'mongodb_instances' in self._cache:
             for instance in self._cache['mongodb_instances']:
@@ -141,7 +141,7 @@ class ConfigManager:
         return self._cache['routing_rules']
 
     def get_all_mongodb_instances(self) -> List[Dict[str, Any]]:
-        """獲取所有 MongoDB 實例配置"""
+        """獲取所有 MongoDB instance配置"""
         if 'mongodb_instances' not in self._cache:
             self._cache['mongodb_instances'] = self._load_mongodb_instances()
 
@@ -153,7 +153,7 @@ _manager = None
 
 
 def get_manager() -> ConfigManager:
-    """獲取配置管理器實例"""
+    """獲取配置管理器instance"""
     global _manager
     if _manager is None:
         _manager = ConfigManager()

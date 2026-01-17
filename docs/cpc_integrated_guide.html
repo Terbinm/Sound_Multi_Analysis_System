@@ -45,9 +45,9 @@
           <h3>核心資料流</h3>
           <ol>
             <li><strong>批量寫入</strong>:<code>debug_tools/batch_upload</code> 依資料集格式寫入 <code>recordings</code> 與 <code>info_features</code>。</li>
-            <li><strong>任務調度</strong>:<code>core/state_management/services/task_scheduler.py</code> 針對啟用中的 MongoDB 實例輪詢 <code>info_features.upload_time</code>,呼叫 <code>RoutingRule.find_matching_rules()</code> 取得命中的規則。</li>
-            <li><strong>任務建立</strong>:對每個 action 建立 payload(含 <code>analysis_method_id</code>、<code>config_id</code>、目標實例與 metadata),以 <code>analysis.&lt;analysis_method_id&gt;</code> Routing Key 發送到 RabbitMQ <code>analysis_tasks_queue</code>。</li>
-            <li><strong>分析節點</strong>:<code>a_sub_system/analysis_service_v2</code> 下的節點訂閱 <code>analysis.#</code>,連線對應 MongoDB 實例取得記錄,執行步驟 0~3 的音訊分析,將結果寫回並回報狀態。</li>
+            <li><strong>任務調度</strong>:<code>core/state_management/services/task_scheduler.py</code> 針對啟用中的 MongoDB instance輪詢 <code>info_features.upload_time</code>,呼叫 <code>RoutingRule.find_matching_rules()</code> 取得命中的規則。</li>
+            <li><strong>任務建立</strong>:對每個 action 建立 payload(含 <code>analysis_method_id</code>、<code>config_id</code>、目標instance與 metadata),以 <code>analysis.&lt;analysis_method_id&gt;</code> Routing Key 發送到 RabbitMQ <code>analysis_tasks_queue</code>。</li>
+            <li><strong>分析節點</strong>:<code>a_sub_system/analysis_service_v2</code> 下的節點訂閱 <code>analysis.#</code>,連線對應 MongoDB instance取得記錄,執行步驟 0~3 的音訊分析,將結果寫回並回報狀態。</li>
             <li><strong>心跳與監控</strong>:節點以 <code>/api/nodes/register</code> & <code>/api/nodes/heartbeat</code> 回報狀態,<code>node_monitor.py</code> 檢測離線並推播事件。</li>
             <li><strong>前端同步</strong>:Web UI 使用 Socket.IO (<code>static/js/websocket_client.js</code>)訂閱 <code>dashboard</code>、<code>nodes</code> 等房間,接收節點事件、統計更新與任務建立通知。</li>
           </ol>
@@ -66,7 +66,7 @@
 │  │  • Dashboard (統計儀表板)                                         │              │  • batch_upload/ (CPC/MIMII/MAFAULDA 資料上傳)                               │        │
 │  │  • 分析設定管理 (AnalysisConfig CRUD)                             │              │  • batch_delete/ (條件式批量刪除 + 備份)                                       │        │
 │  │  • 路由規則管理 (RoutingRule 編輯與測試)                           │              │  • download_all_file/ (斷點續傳下載)                                          │        │
-│  │  • MongoDB 實例管理 (多實例連線設定)                               │              │  • simplify_mongodb_record/ (輕量 JSON 匯出)                                  │        │
+│  │  • MongoDB instance管理 (多instance連線設定)                               │              │  • simplify_mongodb_record/ (輕量 JSON 匯出)                                  │        │
 │  │  • 節點監控 (即時狀態、負載、心跳)                                  │              │  • delete_all_data.py (測試環境全刪除)                                        │        │
 │  │  • 使用者管理 (角色權限、密碼重設)                                  │              │                                                                               │        │
 │  └──────────────────────┬──────────────────────────────────────────┘              └───────────────────────────────┬─────────────────────────────────────────────┘        │
@@ -109,7 +109,7 @@
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                                                                                                                │
 │  ┌─────────────────────────────────────────────────┐       ┌───────────────────────────────────────────────┐       ┌──────────────────────────────────────────────────┐      │
-│  │  MongoDB (多實例支援)                            │       │  RabbitMQ (任務佇列)                           │       │  Redis (快取與心跳)                              │      │
+│  │  MongoDB (多instance支援)                            │       │  RabbitMQ (任務佇列)                           │       │  Redis (快取與心跳)                              │      │
 │  ├─────────────────────────────────────────────────┤       ├───────────────────────────────────────────────┤       ├──────────────────────────────────────────────────┤      │
 │  │  【Collections】                                │       │  【Queue】                                    │       │  【Keys】                                        │      │
 │  │  • recordings (錄音元資料)                       │       │  • analysis_tasks_queue                       │       │  • nodes:{node_id} (心跳 TTL 60秒)               │      │
@@ -117,7 +117,7 @@
 │  │  • analyze_features (分析結果容器)               │       │  【Routing Key Pattern】                      │       │  • stats:summary (統計快取)                      │      │
 │  │  • analysis_configs (分析設定)                   │       │  analysis.{method_id}                         │       │  • lock:task:{task_id} (分散式鎖)                │      │
 │  │  • routing_rules (路由規則)                      │       │  例: analysis.fan_autoencoder_v2              │       │                                                  │      │
-│  │  • mongodb_instances (實例配置)                  │       │                                               │       │  【Pub/Sub】                                     │      │
+│  │  • mongodb_instances (instance配置)                  │       │                                               │       │  【Pub/Sub】                                     │      │
 │  │  • nodes (節點註冊資訊)                          │       │  【Features】                                 │       │  • 事件廣播頻道 (預留)                            │      │
 │  │  • users (使用者帳號)                            │       │  • Dead Letter Queue (失敗重試)                │       │                                                  │      │
 │  │                                                 │       │  • Message TTL (24小時)                       │       │                                                  │      │
@@ -151,7 +151,7 @@
 │  │  2. 任務調度                            │                                 │       │  │  2. 分析處理                            │                                 │
 │  ├────────────────────────────────────────┤                                 │       │  ├────────────────────────────────────────┤                                 │
 │  │  TaskScheduler (背景服務)               │                                 │       │  │  Analysis Pipeline                     │                                 │
-│  │  - 每 N 秒輪詢啟用中的 MongoDB 實例      │                                 │       │  │  - 連線目標 MongoDB 實例                │                                 │
+│  │  - 每 N 秒輪詢啟用中的 MongoDB instance      │                                 │       │  │  - 連線目標 MongoDB instance                │                                 │
 │  │  - 檢查 info_features.upload_time       │                                 │       │  │  - 讀取 recording 記錄                  │                                 │
 │  │  - 篩選尚未處理的記錄                    │                                 │       │  │  - 下載 GridFS 音訊檔案                 │                                 │
 │  └──────────────────┬─────────────────────┘                                 │       │  │                                        │                                 │
@@ -275,16 +275,16 @@
           <h3>2.1 狀態管理系統(State Management + Web UI)</h3>
           <ul>
             <li>框架:Flask 3.0、Flask-Login、Flask-WTF、Tailwind CSS、Alpine.js、Flask-SocketIO。</li>
-            <li>功能:使用者身分驗證、分析設定/路由規則/MongoDB 實例/節點/使用者管理、Dashboard 指標、即時節點監控。</li>
+            <li>功能:使用者身分驗證、分析設定/路由規則/MongoDB instance/節點/使用者管理、Dashboard 指標、即時節點監控。</li>
             <li>後台服務:<code>task_scheduler.py</code>(任務建立)、<code>node_monitor.py</code>(心跳與統計)、<code>config_manager.py</code>(設定版本化)。</li>
             <li>存取控制:管理員擁有 CRUD、檔案上傳與使用者管理;一般使用者僅能瀏覽。</li>
           </ul>
 
           <h3>2.2 Analysis Service V2</h3>
           <ul>
-            <li>採用 RabbitMQ 消費者模型,移除舊版 MongoDB Watcher,支援多 MongoDB 實例。</li>
+            <li>採用 RabbitMQ 消費者模型,移除舊版 MongoDB Watcher,支援多 MongoDB instance。</li>
             <li>主要模組:<code>analysis_main.py</code>(入口)、<code>rabbitmq_consumer.py</code>、<code>heartbeat_sender.py</code>、<code>state_client.py</code>、<code>analysis_pipeline.py</code>。</li>
-            <li>每個任務內含 <code>analyze_uuid</code>、<code>analysis_method_id</code>、<code>config_id</code>、目標 MongoDB 實例與規則 metadata。</li>
+            <li>每個任務內含 <code>analyze_uuid</code>、<code>analysis_method_id</code>、<code>config_id</code>、目標 MongoDB instance與規則 metadata。</li>
             <li>支援 Step 0~3 的音訊處理流程(轉檔 → 切割 → LEAF 特徵 → 分類),並將結果寫回 <code>analyze_features</code> 容器。</li>
           </ul>
 
@@ -390,7 +390,7 @@
 └──────────────────────────────────────────────────────────────────────────────┘       └──────────────────────────────────────────────────────────────────────────────┘
 
 【啟動指令】                                                                                       【擴展策略】
-$ docker-compose up -d                    # 啟動所有服務                                          • State Management: 單一實例 (Sticky Session via Redis)
+$ docker-compose up -d                    # 啟動所有服務                                          • State Management: 單一instance (Sticky Session via Redis)
 $ docker-compose ps                       # 查看服務狀態                                          • Analysis Service: 水平擴展 (docker-compose scale analysis=3)
 $ docker-compose logs -f state_management # 查看即時日誌                                          • MongoDB: Replica Set (生產環境建議)
 $ docker-compose down -v                  # 停止並刪除 volumes                                    • RabbitMQ: Cluster (高可用性配置)
@@ -489,7 +489,7 @@ STATE_MANAGEMENT_URL=http://localhost:8000</pre>
           <h3>4.1 登入與儀表板</h3>
           <ul>
             <li>網址:<code>http://localhost:8000</code>,支援「記住我」與角色基於權限控制。</li>
-            <li>儀表板顯示分析設定/路由規則/MongoDB 實例/節點的啟用與總數、最近更新的分析設定、在線節點清單。</li>
+            <li>儀表板顯示分析設定/路由規則/MongoDB instance/節點的啟用與總數、最近更新的分析設定、在線節點清單。</li>
             <li>若登入失敗請確認帳號是否啟用、密碼是否正確,必要時透過使用者管理重設。</li>
           </ul>
         </div>
@@ -499,7 +499,7 @@ STATE_MANAGEMENT_URL=http://localhost:8000</pre>
           <ol>
             <li><strong>分析設定</strong>:建立/編輯 <code>AnalysisConfig</code>,上傳模型檔案、切換啟用狀態。</li>
             <li><strong>路由規則</strong>:以 JSON 定義 <code>conditions</code> 與 <code>actions</code>,可測試匹配結果。</li>
-            <li><strong>MongoDB 實例</strong>:維護連線資訊、測試連線、控制啟用。</li>
+            <li><strong>MongoDB instance</strong>:維護連線資訊、測試連線、控制啟用。</li>
             <li><strong>節點監控</strong>:瀏覽在線/離線節點、任務負載與最後心跳時間,可註銷節點。</li>
             <li><strong>使用者管理</strong>(管理員):建立/停用/重設密碼。</li>
             <li><strong>個人設定</strong>:查看個人資料、修改密碼。</li>
@@ -510,7 +510,7 @@ STATE_MANAGEMENT_URL=http://localhost:8000</pre>
           <h3>4.3 常見作業流程</h3>
           <ul>
             <li><strong>建立分析設定</strong>:填寫 <code>analysis_method_id</code>、名稱、描述,貼上 JSON 參數,儲存後於列表啟用或上傳模型。</li>
-            <li><strong>新增 MongoDB 實例</strong>:輸入主機、port、auth、資料庫與帳密,儲存後可測試連線。</li>
+            <li><strong>新增 MongoDB instance</strong>:輸入主機、port、auth、資料庫與帳密,儲存後可測試連線。</li>
             <li><strong>調整路由規則</strong>:建立規則、定義 <code>conditions</code>/<code>actions</code>、設定 <code>priority</code>,可用 <code>/api/routing/test</code> 驗證。</li>
             <li><strong>使用者管理</strong>:建立/編輯角色、啟用狀態,於列表透過鑰匙圖示重設密碼。</li>
           </ul>
@@ -521,7 +521,7 @@ STATE_MANAGEMENT_URL=http://localhost:8000</pre>
       <ul>
         <li>所有成功/警告/錯誤訊息以繁體中文顯示於頁面頂端。</li>
         <li>表單驗證失敗時欄位下方會顯示錯誤原因,JSON 欄位請先用外部工具驗證。</li>
-        <li>節點、實例與設定的狀態切換皆有確認對話框或即時提醒,避免誤操作。</li>
+        <li>節點、instance與設定的狀態切換皆有確認對話框或即時提醒,避免誤操作。</li>
       </ul>
     </section>
 
@@ -687,7 +687,7 @@ STATE_MANAGEMENT_URL=http://localhost:8000</pre>
   "enabled": true
 }</pre>
 
-          <h3>5.3 MongoDB 實例管理</h3>
+          <h3>5.3 MongoDB instance管理</h3>
           <table>
             <thead><tr><th>欄位</th><th>用途</th></tr></thead>
             <tbody>
@@ -697,7 +697,7 @@ STATE_MANAGEMENT_URL=http://localhost:8000</pre>
               <tr><td><code>username/password</code></td><td>認證資訊,密碼僅於編輯頁顯示</td></tr>
               <tr><td><code>auth_source</code></td><td>認證資料庫(缺省為 <code>admin</code>)</td></tr>
               <tr><td><code>use_srv</code></td><td>是否使用 SRV 連線</td></tr>
-              <tr><td><code>enabled</code></td><td>TaskScheduler 僅監看啟用中的實例</td></tr>
+              <tr><td><code>enabled</code></td><td>TaskScheduler 僅監看啟用中的instance</td></tr>
             </tbody>
           </table>
 
@@ -1225,7 +1225,7 @@ analyze_features (容器)
       "production"
   }
 }</pre>
-          <p>節點收到任務後,會根據 <code>mongodb_instance</code> 連線並將結果寫回同一實例,最後 ACK RabbitMQ。</p>
+          <p>節點收到任務後,會根據 <code>mongodb_instance</code> 連線並將結果寫回同一instance,最後 ACK RabbitMQ。</p>
         </div>
       </div>
 
@@ -1300,7 +1300,7 @@ slice_feature = features[2]</pre>
 │  │    - 節點負載百分比                                      │  │
 │  │    - 最後心跳時間                                        │  │
 │  │  • 統計卡片 (每30秒更新)                                 │  │
-│  │    - 分析設定/路由規則/MongoDB實例/節點 總數與啟用數      │  │
+│  │    - 分析設定/路由規則/MongoDBinstance/節點 總數與啟用數      │  │
 │  │  • WebSocket 連線狀態指示器                              │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                         │                                       │
@@ -1355,7 +1355,7 @@ slice_feature = features[2]</pre>
 │                     API 端點監控                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │  • GET  /api/nodes                - 節點列表與狀態               │
-│  • GET  /api/instances            - MongoDB 實例狀態             │
+│  • GET  /api/instances            - MongoDB instance狀態             │
 │  • POST /api/instances/{id}/test  - 連線測試                    │
 │  • GET  /api/routing/test         - 規則測試                    │
 │  • curl http://localhost:8000/api/nodes                        │
@@ -1387,7 +1387,7 @@ slice_feature = features[2]</pre>
             <tbody>
               <tr><td>無法登入 Web UI</td><td>確認帳戶啟用、重新執行 <code>python init_admin.py</code>;查看 <code>logs/state_management.log</code></td></tr>
               <tr><td>MongoDB 連線測試失敗</td><td>檢查帳密、<code>auth_source</code>、服務是否可達</td></tr>
-              <tr><td>新資料未觸發任務</td><td>TaskScheduler 是否運行、MongoDB 實例是否啟用、資料是否含 <code>info_features.upload_time</code></td></tr>
+              <tr><td>新資料未觸發任務</td><td>TaskScheduler 是否運行、MongoDB instance是否啟用、資料是否含 <code>info_features.upload_time</code></td></tr>
               <tr><td>規則應命中卻沒有</td><td>使用 <code>POST /api/routing/test</code> 驗證欄位名稱與大小寫</td></tr>
               <tr><td>任務送出但節點未處理</td><td>確認 RabbitMQ Routing Key 是否與節點綁定一致</td></tr>
               <tr><td>WebSocket 無法連線</td><td>是否使用 <code>socketio.run()</code>、eventlet 是否安裝、防火牆或代理設定</td></tr>

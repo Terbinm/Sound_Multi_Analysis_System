@@ -41,7 +41,7 @@ class AnalysisServiceV2:
 
         # 核心組件
         self.mongodb_handler = None
-        self.mongodb_connections = {}  # 多實例連接緩存
+        self.mongodb_connections = {}  # 多instance連接緩存
         self.pipeline = None
         self.rabbitmq_consumer = None
         self.node_manager = None  # MongoDB 節點管理器（取代 heartbeat_sender 和 state_client）
@@ -244,7 +244,7 @@ class AnalysisServiceV2:
         if self.mongodb_handler:
             self.mongodb_handler.close()
 
-        # 6. 清理多實例連接
+        # 6. 清理多instance連接
         for instance_id, handler in self.mongodb_connections.items():
             try:
                 handler.close()
@@ -275,7 +275,7 @@ class AnalysisServiceV2:
             try:
                 logger.info(f"開始處理任務: {task_id}")
                 logger.info(f"分析 UUID: {analyze_uuid}")
-                logger.info(f"MongoDB 實例: {mongodb_instance}")
+                logger.info(f"MongoDB instance: {mongodb_instance}")
                 logger.info(f"配置 ID: {config_id}")
                 logger.info(f"分析方法 ID: {analysis_method_id}")
 
@@ -333,7 +333,7 @@ class AnalysisServiceV2:
                 # 獲取 MongoDB 連接
                 mongo_handler = self._get_mongodb_connection(mongodb_instance)
                 if not mongo_handler:
-                    err_msg = f"無法連接到 MongoDB 實例: {mongodb_instance}"
+                    err_msg = f"無法連接到 MongoDB instance: {mongodb_instance}"
                     logger.error(err_msg)
                     self._update_task_status(task_id, 'failed', err_msg)
                     return False
@@ -460,7 +460,7 @@ class AnalysisServiceV2:
 
     def _get_mongodb_connection(self, instance_id: str) -> MongoDBHandler:
         """獲取 MongoDB 連接"""
-        # 如果是默認實例，使用默認連接
+        # 如果是默認instance，使用默認連接
         if instance_id == 'default' or not instance_id:
             return self.mongodb_handler
 
@@ -468,17 +468,17 @@ class AnalysisServiceV2:
         if instance_id in self.mongodb_connections:
             return self.mongodb_connections[instance_id]
 
-        # 從 MongoDB 的 mongodb_instances collection 獲取實例配置
+        # 從 MongoDB 的 mongodb_instances collection 獲取instance配置
         try:
             collection = self.mongodb_handler.get_collection('mongodb_instances')
             instance_config = collection.find_one({'_id': instance_id})
             
             if not instance_config:
-                logger.error(f"無法獲取實例配置: {instance_id}")
+                logger.error(f"無法獲取instance配置: {instance_id}")
                 return None
 
             # 創建新連接
-            # TODO: 實現多實例 MongoDB 連接
+            # TODO: 實現多instance MongoDB 連接
             # 暫時使用默認連接
             logger.warning(f"暫時使用默認 MongoDB 連接: {instance_id}")
             return self.mongodb_handler
@@ -547,7 +547,7 @@ def main():
     ║                                                          ║
     ║  功能:                                                    ║
     ║  1. 從 RabbitMQ 消費分析任務                              ║
-    ║  2. 支援多 MongoDB 實例                                   ║
+    ║  2. 支援多 MongoDB instance                                   ║
     ║  3. 向狀態管理系統發送心跳                                 ║
     ║  4. 動態配置管理                                          ║
     ║                                                          ║

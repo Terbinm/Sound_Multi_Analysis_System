@@ -32,7 +32,7 @@ class EdgeScheduleService:
         初始化排程服務
 
         Args:
-            edge_device_manager: EdgeDeviceManager 實例
+            edge_device_manager: EdgeDeviceManager instance
         """
         self.edge_device_manager = edge_device_manager
 
@@ -41,7 +41,7 @@ class EdgeScheduleService:
             daemon=True,
             job_defaults={
                 'coalesce': True,  # 合併錯過的任務
-                'max_instances': 1  # 每個任務最多同時執行一個實例
+                'max_instances': 1  # 每個任務最多同時執行一個instance
             }
         )
 
@@ -437,5 +437,5 @@ class EdgeScheduleService:
             return None
 
 
-# 全局排程服務實例
+# 全局排程服務instance
 edge_schedule_service = EdgeScheduleService()

@@ -199,7 +199,7 @@ class Config:
     ROLE_ADMIN = 'admin'
     ROLE_USER = 'user'
 
-    # 預設 MongoDB 實例 ID（系統保留）
+    # 預設 MongoDB instance ID（系統保留）
     DEFAULT_MONGODB_INSTANCE_ID = 'default'
 
     # 配置版本鍵名（系統保留）
@@ -381,7 +381,7 @@ def get_config() -> type[Config]:
     根據 STATE_MANAGEMENT_FLASK_ENV 環境變數決定使用哪個配置類別
 
     Returns:
-        對應環境的配置類別實例
+        對應環境的配置類別instance
     """
     try:
         env = _get_required_env('STATE_MANAGEMENT_FLASK_ENV')

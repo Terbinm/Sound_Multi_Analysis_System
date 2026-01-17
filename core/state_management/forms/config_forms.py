@@ -69,9 +69,9 @@ class RoutingRuleForm(FlaskForm):
 
 
 class MongoDBInstanceForm(FlaskForm):
-    """MongoDB 實例表單"""
-    instance_name = StringField('實例名稱',
-                               validators=[DataRequired(message='請輸入實例名稱'),
+    """MongoDB instance表單"""
+    instance_name = StringField('instance名稱',
+                               validators=[DataRequired(message='請輸入instance名稱'),
                                          Length(max=200)])
     description = TextAreaField('描述',
                                validators=[Optional(),

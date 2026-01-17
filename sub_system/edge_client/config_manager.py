@@ -39,7 +39,7 @@ class EdgeClientConfig:
     """邊緣客戶端配置"""
     device_id: Optional[str] = None
     device_name: str = ""
-    server_url: str = "http://163.18.22.52:55103"
+    server_url: str = "http://localhost:55103"
     audio_config: AudioConfig = field(default_factory=AudioConfig)
     heartbeat_interval: int = 30
     reconnect_delay: int = 5
@@ -74,7 +74,7 @@ class EdgeClientConfig:
         return cls(
             device_id=data.get('device_id'),
             device_name=data.get('device_name', ''),
-            server_url=data.get('server_url', 'http://163.18.22.52:55103'),
+            server_url=data.get('server_url', 'http://localhost:55103'),
             audio_config=audio_config,
             heartbeat_interval=data.get('heartbeat_interval', 30),
             reconnect_delay=data.get('reconnect_delay', 5),

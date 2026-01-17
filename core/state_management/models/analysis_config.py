@@ -69,7 +69,7 @@ class AnalysisConfig:
 
     def update_fields(self, allow_system: bool = False, **update_data) -> bool:
         """
-        實例方法：更新配置欄位
+        instance方法：更新配置欄位
 
         Args:
             allow_system: 是否允許更新系統配置

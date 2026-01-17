@@ -255,14 +255,14 @@ class MongoDBHandler:
 
 
 class MultiMongoDBHandler:
-    """多 MongoDB 實例處理器"""
+    """多 MongoDB instance處理器"""
 
     def __init__(self):
         self._connections: Dict[str, MongoClient] = {}
         self.logger = logging.getLogger(__name__)
 
     def connect(self, instance_id: str, instance_config: Dict[str, Any]) -> Database:
-        """連接到指定的 MongoDB 實例"""
+        """連接到指定的 MongoDB instance"""
         try:
             # 如果已經存在連接，直接返回
             if instance_id in self._connections:
@@ -286,24 +286,24 @@ class MultiMongoDBHandler:
             # 保存連接
             self._connections[instance_id] = client
 
-            self.logger.info(f"連接到 MongoDB 實例: {instance_id}")
+            self.logger.info(f"連接到 MongoDB instance: {instance_id}")
 
             return client[instance_config['database']]
 
         except Exception as e:
-            self.logger.error(f"連接 MongoDB 實例 {instance_id} 失敗: {e}")
+            self.logger.error(f"連接 MongoDB instance {instance_id} 失敗: {e}")
             raise
 
     def get_connection(self, instance_id: str) -> Optional[MongoClient]:
-        """獲取指定實例的連接"""
+        """獲取指定instance的連接"""
         return self._connections.get(instance_id)
 
     def disconnect(self, instance_id: str):
-        """斷開指定實例的連接"""
+        """斷開指定instance的連接"""
         if instance_id in self._connections:
             self._connections[instance_id].close()
             del self._connections[instance_id]
-            self.logger.info(f"斷開 MongoDB 實例連接: {instance_id}")
+            self.logger.info(f"斷開 MongoDB instance連接: {instance_id}")
 
     def disconnect_all(self):
         """斷開所有連接"""
@@ -315,7 +315,7 @@ class MultiMongoDBHandler:
         self.disconnect_all()
 
 
-# 全局單例實例
+# 全局單例instance
 _handler = None
 
 
@@ -328,7 +328,7 @@ def get_db() -> Database:
 
 
 def get_handler() -> MongoDBHandler:
-    """獲取 MongoDB 處理器實例"""
+    """獲取 MongoDB 處理器instance"""
     global _handler
     if _handler is None:
         _handler = MongoDBHandler()

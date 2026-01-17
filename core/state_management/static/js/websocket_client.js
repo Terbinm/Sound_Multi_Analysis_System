@@ -268,7 +268,7 @@ class WebSocketClient {
     }
 }
 
-// 創建全局實例
+// 創建全局instance
 const wsClient = new WebSocketClient();
 
 // 自動初始化（當頁面加載完成後）

@@ -25,10 +25,10 @@ class WebSocketManager:
         初始化 SocketIO
 
         Args:
-            app: Flask 應用實例
+            app: Flask 應用instance
 
         Returns:
-            SocketIO: SocketIO 實例
+            SocketIO: SocketIO instance
         """
         preferred_async_mode = app.config.get('WEBSOCKET_ASYNC_MODE', 'threading')
         async_mode = self._resolve_async_mode(preferred_async_mode)
@@ -375,13 +375,13 @@ class WebSocketManager:
 
     def emit_instance_updated(self, instance_data: Dict[str, Any]):
         """
-        推送實例更新事件
+        推送instance更新事件
 
         Args:
-            instance_data: 實例數據
+            instance_data: instance數據
         """
         self._emit('instance.updated', instance_data, room='instances')
-        logger.info(f"推送實例更新事件: {instance_data.get('instance_id')}")
+        logger.info(f"推送instance更新事件: {instance_data.get('instance_id')}")
 
     # ==================== 通用方法 ====================
 
@@ -439,5 +439,5 @@ class WebSocketManager:
         return value
 
 
-# 全局 WebSocket 管理器實例
+# 全局 WebSocket 管理器instance
 websocket_manager = WebSocketManager()

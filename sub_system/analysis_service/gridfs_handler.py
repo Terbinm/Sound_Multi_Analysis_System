@@ -19,7 +19,7 @@ class AnalysisGridFSHandler:
         初始化 GridFS 處理器
 
         Args:
-            mongo_client: MongoDB 客戶端實例
+            mongo_client: MongoDB 客戶端instance
         """
         if mongo_client is None:
             connection_string = (

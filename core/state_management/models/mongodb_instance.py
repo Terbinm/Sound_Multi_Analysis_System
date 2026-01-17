@@ -1,6 +1,6 @@
 """
-MongoDB 實例模型
-管理多個 MongoDB 實例配置
+MongoDB instance模型
+管理多個 MongoDB instance配置
 """
 import uuid
 from datetime import datetime, timezone
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class MongoDBInstance:
-    """MongoDB 實例類"""
+    """MongoDB instance類"""
 
     DEFAULT_INSTANCE_ID = 'default'
 
@@ -25,14 +25,14 @@ class MongoDBInstance:
 
     @classmethod
     def _build_default_instance(cls) -> 'MongoDBInstance':
-        """根據配置構建預設實例"""
+        """根據配置構建預設instance"""
         config = get_config()
         mongo_cfg = config.MONGODB_CONFIG
 
         default_data = {
             'instance_id': cls.DEFAULT_INSTANCE_ID,
             'instance_name': 'Default MongoDB',
-            'description': '由 config.py 定義的預設 MongoDB 實例',
+            'description': '由 config.py 定義的預設 MongoDB instance',
             'host': mongo_cfg['host'],
             'port': mongo_cfg['port'],
             'username': mongo_cfg['username'],
@@ -164,11 +164,11 @@ class MongoDBInstance:
 
     @staticmethod
     def create(instance_data: Dict[str, Any]) -> Optional['MongoDBInstance']:
-        """創建新實例配置"""
+        """創建新instance配置"""
         try:
             collection = MongoDBInstance._get_collection()
 
-            # 創建實例對象
+            # 創建instance對象
             config = get_config()
             instance = MongoDBInstance()
             instance.instance_id = instance_data.get('instance_id', str(uuid.uuid4()))
@@ -192,24 +192,24 @@ class MongoDBInstance:
             # 驗證
             valid, error = instance.validate()
             if not valid:
-                logger.error(f"實例配置驗證失敗: {error}")
+                logger.error(f"instance配置驗證失敗: {error}")
                 return None
 
             # 插入資料庫
             result = collection.insert_one(instance.to_dict())
 
             if result.inserted_id:
-                logger.info(f"實例配置已創建: {instance.instance_id}")
+                logger.info(f"instance配置已創建: {instance.instance_id}")
                 return instance
 
             return None
 
         except Exception as e:
-            logger.error(f"創建實例配置失敗: {e}", exc_info=True)
+            logger.error(f"創建instance配置失敗: {e}", exc_info=True)
             return None
 
     def update(self, allow_system: bool = False, **update_data) -> bool:
-        """實例方法包裝更新"""
+        """instance方法包裝更新"""
         if not update_data:
             return True
         return MongoDBInstance.update(
@@ -223,7 +223,7 @@ class MongoDBInstance:
         instance_id: str,
         include_password: bool = True
     ) -> Optional['MongoDBInstance']:
-        """根據 ID 獲取實例配置"""
+        """根據 ID 獲取instance配置"""
         try:
             collection = MongoDBInstance._get_collection()
 
@@ -242,7 +242,7 @@ class MongoDBInstance:
             return instance
 
         except Exception as e:
-            logger.error(f"獲取實例配置失敗: {e}")
+            logger.error(f"獲取instance配置失敗: {e}")
             return None
 
     @staticmethod
@@ -251,7 +251,7 @@ class MongoDBInstance:
         include_password: bool = True,
         ensure_default: bool = False
     ) -> List['MongoDBInstance']:
-        """獲取所有實例配置"""
+        """獲取所有instance配置"""
         try:
             collection = MongoDBInstance._get_collection()
 
@@ -268,7 +268,7 @@ class MongoDBInstance:
             return instances
 
         except Exception as e:
-            logger.error(f"獲取所有實例配置失敗: {e}")
+            logger.error(f"獲取所有instance配置失敗: {e}")
 
             if ensure_default:
                 fallback = [MongoDBInstance._build_default_instance()]
@@ -283,17 +283,17 @@ class MongoDBInstance:
         update_data: Dict[str, Any],
         allow_system: bool = False
     ) -> bool:
-        """更新實例配置"""
+        """更新instance配置"""
         try:
             collection = MongoDBInstance._get_collection()
 
             existing = collection.find_one({'instance_id': instance_id})
             if not existing:
-                logger.warning(f"實例配置不存在: {instance_id}")
+                logger.warning(f"instance配置不存在: {instance_id}")
                 return False
 
             if existing.get('is_system') and not allow_system:
-                logger.warning(f"禁止修改系統 MongoDB 實例: {instance_id}")
+                logger.warning(f"禁止修改系統 MongoDB instance: {instance_id}")
                 return False
 
             # 更新時間
@@ -305,7 +305,7 @@ class MongoDBInstance:
             )
 
             if result.modified_count > 0:
-                logger.info(f"實例配置已更新: {instance_id}")
+                logger.info(f"instance配置已更新: {instance_id}")
 
                 # 更新配置版本
                 from models.config_version import ConfigVersion
@@ -316,28 +316,28 @@ class MongoDBInstance:
             return False
 
         except Exception as e:
-            logger.error(f"更新實例配置失敗: {e}")
+            logger.error(f"更新instance配置失敗: {e}")
             return False
 
     @staticmethod
     def delete(instance_id: str, allow_system: bool = False) -> bool:
-        """刪除實例配置"""
+        """刪除instance配置"""
         try:
             collection = MongoDBInstance._get_collection()
 
             existing = collection.find_one({'instance_id': instance_id})
             if not existing:
-                logger.warning(f"實例配置不存在: {instance_id}")
+                logger.warning(f"instance配置不存在: {instance_id}")
                 return False
 
             if existing.get('is_system') and not allow_system:
-                logger.warning(f"禁止刪除系統 MongoDB 實例: {instance_id}")
+                logger.warning(f"禁止刪除系統 MongoDB instance: {instance_id}")
                 return False
 
             result = collection.delete_one({'instance_id': instance_id})
 
             if result.deleted_count > 0:
-                logger.info(f"實例配置已刪除: {instance_id}")
+                logger.info(f"instance配置已刪除: {instance_id}")
 
                 # 更新配置版本
                 from models.config_version import ConfigVersion
@@ -348,33 +348,33 @@ class MongoDBInstance:
             return False
 
         except Exception as e:
-            logger.error(f"刪除實例配置失敗: {e}")
+            logger.error(f"刪除instance配置失敗: {e}")
             return False
 
     @staticmethod
     def count_all() -> int:
-        """獲取實例總數（包含預設實例）"""
+        """獲取instance總數（包含預設instance）"""
         try:
             collection = MongoDBInstance._get_collection()
             count = collection.count_documents({})
             return count if count > 0 else 1
         except Exception as e:
-            logger.error(f"統計實例總數失敗: {e}")
+            logger.error(f"統計instance總數失敗: {e}")
             return 1
 
     @staticmethod
     def count_enabled() -> int:
-        """獲取啟用實例數量（包含預設實例）"""
+        """獲取啟用instance數量（包含預設instance）"""
         try:
             collection = MongoDBInstance._get_collection()
             count = collection.count_documents({'enabled': True})
             return count if count > 0 else 1
         except Exception as e:
-            logger.error(f"統計啟用實例數失敗: {e}")
+            logger.error(f"統計啟用instance數失敗: {e}")
             return 1
 
     def test_connection(self) -> tuple[bool, str]:
-        """以當前實例測試連線"""
+        """以當前instance測試連線"""
         return MongoDBInstance.test_connection_by_id(self.instance_id)
 
     @staticmethod
@@ -388,7 +388,7 @@ class MongoDBInstance:
         try:
             instance = MongoDBInstance.get_by_id(instance_id)
             if not instance:
-                return False, "實例配置不存在"
+                return False, "instance配置不存在"
 
             # 嘗試連接
             from utils.mongodb_handler import MultiMongoDBHandler
@@ -404,10 +404,10 @@ class MongoDBInstance:
 
             handler.disconnect(instance_id)
 
-            logger.info(f"實例連接測試成功: {instance_id}")
+            logger.info(f"instance連接測試成功: {instance_id}")
             return True, "連接成功"
 
         except Exception as e:
             error_msg = f"連接失敗: {str(e)}"
-            logger.error(f"實例連接測試失敗 ({instance_id}): {e}")
+            logger.error(f"instance連接測試失敗 ({instance_id}): {e}")
             return False, error_msg

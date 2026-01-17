@@ -53,7 +53,7 @@ class AudioClassifier:
 
         Args:
             classification_config: 分類配置字典
-            model_cache: ModelCacheManager 實例（可選）
+            model_cache: ModelCacheManager instance（可選）
         """
         self.config = dict(classification_config)
         self.model_cache = model_cache
