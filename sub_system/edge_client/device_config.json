@@ -8,6 +8,19 @@
     "sample_rate": 16000,
     "bit_depth": 32
   },
+  "logging_config": {
+    "enabled": true,
+    "log_dir": "logs",
+    "log_file": "edge_client.log",
+    "level": "DEBUG",
+    "max_bytes": 10485760,
+    "backup_count": 100,
+    "compress_backup": true,
+    "max_total_size_gb": 20,
+    "cleanup_threshold_percent": 90,
+    "console_output": true,
+    "console_level": "INFO"
+  },
   "heartbeat_interval": 30,
   "reconnect_delay": 5,
   "max_reconnect_delay": 60,

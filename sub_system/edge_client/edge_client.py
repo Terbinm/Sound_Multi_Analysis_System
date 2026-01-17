@@ -15,13 +15,10 @@ from datetime import datetime, timezone
 
 from audio_manager import AudioManager
 from config_manager import ConfigManager
+from logger_manager import LoggerManager
 
-# 設置日誌（使用 sys.stdout 避免所有日誌都顯示為紅色）
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stdout
-)
+# 在程式進入點會初始化日誌系統
+# 這裡先取得一個基本的 logger，待 main() 中正式初始化
 logger = logging.getLogger(__name__)
 
 
@@ -513,6 +510,21 @@ def main():
     # 取得配置檔案路徑
     script_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(script_dir, 'device_config.json')
+
+    # 先載入配置以初始化日誌系統
+    config_manager = ConfigManager(config_path)
+    config = config_manager.load()
+
+    # 初始化日誌系統
+    LoggerManager.setup(config.logging_config, base_dir=script_dir)
+    logger.info("日誌系統已初始化")
+
+    # 顯示日誌系統狀態
+    log_manager = LoggerManager.get_instance()
+    if log_manager:
+        log_info = log_manager.get_logs_info()
+        logger.info(f"日誌目錄: {log_info.get('log_dir')}")
+        logger.info(f"日誌檔案持久化: {'啟用' if log_info.get('enabled') else '停用'}")
 
     # 建立並執行客戶端
     client = EdgeClient(config_path)
