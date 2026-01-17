@@ -1,7 +1,22 @@
 {
   "device_id": "1189d524-4a7f-47a3-9c4b-1d9a7918d6ab",
   "device_name": "led",
-  "server_url": "http://localhost:55103",
+  "backends": [
+    {
+      "id": "main",
+      "url": "http://localhost:55103",
+      "is_primary": true,
+      "enabled": true,
+      "retry_count": 3,
+      "retry_delay": 5
+    }
+  ],
+  "multi_backend": {
+    "command_dedup_seconds": 5,
+    "broadcast_mode": "all",
+    "upload_strategy": "all",
+    "connection_timeout": 10
+  },
   "audio_config": {
     "default_device_index": 0,
     "channels": 1,
@@ -16,10 +31,14 @@
     "max_bytes": 10485760,
     "backup_count": 100,
     "compress_backup": true,
-    "max_total_size_gb": 20,
-    "cleanup_threshold_percent": 90,
     "console_output": true,
     "console_level": "INFO"
+  },
+  "storage_cleanup": {
+    "enabled": true,
+    "check_interval_hours": 1.0,
+    "temp_wav_max_gb": 20.0,
+    "logs_max_gb": 20.0
   },
   "heartbeat_interval": 30,
   "reconnect_delay": 5,

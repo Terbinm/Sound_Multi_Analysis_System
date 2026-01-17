@@ -36,12 +36,19 @@ class WebSocketManager:
         ping_interval = app.config.get('WEBSOCKET_PING_INTERVAL', 2)  # 與 config.py 一致
         cors_allowed_origins = app.config.get('WEBSOCKET_CORS_ALLOWED_ORIGINS', "*")
 
+        # 設定 SocketIO 和 Engine.IO 的 logger 為 WARNING 等級
+        # 這樣頻繁的 INFO 訊息（如 emitting event）不會顯示，但警告和錯誤仍會顯示
+        socketio_logger = logging.getLogger('socketio')
+        socketio_logger.setLevel(logging.WARNING)
+        engineio_logger = logging.getLogger('engineio')
+        engineio_logger.setLevel(logging.WARNING)
+
         self.socketio = SocketIO(
             app,
             cors_allowed_origins=cors_allowed_origins,
             async_mode=async_mode,
-            logger=True,
-            engineio_logger=True,  # 開啟 Engine.IO 日誌以便診斷 WebSocket 升級問題
+            logger=socketio_logger,
+            engineio_logger=engineio_logger,
             ping_timeout=ping_timeout,
             ping_interval=ping_interval,
             # Docker/gunicorn 環境優化設置
@@ -246,7 +253,7 @@ class WebSocketManager:
         self._emit('stats.updated', stats_data, room='dashboard')
         # 同時推送到 nodes 房間，確保節點列表頁面也能收到
         self._emit('stats.updated', stats_data, room='nodes')
-        logger.info(f"推送統計數據更新事件: 總數={stats_data.get('total_nodes')}, 在線={stats_data.get('online_nodes')}")
+        logger.debug(f"推送統計數據更新事件: 總數={stats_data.get('total_nodes')}, 在線={stats_data.get('online_nodes')}")
 
     def emit_rule_stats_updated(self, rule_id: str, stats_data: Dict[str, Any]):
         """

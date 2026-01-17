@@ -117,7 +117,7 @@
 
     {% if current_user.is_authenticated %}
     <!-- 已登入版面 -->
-    <div class="min-h-full parallax-container" x-data="{ sidebarOpen: false }">
+    <div class="min-h-full" x-data="{ sidebarOpen: false }">
         <!-- 側邊欄（行動裝置） -->
         <div x-show="sidebarOpen"
              class="relative z-50 lg:hidden"
@@ -146,7 +146,7 @@
                     <div class="flex grow flex-col gap-y-5 overflow-y-auto tech-sidebar tech-scrollbar px-6 pb-2 ring-1 ring-white/10">
                         <div class="flex h-16 shrink-0 items-center">
                             <h1 class="text-white text-xl font-bold flex items-center gap-2">
-                                <i class="fas fa-database tech-icon-pulse"></i>
+                                <i class="fas fa-database"></i>
                                 狀態管理
                             </h1>
                         </div>
@@ -161,7 +161,7 @@
             <div class="flex grow flex-col gap-y-5 overflow-y-auto tech-sidebar tech-scrollbar px-6">
                 <div class="flex h-16 shrink-0 items-center">
                     <h1 class="text-white text-xl font-bold flex items-center gap-2">
-                        <i class="fas fa-database tech-icon-pulse"></i>
+                        <i class="fas fa-database"></i>
                         狀態管理
                     </h1>
                 </div>
@@ -189,7 +189,7 @@
                     </div>
                     <div class="flex items-center gap-x-4 lg:gap-x-6">
                         <!-- WebSocket 狀態指示器 -->
-                        <div id="ws-status-indicator" class="ws-status ws-status-disconnected tech-badge-pulse" title="WebSocket 連接狀態">
+                        <div id="ws-status-indicator" class="ws-status ws-status-disconnected" title="WebSocket 連接狀態">
                             連接中...
                         </div>
                         <!-- 使用者選單 -->
@@ -240,7 +240,7 @@
             </div>
 
             <!-- 頁面內容 -->
-            <main class="py-10 parallax-layer parallax-layer2">
+            <main class="py-10">
                 <div class="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
                     <!-- Flash 訊息 -->
                     {% with messages = get_flashed_messages(with_categories=true) %}

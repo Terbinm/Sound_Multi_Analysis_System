@@ -1,9 +1,11 @@
 """
-日誌管理模組
+Logger Manager Module
 
-負責邊緣客戶端的日誌持久化、輪轉和壓縮
-支援長期運作（5年以上）且總空間限制在 20GB 以內
+Handles log file rotation, compression, and space management.
+Supports long-term operation with configurable size limits.
 """
+from __future__ import annotations
+
 import gzip
 import logging
 import os
@@ -11,10 +13,8 @@ import shutil
 import sys
 import threading
 from logging.handlers import RotatingFileHandler
-from typing import Optional, TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from config_manager import LoggingConfig
+from config_manager import LoggingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class CompressingRotatingFileHandler(RotatingFileHandler):
         mode: str = 'a',
         maxBytes: int = 0,
         backupCount: int = 0,
-        encoding: Optional[str] = None,
+        encoding: str | None = None,
         delay: bool = False,
         compress_backup: bool = True
     ):
@@ -113,7 +113,7 @@ class LoggerManager:
     負責初始化日誌系統、監控空間使用、自動清理舊日誌
     """
 
-    _instance: Optional['LoggerManager'] = None
+    _instance: LoggerManager | None = None
     _initialized: bool = False
 
     def __new__(cls):
@@ -125,8 +125,8 @@ class LoggerManager:
         if LoggerManager._initialized:
             return
 
-        self.log_dir: Optional[str] = None
-        self.config: Optional['LoggingConfig'] = None
+        self.log_dir: str | None = None
+        self.config: LoggingConfig | None = None
         self._cleanup_lock = threading.Lock()
         self._fallback_to_console: bool = False
 
@@ -135,8 +135,8 @@ class LoggerManager:
     @classmethod
     def setup(
         cls,
-        config: 'LoggingConfig',
-        base_dir: Optional[str] = None
+        config: LoggingConfig,
+        base_dir: str | None = None
     ) -> logging.Logger:
         """
         設定日誌系統
@@ -356,11 +356,11 @@ class LoggerManager:
         log.info(f"清理完成，釋放空間: {freed_space / 1024 / 1024:.2f} MB")
 
     @classmethod
-    def get_instance(cls) -> Optional['LoggerManager']:
+    def get_instance(cls) -> LoggerManager | None:
         """取得日誌管理器instance"""
         return cls._instance
 
-    def get_log_dir(self) -> Optional[str]:
+    def get_log_dir(self) -> str | None:
         """取得日誌目錄路徑"""
         return self.log_dir
 
@@ -395,8 +395,8 @@ class LoggerManager:
 
 
 def setup_logging(
-    config: 'LoggingConfig',
-    base_dir: Optional[str] = None
+    config: LoggingConfig,
+    base_dir: str | None = None
 ) -> logging.Logger:
     """
     設定日誌系統的便捷函數

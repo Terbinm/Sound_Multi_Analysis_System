@@ -14,7 +14,7 @@
 {% macro json_viewer(data, title="JSON 資料", collapsible=false, default_collapsed=false, icon="fa-code", collapsed=none) %}
 {% set effective_collapsible = collapsible or (collapsed is not none) %}
 {% set effective_default_collapsed = collapsed if collapsed is not none else default_collapsed %}
-<div class="tech-card parallax-layer parallax-layer2"
+<div class="tech-card"
      {% if effective_collapsible %}x-data="{ isOpen: {{ 'false' if effective_default_collapsed else 'true' }} }"{% endif %}>
     <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
         <div class="flex items-center justify-between">
@@ -223,7 +223,7 @@
     - icon: 圖示
 #}
 {% macro stats_card(stats, title="統計資訊", icon="fa-chart-bar") %}
-<div class="tech-card parallax-layer parallax-layer2">
+<div class="tech-card">
     <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
         <div class="flex items-center gap-3">
             <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">

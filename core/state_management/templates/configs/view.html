@@ -6,7 +6,7 @@
 {% block content %}
 <div class="max-w-4xl space-y-6">
     <!-- 操作按鈕 -->
-    <div class="mb-6 flex justify-end gap-3 parallax-layer parallax-layer2">
+    <div class="mb-6 flex justify-end gap-3">
         {% if current_user.is_admin() and not config.is_system %}
         <a href="{{ url_for('views.config_edit', config_id=config.config_id) }}"
            class="tech-button inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3.5 text-base font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300">
@@ -22,7 +22,7 @@
     </div>
 
     <!-- 使用提示 -->
-    <div class="tech-card-sm parallax-layer parallax-layer2 border-l-4 border-indigo-500">
+    <div class="tech-card-sm border-l-4 border-indigo-500">
         <div class="p-5">
             <div class="flex items-start gap-3">
                 <div class="flex-shrink-0">
@@ -56,7 +56,7 @@
     </div>
 
     <!-- 基本資訊 -->
-    <div class="tech-card parallax-layer parallax-layer2">
+    <div class="tech-card">
         <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
             <div class="flex items-center gap-3">
                 <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
@@ -147,7 +147,7 @@
     </div>
 
     <!-- 參數設定 -->
-    <div class="tech-card parallax-layer parallax-layer2">
+    <div class="tech-card">
         <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
             <div class="flex items-center gap-3">
                 <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
@@ -170,7 +170,7 @@
 
     <!-- 模型檔案 -->
     {% if config.model_files %}
-    <div class="tech-card parallax-layer parallax-layer2">
+    <div class="tech-card">
         <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
             <div class="flex items-center gap-3">
                 <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center">

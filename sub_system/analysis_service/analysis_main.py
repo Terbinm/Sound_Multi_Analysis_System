@@ -1,10 +1,19 @@
 # main.py - 分析服務主程式 (V2 - RabbitMQ 版本)
 
-import signal
 import sys
-import uuid
 import os
 from pathlib import Path
+
+# 本地開發環境：將專案根目錄加入 sys.path 以載入 sub_system.train 等模組
+# Docker 環境下已透過 PYTHONPATH=/app 設定，無需額外處理
+_CURRENT_DIR = Path(__file__).resolve().parent
+if _CURRENT_DIR != Path("/app"):
+    _PROJECT_ROOT = _CURRENT_DIR.parent.parent
+    if str(_PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(_PROJECT_ROOT))
+
+import signal
+import uuid
 from typing import Dict, Any, Optional
 from threading import Lock
 from datetime import datetime, timezone

@@ -24,6 +24,13 @@ CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
+# 本地開發環境：需要將專案根目錄加入 sys.path 以載入 env_loader
+# Docker 環境下 env_loader.py 已被複製到 /app/，無需額外處理
+if CURRENT_DIR != Path("/app"):
+    PROJECT_ROOT = CURRENT_DIR.parent.parent
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+
 from flask import Flask, jsonify, redirect, url_for
 from flask_cors import CORS
 from flask_login import LoginManager

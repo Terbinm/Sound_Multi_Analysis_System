@@ -4,7 +4,7 @@
 {% block page_title %}路由規則管理{% endblock %}
 
 {% block content %}
-<div class="sm:flex sm:items-center parallax-layer parallax-layer2">
+<div class="sm:flex sm:items-center">
     <div class="sm:flex-auto">
         <p class="mt-2 text-sm text-gray-600">管理資料路由規則，依條件分派資料到不同分析設定</p>
     </div>
@@ -25,7 +25,7 @@
 </div>
 
 <!-- 操作指引 -->
-<div class="mt-6 tech-card-sm parallax-layer parallax-layer2 border-l-4 border-amber-500">
+<div class="mt-6 tech-card-sm border-l-4 border-amber-500">
     <div class="p-5">
         <div class="flex items-start gap-3">
             <div class="flex-shrink-0">
@@ -63,7 +63,7 @@
 </div>
 
 <!-- 篩選條件 -->
-<div class="mt-6 flex items-center space-x-4 parallax-layer parallax-layer2">
+<div class="mt-6 flex items-center space-x-4">
     <div class="tech-card-sm inline-flex items-center px-4 py-2.5 gap-3">
         <input type="checkbox" id="enabled_only" {% if enabled_only %}checked{% endif %}
                onchange="window.location.href='{{ url_for('views.routing_list') }}?enabled_only=' + this.checked"
@@ -73,7 +73,7 @@
 </div>
 
 <!-- 規則列表 -->
-<div class="mt-8 parallax-layer parallax-layer2">
+<div class="mt-8">
     {% if rules %}
     <div class="tech-grid tech-grid-responsive">
         {% for rule in rules %}

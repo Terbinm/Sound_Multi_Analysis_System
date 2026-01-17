@@ -4,7 +4,7 @@
 {% block page_title %}節點監控{% endblock %}
 
 {% block content %}
-<div class="sm:flex sm:items-center parallax-layer parallax-layer2">
+<div class="sm:flex sm:items-center">
     <div class="sm:flex-auto">
         <p class="mt-2 text-sm text-gray-600">監控所有註冊分析節點的狀態與任務負載</p>
     </div>
@@ -13,7 +13,7 @@
 <!-- 統計資訊 -->
 <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
     <!-- 總節點數 -->
-    <div class="tech-card-sm parallax-layer parallax-layer2 overflow-hidden group">
+    <div class="tech-card-sm overflow-hidden group">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
                 <div class="rounded-xl bg-gradient-to-br from-gray-500 to-gray-600 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
@@ -34,7 +34,7 @@
     </div>
 
     <!-- 在線節點 -->
-    <div class="tech-card-sm parallax-layer parallax-layer2 overflow-hidden group">
+    <div class="tech-card-sm overflow-hidden group">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
                 <div class="rounded-xl bg-gradient-to-br from-green-500 to-green-600 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
@@ -62,7 +62,7 @@
     </div>
 
     <!-- 離線節點 -->
-    <div class="tech-card-sm parallax-layer parallax-layer2 overflow-hidden group">
+    <div class="tech-card-sm overflow-hidden group">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
                 <div class="rounded-xl bg-gradient-to-br from-red-500 to-red-600 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
@@ -94,7 +94,7 @@
 <div class="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
     <!-- 在線節點 -->
     {% if online_nodes %}
-    <div class="parallax-layer parallax-layer2">
+    <div >
         <div class="flex items-center gap-3 mb-4">
             <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-md">
                 <i class="fas fa-circle text-white"></i>
@@ -176,7 +176,7 @@
 
     <!-- 離線節點 -->
     {% if offline_nodes %}
-    <div class="parallax-layer parallax-layer2">
+    <div >
         <div class="flex items-center gap-3 mb-4">
             <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-md">
                 <i class="fas fa-circle text-white"></i>
@@ -233,7 +233,7 @@
 </div>
 
 {% if not online_nodes and not offline_nodes %}
-<div class="mt-12 parallax-layer parallax-layer2">
+<div class="mt-12">
     <div class="tech-empty-state py-16">
         <i class="fas fa-server"></i>
         <p>暫無註冊節點</p>

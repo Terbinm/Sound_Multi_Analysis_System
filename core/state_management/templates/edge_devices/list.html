@@ -5,7 +5,7 @@
 
 {% block content %}
 <!-- 頁面說明 -->
-<div class="mb-8 parallax-layer parallax-layer2">
+<div class="mb-8">
     <div class="tech-card-sm p-6 bg-gradient-to-r from-emerald-50 to-teal-50 border-l-4 border-emerald-500">
         <div class="flex items-start gap-4">
             <div class="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg flex-shrink-0">
@@ -24,7 +24,7 @@
 <!-- 統計卡片 -->
 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-12 tech-grid">
     <!-- 總設備數 -->
-    <div class="tech-card-sm parallax-layer2 overflow-hidden group">
+    <div class="tech-card-sm overflow-hidden group">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
                 <div class="rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
@@ -43,7 +43,7 @@
     </div>
 
     <!-- 在線設備 -->
-    <div class="tech-card-sm parallax-layer2 overflow-hidden group">
+    <div class="tech-card-sm overflow-hidden group">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
                 <div class="rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
@@ -62,7 +62,7 @@
     </div>
 
     <!-- 錄音中 -->
-    <div class="tech-card-sm parallax-layer2 overflow-hidden group">
+    <div class="tech-card-sm overflow-hidden group">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
                 <div class="rounded-xl bg-gradient-to-br from-red-500 to-rose-600 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
@@ -81,7 +81,7 @@
     </div>
 
     <!-- 離線設備 -->
-    <div class="tech-card-sm parallax-layer2 overflow-hidden group">
+    <div class="tech-card-sm overflow-hidden group">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
                 <div class="rounded-xl bg-gradient-to-br from-gray-400 to-gray-500 p-3 shadow-lg group-hover:shadow-xl transition-all duration-300">
@@ -101,7 +101,7 @@
 </div>
 
 <!-- 設備列表 -->
-<div class="parallax-layer parallax-layer2">
+<div >
     {% if devices %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="devices-grid">
         {% for device in devices %}

@@ -10,10 +10,10 @@
 {% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto parallax-container" x-data="routingWizard()">
+<div class="max-w-6xl mx-auto" x-data="routingWizard()">
 
     {# 步驟指示器 #}
-    <div class="tech-card parallax-layer parallax-layer1 mb-6">
+    <div class="tech-card mb-6">
         <div class="px-6 py-6">
             <div class="flex items-center justify-between">
                 {# 步驟 1 #}
@@ -67,7 +67,7 @@
 
     {# 步驟 1: 基礎配置 #}
     <div class="wizard-step" :class="{ 'active': currentStep === 1 }">
-        <div class="tech-card parallax-layer parallax-layer2">
+        <div class="tech-card">
             <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <h3 class="text-lg font-semibold text-gray-900">步驟 1：基礎配置</h3>
                 <p class="text-sm text-gray-600 mt-1">設定規則的基本資訊與匹配條件</p>
@@ -264,7 +264,7 @@
 
     {# 步驟 2: 追溯確認 #}
     <div class="wizard-step" :class="{ 'active': currentStep === 2 }" x-show="formData.backfill_enabled">
-        <div class="tech-card parallax-layer parallax-layer2">
+        <div class="tech-card">
             <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <h3 class="text-lg font-semibold text-gray-900">步驟 2：追溯確認</h3>
                 <p class="text-sm text-gray-600 mt-1">確認要追溯的歷史資料</p>
@@ -335,7 +335,7 @@
 
     {# 步驟 3: 完成 #}
     <div class="wizard-step" :class="{ 'active': currentStep === 3 }">
-        <div class="tech-card parallax-layer parallax-layer2">
+        <div class="tech-card">
             <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-green-50 to-blue-50">
                 <div class="flex items-center gap-3">
                     <div class="h-12 w-12 rounded-full bg-green-500 flex items-center justify-center">

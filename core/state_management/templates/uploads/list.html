@@ -5,10 +5,10 @@
 {% block page_title %}檔案上傳記錄{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto parallax-container" x-data="uploadList()">
+<div class="max-w-7xl mx-auto" x-data="uploadList()">
 
     {# 頂部操作列 #}
-    <div class="tech-card parallax-layer parallax-layer1 mb-6">
+    <div class="tech-card mb-6">
         <div class="px-6 py-4 flex items-center justify-between">
             <div class="flex items-center space-x-4">
                 <h3 class="text-lg font-semibold text-gray-900">
@@ -44,7 +44,7 @@
     </div>
 
     {# 載入中 #}
-    <div x-show="isLoading && uploads.length === 0" class="tech-card parallax-layer parallax-layer2">
+    <div x-show="isLoading && uploads.length === 0" class="tech-card">
         <div class="px-6 py-12 text-center">
             <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
             <p class="text-gray-600">載入中...</p>
@@ -52,7 +52,7 @@
     </div>
 
     {# 上傳記錄列表 #}
-    <div x-show="!isLoading || uploads.length > 0" class="tech-card parallax-layer parallax-layer2">
+    <div x-show="!isLoading || uploads.length > 0" class="tech-card">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
