@@ -291,9 +291,10 @@ def send_record_command(device_id):
         bit_depth: 位深（可選，預設使用設備配置）
     """
     try:
-        data = request.get_json()
+        data = request.get_json(force=True, silent=True)
 
         if not data:
+            logger.warning(f"錄音請求缺少數據，Content-Type: {request.content_type}")
             return jsonify({
                 'success': False,
                 'error': '缺少請求數據'
@@ -304,6 +305,21 @@ def send_record_command(device_id):
             return jsonify({
                 'success': False,
                 'error': '缺少必填欄位: duration'
+            }), 400
+
+        # 驗證 duration 值
+        try:
+            duration = int(data['duration'])
+            if duration < 1 or duration > 3600:
+                return jsonify({
+                    'success': False,
+                    'error': 'duration 必須在 1-3600 秒之間'
+                }), 400
+            data['duration'] = duration
+        except (TypeError, ValueError):
+            return jsonify({
+                'success': False,
+                'error': 'duration 必須是有效的數字'
             }), 400
 
         # 檢查設備是否存在

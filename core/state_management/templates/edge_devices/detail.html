@@ -727,8 +727,15 @@ function updateStatusDisplay(status, offlineReason, offlineReasonText) {
 }
 
 function triggerRecording() {
-    const duration = document.getElementById('record-duration').value;
+    const durationInput = document.getElementById('record-duration');
+    const duration = parseInt(durationInput.value);
     const recordBtn = document.getElementById('record-btn');
+
+    // 驗證 duration 值
+    if (isNaN(duration) || duration < 1 || duration > 3600) {
+        showToast('請輸入有效的錄音時長（1-3600 秒）', 'error');
+        return;
+    }
 
     // 立即禁用按鈕並顯示狀態
     recordBtn.disabled = true;
@@ -737,7 +744,7 @@ function triggerRecording() {
     fetch(`/api/edge-devices/${deviceId}/record`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({duration: parseInt(duration)})
+        body: JSON.stringify({duration: duration})
     })
     .then(r => r.json())
     .then(data => {
