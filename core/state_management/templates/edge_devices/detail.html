@@ -19,11 +19,29 @@
         <div class="p-6">
             <div class="flex items-start justify-between mb-6">
                 <div class="flex items-center gap-4">
-                    <div class="h-16 w-16 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg relative">
-                        <i class="fas fa-satellite-dish text-white text-2xl"></i>
-                        <span id="status-indicator" class="absolute -top-1 -right-1 h-5 w-5 rounded-full border-2 border-white shadow-sm
-                            {% if device.status == 'IDLE' %}bg-green-500{% elif device.status == 'RECORDING' %}bg-red-500 animate-pulse{% else %}bg-gray-400{% endif %}">
-                        </span>
+                    <!-- 設備照片/圖示 -->
+                    <div class="relative group">
+                        {% if device.photo_path %}
+                        <div class="h-20 w-20 rounded-xl overflow-hidden shadow-lg relative">
+                            <img id="device-photo" src="{{ url_for('edge_device_api.get_device_photo', device_id=device.device_id) }}"
+                                 alt="設備照片" class="h-full w-full object-cover">
+                            <span id="status-indicator" class="absolute -top-1 -right-1 h-5 w-5 rounded-full border-2 border-white shadow-sm
+                                {% if device.status == 'IDLE' %}bg-green-500{% elif device.status == 'RECORDING' %}bg-red-500 animate-pulse{% else %}bg-gray-400{% endif %}">
+                            </span>
+                        </div>
+                        {% else %}
+                        <div class="h-20 w-20 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg relative">
+                            <i class="fas fa-satellite-dish text-white text-2xl"></i>
+                            <span id="status-indicator" class="absolute -top-1 -right-1 h-5 w-5 rounded-full border-2 border-white shadow-sm
+                                {% if device.status == 'IDLE' %}bg-green-500{% elif device.status == 'RECORDING' %}bg-red-500 animate-pulse{% else %}bg-gray-400{% endif %}">
+                            </span>
+                        </div>
+                        {% endif %}
+                        <!-- 照片上傳按鈕 (hover 時顯示) -->
+                        <button onclick="openPhotoUploadModal()"
+                                class="absolute inset-0 rounded-xl bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                            <i class="fas fa-camera text-white text-lg"></i>
+                        </button>
                     </div>
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900" id="device-name-display">{{ device.device_name or '未命名設備' }}</h2>
@@ -257,6 +275,95 @@
                         class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors">
                     <i class="fas fa-edit mr-1"></i> 編輯
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 位置與管理人員 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- 位置資訊 -->
+    <div class="tech-card overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-map-marker-alt mr-2 text-emerald-500"></i>位置資訊
+            </h3>
+            <button onclick="openLocationModal()"
+                    class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                <i class="fas fa-edit mr-1"></i>編輯
+            </button>
+        </div>
+        <div class="p-6">
+            {% set location = device.location or {} %}
+            {% if location.name or location.building or location.floor or location.room %}
+            <div class="space-y-4">
+                {% if location.name %}
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span class="text-gray-600">位置名稱</span>
+                    <span class="font-semibold text-gray-900" id="location-name-display">{{ location.name }}</span>
+                </div>
+                {% endif %}
+                {% if location.building %}
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span class="text-gray-600">建築物</span>
+                    <span class="font-semibold text-gray-900" id="location-building-display">{{ location.building }}</span>
+                </div>
+                {% endif %}
+                {% if location.floor %}
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span class="text-gray-600">樓層</span>
+                    <span class="font-semibold text-gray-900" id="location-floor-display">{{ location.floor }}</span>
+                </div>
+                {% endif %}
+                {% if location.room %}
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span class="text-gray-600">房間</span>
+                    <span class="font-semibold text-gray-900" id="location-room-display">{{ location.room }}</span>
+                </div>
+                {% endif %}
+                {% if location.description %}
+                <div class="py-2">
+                    <span class="text-gray-600 block mb-1">描述</span>
+                    <p class="text-gray-900" id="location-description-display">{{ location.description }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="text-center py-8">
+                <i class="fas fa-map-marker-alt text-4xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500">尚未設定位置資訊</p>
+                <p class="text-sm text-gray-400 mt-1">點擊「編輯」按鈕設定設備位置</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 管理人員 -->
+    <div class="tech-card overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-users mr-2 text-blue-500"></i>管理人員
+            </h3>
+            <button onclick="openManagersModal()"
+                    class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                <i class="fas fa-user-plus mr-1"></i>管理
+            </button>
+        </div>
+        <div class="p-6">
+            <div id="managers-list-container">
+                {% set manager_ids = device.manager_ids or [] %}
+                {% if manager_ids %}
+                <div class="space-y-3">
+                    <!-- 管理人員列表會透過 JavaScript 載入 -->
+                    <p class="text-sm text-gray-500">載入中...</p>
+                </div>
+                {% else %}
+                <div class="text-center py-8">
+                    <i class="fas fa-user-shield text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500">尚未指派管理人員</p>
+                    <p class="text-sm text-gray-400 mt-1">點擊「管理」按鈕指派管理人員</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -605,6 +712,155 @@
                 取消
             </button>
             <button onclick="saveRouterConfig()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
+                儲存
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 照片上傳 Modal -->
+<div id="photo-upload-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-900">設備照片</h3>
+        </div>
+        <div class="p-6">
+            <!-- 目前照片預覽 -->
+            <div class="mb-6">
+                <div id="photo-preview-container" class="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                    {% if device.photo_path %}
+                    <img id="photo-preview" src="{{ url_for('edge_device_api.get_device_photo', device_id=device.device_id) }}"
+                         alt="設備照片" class="w-full h-full object-contain">
+                    {% else %}
+                    <div id="photo-placeholder" class="text-center text-gray-400">
+                        <i class="fas fa-image text-4xl mb-2"></i>
+                        <p class="text-sm">尚未上傳照片</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 上傳區域 -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">上傳新照片</label>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-emerald-500 transition-colors cursor-pointer"
+                     onclick="document.getElementById('photo-input').click()">
+                    <i class="fas fa-cloud-upload-alt text-2xl text-gray-400 mb-2"></i>
+                    <p class="text-sm text-gray-600">點擊或拖曳檔案至此處</p>
+                    <p class="text-xs text-gray-400 mt-1">支援 JPG, PNG, GIF (最大 5MB)</p>
+                </div>
+                <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="previewPhoto(this)">
+            </div>
+
+            <!-- 上傳進度 -->
+            <div id="photo-upload-progress" class="hidden mb-4">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-sm text-gray-600">上傳中...</span>
+                    <span id="photo-progress-text" class="text-sm text-gray-600">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="photo-progress-bar" class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 flex justify-between">
+            <button onclick="deletePhoto()" id="delete-photo-btn"
+                    class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors {% if not device.photo_path %}hidden{% endif %}">
+                <i class="fas fa-trash-alt mr-1"></i>刪除照片
+            </button>
+            <div class="flex gap-2">
+                <button onclick="closePhotoUploadModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                    關閉
+                </button>
+                <button onclick="uploadPhoto()" id="upload-photo-btn" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors hidden">
+                    <i class="fas fa-upload mr-1"></i>上傳
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 位置編輯 Modal -->
+<div id="location-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-900">編輯位置資訊</h3>
+        </div>
+        <div class="p-6">
+            <form id="location-form">
+                {% set location = device.location or {} %}
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">位置名稱</label>
+                        <input type="text" id="location-name" value="{{ location.name or '' }}"
+                               placeholder="例如：主機房"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">建築物</label>
+                            <input type="text" id="location-building" value="{{ location.building or '' }}"
+                                   placeholder="例如：A 棟"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">樓層</label>
+                            <input type="text" id="location-floor" value="{{ location.floor or '' }}"
+                                   placeholder="例如：3F"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">房間</label>
+                        <input type="text" id="location-room" value="{{ location.room or '' }}"
+                               placeholder="例如：301 室"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                        <textarea id="location-description" rows="3"
+                                  placeholder="其他位置描述..."
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">{{ location.description or '' }}</textarea>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+            <button onclick="closeLocationModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                取消
+            </button>
+            <button onclick="saveLocation()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
+                儲存
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 管理人員選擇 Modal -->
+<div id="managers-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[80vh] flex flex-col">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-900">管理人員</h3>
+            <p class="text-sm text-gray-500 mt-1">選擇負責管理此設備的用戶</p>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1">
+            <div id="managers-loading" class="text-center py-8">
+                <i class="fas fa-spinner fa-spin text-2xl text-gray-400 mb-2"></i>
+                <p class="text-sm text-gray-500">載入用戶列表...</p>
+            </div>
+            <div id="managers-list" class="space-y-2 hidden">
+                <!-- 用戶列表會透過 JavaScript 載入 -->
+            </div>
+            <div id="managers-empty" class="text-center py-8 hidden">
+                <i class="fas fa-users-slash text-4xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500">沒有可用的用戶</p>
+            </div>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+            <button onclick="closeManagersModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                取消
+            </button>
+            <button onclick="saveManagers()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
                 儲存
             </button>
         </div>
@@ -1231,5 +1487,313 @@ function createRecordingsTable() {
         `;
     }
 }
+
+// ==================== 照片上傳功能 ====================
+let selectedPhotoFile = null;
+
+function openPhotoUploadModal() {
+    document.getElementById('photo-upload-modal').classList.remove('hidden');
+    document.getElementById('photo-upload-modal').classList.add('flex');
+}
+
+function closePhotoUploadModal() {
+    document.getElementById('photo-upload-modal').classList.add('hidden');
+    document.getElementById('photo-upload-modal').classList.remove('flex');
+    // 重置選擇的檔案
+    selectedPhotoFile = null;
+    document.getElementById('photo-input').value = '';
+    document.getElementById('upload-photo-btn').classList.add('hidden');
+}
+
+function previewPhoto(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+
+        // 檢查檔案大小 (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('檔案大小不可超過 5MB', 'error');
+            input.value = '';
+            return;
+        }
+
+        // 檢查檔案類型
+        if (!file.type.startsWith('image/')) {
+            showToast('請選擇圖片檔案', 'error');
+            input.value = '';
+            return;
+        }
+
+        selectedPhotoFile = file;
+
+        // 預覽圖片
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const container = document.getElementById('photo-preview-container');
+            container.innerHTML = `<img id="photo-preview" src="${e.target.result}" alt="預覽" class="w-full h-full object-contain">`;
+        };
+        reader.readAsDataURL(file);
+
+        // 顯示上傳按鈕
+        document.getElementById('upload-photo-btn').classList.remove('hidden');
+    }
+}
+
+function uploadPhoto() {
+    if (!selectedPhotoFile) {
+        showToast('請先選擇照片', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('photo', selectedPhotoFile);
+
+    // 顯示進度條
+    document.getElementById('photo-upload-progress').classList.remove('hidden');
+    document.getElementById('upload-photo-btn').disabled = true;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/api/edge-devices/${deviceId}/photo`);
+
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            const percent = (e.loaded / e.total) * 100;
+            document.getElementById('photo-progress-bar').style.width = percent + '%';
+            document.getElementById('photo-progress-text').textContent = Math.round(percent) + '%';
+        }
+    };
+
+    xhr.onload = function() {
+        document.getElementById('photo-upload-progress').classList.add('hidden');
+        document.getElementById('upload-photo-btn').disabled = false;
+
+        if (xhr.status === 200) {
+            const data = JSON.parse(xhr.responseText);
+            if (data.success) {
+                showToast('照片上傳成功', 'success');
+                // 重新載入頁面以更新照片
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('上傳失敗: ' + (data.error || '未知錯誤'), 'error');
+            }
+        } else {
+            showToast('上傳失敗: HTTP ' + xhr.status, 'error');
+        }
+    };
+
+    xhr.onerror = function() {
+        document.getElementById('photo-upload-progress').classList.add('hidden');
+        document.getElementById('upload-photo-btn').disabled = false;
+        showToast('上傳失敗: 網路錯誤', 'error');
+    };
+
+    xhr.send(formData);
+}
+
+function deletePhoto() {
+    if (!confirm('確定要刪除設備照片嗎？')) {
+        return;
+    }
+
+    fetch(`/api/edge-devices/${deviceId}/photo`, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('照片已刪除', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('刪除失敗: ' + (data.error || '未知錯誤'), 'error');
+        }
+    })
+    .catch(err => {
+        showToast('刪除失敗: ' + err.message, 'error');
+    });
+}
+
+// ==================== 位置編輯功能 ====================
+function openLocationModal() {
+    document.getElementById('location-modal').classList.remove('hidden');
+    document.getElementById('location-modal').classList.add('flex');
+}
+
+function closeLocationModal() {
+    document.getElementById('location-modal').classList.add('hidden');
+    document.getElementById('location-modal').classList.remove('flex');
+}
+
+function saveLocation() {
+    const data = {
+        name: document.getElementById('location-name').value.trim(),
+        building: document.getElementById('location-building').value.trim(),
+        floor: document.getElementById('location-floor').value.trim(),
+        room: document.getElementById('location-room').value.trim(),
+        description: document.getElementById('location-description').value.trim()
+    };
+
+    fetch(`/api/edge-devices/${deviceId}/location`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('位置資訊已更新', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('更新失敗: ' + (data.error || '未知錯誤'), 'error');
+        }
+    })
+    .catch(err => {
+        showToast('更新失敗: ' + err.message, 'error');
+    });
+}
+
+// ==================== 管理人員功能 ====================
+let allUsers = [];
+let currentManagerIds = {{ (device.manager_ids or []) | tojson }};
+
+function openManagersModal() {
+    document.getElementById('managers-modal').classList.remove('hidden');
+    document.getElementById('managers-modal').classList.add('flex');
+    loadUsersList();
+}
+
+function closeManagersModal() {
+    document.getElementById('managers-modal').classList.add('hidden');
+    document.getElementById('managers-modal').classList.remove('flex');
+}
+
+function loadUsersList() {
+    const loadingEl = document.getElementById('managers-loading');
+    const listEl = document.getElementById('managers-list');
+    const emptyEl = document.getElementById('managers-empty');
+
+    loadingEl.classList.remove('hidden');
+    listEl.classList.add('hidden');
+    emptyEl.classList.add('hidden');
+
+    fetch('/api/edge-devices/users/list')
+    .then(r => r.json())
+    .then(data => {
+        loadingEl.classList.add('hidden');
+
+        if (data.success && data.users && data.users.length > 0) {
+            allUsers = data.users;
+            renderUsersList();
+            listEl.classList.remove('hidden');
+        } else {
+            emptyEl.classList.remove('hidden');
+        }
+    })
+    .catch(err => {
+        loadingEl.classList.add('hidden');
+        showToast('載入用戶列表失敗: ' + err.message, 'error');
+    });
+}
+
+function renderUsersList() {
+    const listEl = document.getElementById('managers-list');
+    listEl.innerHTML = '';
+
+    allUsers.forEach(user => {
+        const isChecked = currentManagerIds.includes(user.id);
+        const roleClass = user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600';
+        const roleText = user.role === 'admin' ? '管理員' : '一般用戶';
+
+        const div = document.createElement('label');
+        div.className = 'flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 cursor-pointer transition-colors';
+        div.innerHTML = `
+            <input type="checkbox" value="${user.id}" class="manager-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                   ${isChecked ? 'checked' : ''}>
+            <div class="ml-3 flex-1">
+                <div class="flex items-center gap-2">
+                    <span class="font-medium text-gray-900">${user.username}</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full ${roleClass}">${roleText}</span>
+                </div>
+                ${user.email ? `<p class="text-sm text-gray-500">${user.email}</p>` : ''}
+            </div>
+        `;
+        listEl.appendChild(div);
+    });
+}
+
+function saveManagers() {
+    const checkboxes = document.querySelectorAll('.manager-checkbox:checked');
+    const managerIds = Array.from(checkboxes).map(cb => cb.value);
+
+    fetch(`/api/edge-devices/${deviceId}/managers`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({manager_ids: managerIds})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('管理人員已更新', 'success');
+            currentManagerIds = managerIds;
+            closeManagersModal();
+            loadManagersDisplay();
+        } else {
+            showToast('更新失敗: ' + (data.error || '未知錯誤'), 'error');
+        }
+    })
+    .catch(err => {
+        showToast('更新失敗: ' + err.message, 'error');
+    });
+}
+
+function loadManagersDisplay() {
+    const container = document.getElementById('managers-list-container');
+
+    if (currentManagerIds.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8">
+                <i class="fas fa-user-shield text-4xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500">尚未指派管理人員</p>
+                <p class="text-sm text-gray-400 mt-1">點擊「管理」按鈕指派管理人員</p>
+            </div>
+        `;
+        return;
+    }
+
+    // 取得管理人員詳細資訊
+    fetch(`/api/edge-devices/${deviceId}/managers`)
+    .then(r => r.json())
+    .then(data => {
+        if (data.success && data.managers) {
+            let html = '<div class="space-y-3">';
+            data.managers.forEach(manager => {
+                const roleClass = manager.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600';
+                const roleText = manager.role === 'admin' ? '管理員' : '一般用戶';
+                html += `
+                    <div class="flex items-center p-3 rounded-lg bg-gray-50">
+                        <div class="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold">
+                            ${manager.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-gray-900">${manager.username}</span>
+                                <span class="text-xs px-2 py-0.5 rounded-full ${roleClass}">${roleText}</span>
+                            </div>
+                            ${manager.email ? `<p class="text-sm text-gray-500">${manager.email}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+    })
+    .catch(err => {
+        console.error('載入管理人員失敗:', err);
+    });
+}
+
+// 頁面載入時載入管理人員顯示
+document.addEventListener('DOMContentLoaded', function() {
+    if (currentManagerIds.length > 0) {
+        loadManagersDisplay();
+    }
+});
 </script>
 {% endblock %}

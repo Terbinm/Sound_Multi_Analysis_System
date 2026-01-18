@@ -41,7 +41,8 @@
             </ul>
         </li>
 
-        <!-- 分析子系統 -->
+        <!-- 分析子系統（僅管理員） -->
+        {% if current_user.is_admin() %}
         <li>
             <div class="text-xs font-semibold leading-6 text-gray-500 uppercase tracking-wider mb-3 px-2">分析子系統</div>
             <ul role="list" class="space-y-1">
@@ -92,7 +93,7 @@
                         {% endif %}
                     </a>
                 </li>
-                
+
                 <!-- MongoDB instance -->
                 <li>
                     <a href="{{ url_for('views.instances_list') }}"
@@ -107,22 +108,12 @@
 
             </ul>
         </li>
+        {% endif %}
 
         <!-- 裝置群組 -->
         <li>
             <div class="text-xs font-semibold leading-6 text-gray-500 uppercase tracking-wider mb-3 px-2">裝置群組</div>
             <ul role="list" class="space-y-1">
-                <!-- 裝置管理 -->
-                <li>
-                    <a href="{{ url_for('views.devices_list') }}"
-                       class="tech-sidebar-item group flex items-center gap-x-3 p-3 text-sm leading-6 font-medium transition-all duration-200 {% if request.endpoint == 'views.devices_list' or request.endpoint == 'views.device_detail' %}active text-white{% else %}text-gray-400 hover:text-white{% endif %}">
-                        <i class="fas fa-microphone-alt w-5 text-center"></i>
-                        <span class="flex-1">裝置管理</span>
-                        {% if request.endpoint == 'views.devices_list' or request.endpoint == 'views.device_detail' %}
-                        <i class="fas fa-chevron-right text-xs opacity-50"></i>
-                        {% endif %}
-                    </a>
-                </li>
                 <!-- Edge 設備管理 -->
                 <li>
                     <a href="{{ url_for('views.edge_devices_list') }}"

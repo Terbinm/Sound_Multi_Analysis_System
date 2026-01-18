@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from flask import render_template
 from flask_login import login_required
 from views import views_bp
+from auth.decorators import admin_required
 from models.analysis_config import AnalysisConfig
 from models.routing_rule import RoutingRule
 from models.node_status import NodeStatus
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 @views_bp.route('/analysis/dashboard')
-@login_required
+@admin_required
 def analysis_dashboard():
     """
     分析子系統首頁

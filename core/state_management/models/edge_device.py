@@ -66,6 +66,15 @@ class EdgeDeviceRecord:
     # 路由配置 - 錄音完成後自動發送至指定路由分析
     assigned_router_ids: List[str] = field(default_factory=list)
 
+    # 設備照片路徑（上傳至伺服器）
+    photo_path: Optional[str] = None
+
+    # 位置資訊
+    location: Dict[str, Any] = field(default_factory=dict)
+
+    # 管理人員 ID 列表（關聯系統用戶）
+    manager_ids: List[str] = field(default_factory=list)
+
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -98,6 +107,16 @@ class EdgeDeviceRecord:
                 'last_recording_at': None,
                 'success_count': 0,
                 'error_count': 0
+            }
+
+        # 設定預設的位置資訊
+        if not self.location:
+            self.location = {
+                'name': '',
+                'building': '',
+                'floor': '',
+                'room': '',
+                'description': ''
             }
 
     def is_online(self) -> bool:
@@ -240,6 +259,15 @@ class EdgeDevice:
                         'error_count': 0
                     },
                     'assigned_router_ids': [],
+                    'photo_path': None,
+                    'location': {
+                        'name': '',
+                        'building': '',
+                        'floor': '',
+                        'room': '',
+                        'description': ''
+                    },
+                    'manager_ids': [],
                     'created_at': now
                 }
             }
@@ -511,6 +539,9 @@ class EdgeDevice:
                 'connection_info': device.get('connection_info', {}),
                 'statistics': device.get('statistics', {}),
                 'assigned_router_ids': device.get('assigned_router_ids', []),
+                'photo_path': device.get('photo_path'),
+                'location': device.get('location', {}),
+                'manager_ids': device.get('manager_ids', []),
                 'created_at': device.get('created_at'),
                 'updated_at': device.get('updated_at')
             }
@@ -591,6 +622,9 @@ class EdgeDevice:
                     'connection_info': device.get('connection_info', {}),
                     'statistics': device.get('statistics', {}),
                     'assigned_router_ids': device.get('assigned_router_ids', []),
+                    'photo_path': device.get('photo_path'),
+                    'location': device.get('location', {}),
+                    'manager_ids': device.get('manager_ids', []),
                     'created_at': device.get('created_at'),
                     'updated_at': device.get('updated_at')
                 })
@@ -847,6 +881,112 @@ class EdgeDevice:
             return False
 
     @staticmethod
+    def update_photo_path(device_id: str, photo_path: Optional[str]) -> bool:
+        """
+        更新設備照片路徑
+
+        Args:
+            device_id: 設備 ID
+            photo_path: 照片檔案路徑（None 表示刪除照片）
+
+        Returns:
+            是否成功
+        """
+        try:
+            db = get_db()
+            collection = db[EdgeDevice._get_collection_name()]
+
+            result = collection.update_one(
+                {'_id': device_id},
+                {
+                    '$set': {
+                        'photo_path': photo_path,
+                        'updated_at': datetime.now(timezone.utc)
+                    }
+                }
+            )
+
+            if result.modified_count > 0:
+                logger.info(f"邊緣設備照片路徑已更新: {device_id}")
+                return True
+            return False
+
+        except Exception as e:
+            logger.error(f"更新邊緣設備照片路徑失敗 ({device_id}): {e}")
+            return False
+
+    @staticmethod
+    def update_location(device_id: str, location: Dict[str, Any]) -> bool:
+        """
+        更新設備位置資訊
+
+        Args:
+            device_id: 設備 ID
+            location: 位置資訊字典（name, building, floor, room, description）
+
+        Returns:
+            是否成功
+        """
+        try:
+            db = get_db()
+            collection = db[EdgeDevice._get_collection_name()]
+
+            # 只更新提供的欄位
+            update_fields = {}
+            for key, value in location.items():
+                update_fields[f'location.{key}'] = value
+            update_fields['updated_at'] = datetime.now(timezone.utc)
+
+            result = collection.update_one(
+                {'_id': device_id},
+                {'$set': update_fields}
+            )
+
+            if result.modified_count > 0:
+                logger.info(f"邊緣設備位置資訊已更新: {device_id}")
+                return True
+            return False
+
+        except Exception as e:
+            logger.error(f"更新邊緣設備位置資訊失敗 ({device_id}): {e}")
+            return False
+
+    @staticmethod
+    def update_manager_ids(device_id: str, manager_ids: List[str]) -> bool:
+        """
+        更新設備管理人員 ID 列表
+
+        Args:
+            device_id: 設備 ID
+            manager_ids: 管理人員 ID 列表（系統用戶 ID）
+
+        Returns:
+            是否成功
+        """
+        try:
+            db = get_db()
+            collection = db[EdgeDevice._get_collection_name()]
+
+            result = collection.update_one(
+                {'_id': device_id},
+                {
+                    '$set': {
+                        'manager_ids': manager_ids,
+                        'updated_at': datetime.now(timezone.utc)
+                    }
+                }
+            )
+
+            if result.modified_count > 0:
+                logger.info(f"邊緣設備管理人員已更新: {device_id}, managers={manager_ids}")
+                return True
+            return False
+
+        except Exception as e:
+            logger.error(f"更新邊緣設備管理人員失敗 ({device_id}): {e}")
+            return False
+
+    @staticmethod
     def increment_recording_stats(device_id: str, success: bool = True) -> Dict[str, Any]:
         """
         增加錄音統計，並檢查是否達到排程上限
@@ -1037,6 +1177,9 @@ class EdgeDevice:
             connection_info=data.get('connection_info', {}),
             statistics=data.get('statistics', {}),
             assigned_router_ids=data.get('assigned_router_ids', []),
+            photo_path=data.get('photo_path'),
+            location=data.get('location', {}),
+            manager_ids=data.get('manager_ids', []),
             created_at=data.get('created_at'),
             updated_at=data.get('updated_at')
         )

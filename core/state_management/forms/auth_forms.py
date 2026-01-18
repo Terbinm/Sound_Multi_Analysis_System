@@ -3,8 +3,11 @@
 """
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField, SelectField
-from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError
+from wtforms.validators import DataRequired, Length, EqualTo, ValidationError, Regexp
 from models.user import User
+
+# Email 正則表達式驗證器（避免需要安裝 email_validator 套件）
+EMAIL_REGEX = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
 
 class LoginForm(FlaskForm):
@@ -25,7 +28,7 @@ class UserCreateForm(FlaskForm):
                                     Length(min=3, max=50, message='使用者名稱長度應在3-50個字元之間')])
     email = StringField('電子郵件',
                        validators=[DataRequired(message='請輸入電子郵件'),
-                                 Email(message='請輸入有效的電子郵件位址')])
+                                 Regexp(EMAIL_REGEX, message='請輸入有效的電子郵件位址')])
     password = PasswordField('密碼',
                             validators=[DataRequired(message='請輸入密碼'),
                                       Length(min=6, message='密碼長度至少為6個字元')])
@@ -52,7 +55,7 @@ class UserEditForm(FlaskForm):
     """編輯使用者表單（管理員使用）"""
     email = StringField('電子郵件',
                        validators=[DataRequired(message='請輸入電子郵件'),
-                                 Email(message='請輸入有效的電子郵件位址')])
+                                 Regexp(EMAIL_REGEX, message='請輸入有效的電子郵件位址')])
     role = SelectField('角色',
                       choices=[('user', '一般使用者'), ('admin', '管理員')],
                       validators=[DataRequired(message='請選擇角色')])

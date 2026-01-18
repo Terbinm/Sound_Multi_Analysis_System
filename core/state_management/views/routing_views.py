@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @views_bp.route('/routing')
-@login_required
+@admin_required
 def routing_list():
     """
     路由規則列表頁面
@@ -164,7 +164,7 @@ def routing_edit(rule_id):
 
 
 @views_bp.route('/routing/<rule_id>/view')
-@login_required
+@admin_required
 def routing_view(rule_id):
     """
     查看路由規則詳情
@@ -231,7 +231,7 @@ def routing_toggle(rule_id):
 
 
 @views_bp.route('/routing/test', methods=['POST'])
-@login_required
+@admin_required
 def routing_test():
     """
     測試路由規則匹配
@@ -269,7 +269,7 @@ def routing_test():
 
 
 @views_bp.route('/routing/<router_id>/monitor')
-@login_required
+@admin_required
 def routing_monitor(router_id):
     """
     監控 routerID 的執行狀態

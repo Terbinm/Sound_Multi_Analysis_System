@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}404 - 頁面不存在{% endblock %}
+{% block page_title %}頁面不存在{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center">
+    <div class="tech-card max-w-lg w-full mx-4 overflow-hidden">
+        <div class="p-8 text-center">
+            <!-- 錯誤圖示 -->
+            <div class="relative inline-flex items-center justify-center w-24 h-24 mb-6">
+                <div class="absolute inset-0 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 opacity-20 animate-pulse"></div>
+                <div class="relative w-20 h-20 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
+                    <i class="fas fa-search text-white text-3xl"></i>
+                </div>
+            </div>
+
+            <!-- 錯誤代碼 -->
+            <h1 class="text-6xl font-bold bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent mb-4">
+                404
+            </h1>
+
+            <!-- 錯誤訊息 -->
+            <h2 class="text-xl font-semibold text-gray-900 mb-2">頁面不存在</h2>
+            <p class="text-gray-500 mb-8">
+                抱歉，您要找的頁面不存在或已被移除。<br>
+                請檢查網址是否正確。
+            </p>
+
+            <!-- 操作按鈕 -->
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a href="{{ url_for('views.dashboard') }}"
+                   class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-600 hover:to-purple-700 transition-all shadow-md hover:shadow-lg">
+                    <i class="fas fa-home mr-2"></i>
+                    返回儀表板
+                </a>
+                <button onclick="history.back()"
+                        class="inline-flex items-center px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-all">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    返回上一頁
+                </button>
+            </div>
+        </div>
+
+        <!-- 底部提示 -->
+        <div class="px-8 py-4 bg-gray-50 border-t border-gray-100">
+            <p class="text-xs text-gray-500 text-center">
+                <i class="fas fa-lightbulb mr-1"></i>
+                您也可以使用側邊欄導覽到其他頁面
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

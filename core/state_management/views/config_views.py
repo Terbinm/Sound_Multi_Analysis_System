@@ -94,7 +94,7 @@ def _collect_capabilities():
 
 
 @views_bp.route('/configs')
-@login_required
+@admin_required
 def configs_list():
     """
     設定列表頁面
@@ -262,7 +262,7 @@ def config_edit(config_id):
 
 
 @views_bp.route('/configs/<config_id>/view')
-@login_required
+@admin_required
 def config_view(config_id):
     """
     查看設定詳情

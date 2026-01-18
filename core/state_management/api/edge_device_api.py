@@ -1284,3 +1284,483 @@ def upload_recording():
             'success': False,
             'error': f'上傳失敗: {str(e)}'
         }), 500
+
+
+# ==================== 設備照片管理 API ====================
+
+# 支援的圖片檔案格式
+ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+
+# 設備照片存儲路徑（相對於 uploads 目錄）
+DEVICE_PHOTO_DIR = 'device_photos'
+
+
+@edge_device_bp.route('/<device_id>/photo', methods=['GET'])
+def get_device_photo(device_id):
+    """
+    取得設備照片
+
+    Returns:
+        成功: 圖片檔案
+        失敗 (404): 找不到照片或設備
+    """
+    try:
+        import os
+        from flask import send_file
+
+        # 1. 驗證設備是否存在
+        device = EdgeDevice.get_by_id(device_id)
+        if not device:
+            return jsonify({
+                'success': False,
+                'error': '設備不存在'
+            }), 404
+
+        # 2. 檢查是否有照片
+        photo_path = device.get('photo_path')
+        if not photo_path:
+            return jsonify({
+                'success': False,
+                'error': '設備尚未上傳照片'
+            }), 404
+
+        # 3. 取得檔案路徑
+        config = get_config()
+        upload_base_dir = getattr(config, 'UPLOAD_FOLDER', 'uploads')
+        full_path = os.path.join(upload_base_dir, photo_path)
+
+        if not os.path.exists(full_path):
+            return jsonify({
+                'success': False,
+                'error': '照片檔案不存在'
+            }), 404
+
+        # 4. 回傳檔案
+        return send_file(full_path, mimetype='image/jpeg')
+
+    except Exception as e:
+        logger.error(f"取得設備照片失敗 ({device_id}): {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@edge_device_bp.route('/<device_id>/photo', methods=['POST'])
+def upload_device_photo(device_id):
+    """
+    上傳設備照片
+
+    Request (multipart/form-data):
+        photo: 圖片檔案（JPG, PNG, GIF, WebP）
+
+    Returns:
+        成功 (200): { "success": true, "photo_url": "照片 URL" }
+        失敗 (400/404/500): { "success": false, "error": "錯誤訊息" }
+    """
+    try:
+        import os
+
+        # 1. 驗證檔案
+        if 'photo' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': '缺少圖片檔案'
+            }), 400
+
+        file = request.files['photo']
+
+        if file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': '未選擇檔案'
+            }), 400
+
+        # 檢查檔案格式
+        if '.' in file.filename:
+            ext = '.' + file.filename.rsplit('.', 1)[1].lower()
+            if ext not in ALLOWED_IMAGE_EXTENSIONS:
+                return jsonify({
+                    'success': False,
+                    'error': f'不支援的圖片格式。允許的格式: {", ".join(ALLOWED_IMAGE_EXTENSIONS)}'
+                }), 400
+        else:
+            return jsonify({
+                'success': False,
+                'error': '檔案缺少副檔名'
+            }), 400
+
+        # 2. 驗證設備是否存在
+        device = EdgeDevice.get_by_id(device_id)
+        if not device:
+            return jsonify({
+                'success': False,
+                'error': '設備不存在'
+            }), 404
+
+        # 3. 建立存儲目錄
+        config = get_config()
+        upload_base_dir = getattr(config, 'UPLOAD_FOLDER', 'uploads')
+        photo_dir = os.path.join(upload_base_dir, DEVICE_PHOTO_DIR)
+        os.makedirs(photo_dir, exist_ok=True)
+
+        # 4. 刪除舊照片（如果存在）
+        old_photo_path = device.get('photo_path')
+        if old_photo_path:
+            old_full_path = os.path.join(upload_base_dir, old_photo_path)
+            if os.path.exists(old_full_path):
+                try:
+                    os.remove(old_full_path)
+                    logger.info(f"已刪除設備 {device_id} 的舊照片: {old_photo_path}")
+                except Exception as e:
+                    logger.warning(f"刪除舊照片失敗: {e}")
+
+        # 5. 儲存新照片
+        filename = secure_filename(file.filename)
+        # 使用 device_id 作為檔名前綴，避免衝突
+        new_filename = f"{device_id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}{ext}"
+        file_path = os.path.join(photo_dir, new_filename)
+        file.save(file_path)
+
+        # 6. 更新資料庫中的照片路徑（相對路徑）
+        relative_path = os.path.join(DEVICE_PHOTO_DIR, new_filename)
+        success = EdgeDevice.update_photo_path(device_id, relative_path)
+
+        if not success:
+            # 若更新失敗，刪除已上傳的檔案
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            return jsonify({
+                'success': False,
+                'error': '更新照片路徑失敗'
+            }), 500
+
+        logger.info(f"設備 {device_id} 的照片已上傳: {relative_path}")
+
+        # 7. 推送更新事件
+        websocket_manager.broadcast('edge_device.photo_updated', {
+            'device_id': device_id,
+            'photo_path': relative_path
+        }, room='edge_devices')
+
+        return jsonify({
+            'success': True,
+            'photo_path': relative_path,
+            'message': '照片已上傳'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"上傳設備照片失敗 ({device_id}): {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@edge_device_bp.route('/<device_id>/photo', methods=['DELETE'])
+def delete_device_photo(device_id):
+    """
+    刪除設備照片
+
+    Returns:
+        成功 (200): { "success": true, "message": "照片已刪除" }
+        失敗 (404/500): { "success": false, "error": "錯誤訊息" }
+    """
+    try:
+        import os
+
+        # 1. 驗證設備是否存在
+        device = EdgeDevice.get_by_id(device_id)
+        if not device:
+            return jsonify({
+                'success': False,
+                'error': '設備不存在'
+            }), 404
+
+        # 2. 檢查是否有照片
+        photo_path = device.get('photo_path')
+        if not photo_path:
+            return jsonify({
+                'success': False,
+                'error': '設備沒有照片'
+            }), 404
+
+        # 3. 刪除檔案
+        config = get_config()
+        upload_base_dir = getattr(config, 'UPLOAD_FOLDER', 'uploads')
+        full_path = os.path.join(upload_base_dir, photo_path)
+
+        if os.path.exists(full_path):
+            os.remove(full_path)
+            logger.info(f"已刪除設備 {device_id} 的照片檔案: {photo_path}")
+
+        # 4. 更新資料庫
+        success = EdgeDevice.update_photo_path(device_id, None)
+
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': '更新照片路徑失敗'
+            }), 500
+
+        # 5. 推送更新事件
+        websocket_manager.broadcast('edge_device.photo_deleted', {
+            'device_id': device_id
+        }, room='edge_devices')
+
+        return jsonify({
+            'success': True,
+            'message': '照片已刪除'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"刪除設備照片失敗 ({device_id}): {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==================== 設備位置管理 API ====================
+
+@edge_device_bp.route('/<device_id>/location', methods=['PUT'])
+def update_device_location(device_id):
+    """
+    更新設備位置資訊
+
+    Request Body:
+        name: 位置名稱（可選）
+        building: 建築名稱（可選）
+        floor: 樓層（可選）
+        room: 房間/空間（可選）
+        description: 位置描述（可選）
+
+    Returns:
+        成功 (200): { "success": true, "data": {...}, "message": "..." }
+        失敗 (400/404/500): { "success": false, "error": "錯誤訊息" }
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': '缺少請求數據'
+            }), 400
+
+        # 1. 驗證設備是否存在
+        device = EdgeDevice.get_by_id(device_id)
+        if not device:
+            return jsonify({
+                'success': False,
+                'error': '設備不存在'
+            }), 404
+
+        # 2. 過濾有效的位置欄位
+        valid_fields = ['name', 'building', 'floor', 'room', 'description']
+        location = {k: v for k, v in data.items() if k in valid_fields}
+
+        if not location:
+            return jsonify({
+                'success': False,
+                'error': '沒有有效的位置欄位'
+            }), 400
+
+        # 3. 更新位置資訊
+        success = EdgeDevice.update_location(device_id, location)
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': '更新位置資訊失敗'
+            }), 500
+
+        # 4. 獲取更新後的設備資訊
+        updated_device = EdgeDevice.get_by_id(device_id)
+
+        # 5. 推送更新事件
+        websocket_manager.broadcast('edge_device.location_updated', {
+            'device_id': device_id,
+            'location': updated_device.get('location', {})
+        }, room='edge_devices')
+
+        return jsonify({
+            'success': True,
+            'data': updated_device.get('location', {}),
+            'message': '位置資訊已更新'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"更新設備位置失敗 ({device_id}): {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==================== 設備管理人員 API ====================
+
+@edge_device_bp.route('/<device_id>/managers', methods=['PUT'])
+def update_device_managers(device_id):
+    """
+    更新設備管理人員
+
+    Request Body:
+        manager_ids: 管理人員 ID 列表（系統用戶 ID）
+
+    Returns:
+        成功 (200): { "success": true, "data": {...}, "message": "..." }
+        失敗 (400/404/500): { "success": false, "error": "錯誤訊息" }
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': '缺少請求數據'
+            }), 400
+
+        # 1. 驗證設備是否存在
+        device = EdgeDevice.get_by_id(device_id)
+        if not device:
+            return jsonify({
+                'success': False,
+                'error': '設備不存在'
+            }), 404
+
+        manager_ids = data.get('manager_ids', [])
+
+        # 2. 驗證管理人員 ID（確保用戶存在，manager_id 是 username）
+        from models.user import User
+        valid_manager_ids = []
+        for manager_id in manager_ids:
+            user = User.find_by_username(manager_id)
+            if user:
+                valid_manager_ids.append(manager_id)
+            else:
+                logger.warning(f"用戶不存在: {manager_id}")
+
+        # 3. 更新管理人員列表
+        success = EdgeDevice.update_manager_ids(device_id, valid_manager_ids)
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': '更新管理人員失敗'
+            }), 500
+
+        # 4. 推送更新事件
+        websocket_manager.broadcast('edge_device.managers_updated', {
+            'device_id': device_id,
+            'manager_ids': valid_manager_ids
+        }, room='edge_devices')
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'manager_ids': valid_manager_ids
+            },
+            'message': '管理人員已更新'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"更新設備管理人員失敗 ({device_id}): {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@edge_device_bp.route('/<device_id>/managers', methods=['GET'])
+def get_device_managers(device_id):
+    """
+    獲取設備管理人員列表（包含用戶詳細資訊）
+
+    Returns:
+        成功 (200): { "success": true, "data": {...} }
+        失敗 (404/500): { "success": false, "error": "錯誤訊息" }
+    """
+    try:
+        # 1. 驗證設備是否存在
+        device = EdgeDevice.get_by_id(device_id)
+        if not device:
+            return jsonify({
+                'success': False,
+                'error': '設備不存在'
+            }), 404
+
+        manager_ids = device.get('manager_ids', [])
+
+        # 2. 獲取管理人員詳細資訊（manager_ids 存儲的是 username）
+        from models.user import User
+        managers = []
+        for manager_id in manager_ids:
+            user = User.find_by_username(manager_id)
+            if user:
+                managers.append({
+                    'id': user.username,
+                    'username': user.username,
+                    'email': user.email,
+                    'role': user.role
+                })
+
+        return jsonify({
+            'success': True,
+            'manager_ids': manager_ids,
+            'managers': managers
+        }), 200
+
+    except Exception as e:
+        logger.error(f"獲取設備管理人員失敗 ({device_id}): {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==================== 系統用戶列表 API（供管理人員選擇） ====================
+
+@edge_device_bp.route('/users/list', methods=['GET'])
+def get_users_list():
+    """
+    獲取系統用戶列表（供管理人員選擇使用）
+
+    Query Parameters:
+        role: 過濾角色（可選，如 admin, user）
+
+    Returns:
+        成功 (200): { "success": true, "data": [...] }
+        失敗 (500): { "success": false, "error": "錯誤訊息" }
+    """
+    try:
+        from models.user import User
+        role_filter = request.args.get('role')
+
+        # 獲取所有用戶
+        users = User.get_all()
+
+        # 若有角色過濾
+        if role_filter:
+            users = [u for u in users if u.role == role_filter]
+
+        # 轉換為簡化格式（不包含敏感資訊）
+        user_list = []
+        for user in users:
+            user_list.append({
+                'id': user.username,  # User 模型使用 username 作為 ID
+                'username': user.username,
+                'email': user.email,
+                'role': user.role
+            })
+
+        return jsonify({
+            'success': True,
+            'users': user_list,
+            'count': len(user_list)
+        }), 200
+
+    except Exception as e:
+        logger.error(f"獲取用戶列表失敗: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

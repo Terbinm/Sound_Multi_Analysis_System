@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 @views_bp.route('/nodes')
-@login_required
+@admin_required
 def nodes_list():
     """
     節點列表頁面
@@ -54,7 +54,7 @@ def nodes_list():
 
 
 @views_bp.route('/nodes/<node_id>')
-@login_required
+@admin_required
 def node_detail(node_id):
     """
     節點詳情頁面
@@ -105,7 +105,7 @@ def node_delete(node_id):
 
 
 @views_bp.route('/api/nodes/stats')
-@login_required
+@admin_required
 def nodes_stats_api():
     """
     節點統計資訊 API（供前端輪詢）
@@ -129,7 +129,7 @@ def nodes_stats_api():
 
 
 @views_bp.route('/api/nodes/list')
-@login_required
+@admin_required
 def nodes_list_api():
     """
     節點列表 API（供前端輪詢）

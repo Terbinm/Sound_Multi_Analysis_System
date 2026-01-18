@@ -50,7 +50,7 @@ def user_create():
     if form.validate_on_submit():
         try:
             # 生成密碼雜湊
-            password_hash = generate_password_hash(form.password.data).decode('utf-8')
+            password_hash = generate_password_hash(form.password.data)
 
             # 建立使用者
             user = User.create(
@@ -181,7 +181,7 @@ def user_reset_password(username):
         # 生成臨時密碼（可改為寄送郵件）
         import secrets
         temp_password = secrets.token_urlsafe(12)
-        password_hash = generate_password_hash(temp_password).decode('utf-8')
+        password_hash = generate_password_hash(temp_password)
 
         success = user.update(password_hash=password_hash)
 
@@ -219,7 +219,7 @@ def change_password():
                 return render_template('users/change_password.html', form=form)
 
             # 更新密碼
-            new_password_hash = generate_password_hash(form.new_password.data).decode('utf-8')
+            new_password_hash = generate_password_hash(form.new_password.data)
             success = current_user.update(password_hash=new_password_hash)
 
             if success:

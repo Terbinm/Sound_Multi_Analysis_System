@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 @views_bp.route('/instances')
-@login_required
+@admin_required
 def instances_list():
     """
     MongoDB instance列表頁面
@@ -146,7 +146,7 @@ def instance_edit(instance_id):
 
 
 @views_bp.route('/instances/<instance_id>/view')
-@login_required
+@admin_required
 def instance_view(instance_id):
     """
     查看 MongoDB instance詳情

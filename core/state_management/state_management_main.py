@@ -31,7 +31,7 @@ if CURRENT_DIR != Path("/app"):
     if str(PROJECT_ROOT) not in sys.path:
         sys.path.insert(0, str(PROJECT_ROOT))
 
-from flask import Flask, jsonify, redirect, url_for
+from flask import Flask, jsonify, redirect, url_for, request, render_template
 from flask_cors import CORS
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
@@ -198,13 +198,29 @@ def create_app():
         }), 200
 
     # 錯誤處理
+    @app.errorhandler(403)
+    def forbidden(error):
+        # API 請求返回 JSON
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Forbidden', 'message': '權限不足'}), 403
+        # Web 請求返回 HTML 頁面
+        return render_template('errors/403.html'), 403
+
     @app.errorhandler(404)
     def not_found(error):
-        return jsonify({'error': 'Not found'}), 404
+        # API 請求返回 JSON
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Not found'}), 404
+        # Web 請求返回 HTML 頁面
+        return render_template('errors/404.html'), 404
 
     @app.errorhandler(500)
     def internal_error(error):
         logger.error(f"Internal error: {error}")
+        # API 請求返回 JSON
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Internal server error'}), 500
+        # Web 請求返回 JSON（保持原有行為，因為 500 錯誤可能是模板問題）
         return jsonify({'error': 'Internal server error'}), 500
 
     # 啟動後台服務
