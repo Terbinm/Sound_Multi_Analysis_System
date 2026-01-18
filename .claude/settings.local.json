@@ -32,7 +32,10 @@
       "Bash(\".venv_test/Scripts/python.exe\" -m pip install flask flask-socketio)",
       "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" --tb=no -q)",
       "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/state_management/services/test_websocket_manager.py::TestWebSocketEventPushing::test_emit_device_status_event -v --tb=short)",
-      "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" -v --tb=no)"
+      "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" -v --tb=no)",
+      "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" --tb=short)",
+      "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" --tb=no -q --timeout=120)",
+      "Bash(.venv_test/Scripts/python.exe -m pytest CI_test/ -m \"unit\" --tb=short)"
     ],
     "additionalDirectories": [
       "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\debug_tools"

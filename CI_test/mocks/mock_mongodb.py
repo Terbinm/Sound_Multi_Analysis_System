@@ -249,8 +249,12 @@ class MockCollection:
                 if not self._match_operators(value, condition):
                     return False
             else:
-                # Direct equality
-                if value != condition:
+                # Direct equality or array containment
+                if isinstance(value, list):
+                    # If document field is an array, check if condition is in array
+                    if condition not in value:
+                        return False
+                elif value != condition:
                     return False
 
         return True
@@ -382,9 +386,11 @@ class MockCollection:
         return MockCursor(matched, projection)
 
     def find_one(self, filter: Optional[Dict] = None, projection: Optional[Dict] = None,
-                 *args, **kwargs) -> Optional[Dict[str, Any]]:
+                 sort: Optional[List] = None, *args, **kwargs) -> Optional[Dict[str, Any]]:
         """Find one document matching filter"""
         cursor = self.find(filter, projection)
+        if sort:
+            cursor.sort(sort)
         for doc in cursor:
             return doc
         return None

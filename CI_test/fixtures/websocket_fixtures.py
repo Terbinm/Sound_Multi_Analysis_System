@@ -96,7 +96,9 @@ class MockSocketIOServer:
         """Trigger an event handler (for testing)"""
         key = f"{namespace}:{event}"
         if key in self._handlers:
-            return self._handlers[key](sid, *args)
+            # Call handler with just the args, not the sid
+            # Flask-SocketIO handlers typically receive data, not sid
+            return self._handlers[key](*args)
         return None
 
     def start(self) -> None:

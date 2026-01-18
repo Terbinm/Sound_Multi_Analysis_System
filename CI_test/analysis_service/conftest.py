@@ -16,6 +16,132 @@ ANALYSIS_SERVICE_PATH = os.path.join(PROJECT_ROOT, 'sub_system', 'analysis_servi
 sys.path.insert(0, PROJECT_ROOT)
 sys.path.insert(0, ANALYSIS_SERVICE_PATH)
 
+# Import mock classes
+from CI_test.mocks.mock_mongodb import MockDatabase
+
+
+@pytest.fixture
+def mock_get_db(mock_database):
+    """
+    Mock the get_db() function for analysis service
+
+    Provides a mock database for testing
+    """
+    yield mock_database
+
+
+@pytest.fixture
+def mock_gridfs_handler():
+    """
+    Mock GridFS handler for file operations
+    """
+    handler = MagicMock()
+    handler._files = {}
+
+    class MockGridFSFile:
+        def __init__(self, data, file_id, filename, metadata=None):
+            self._data = data
+            self._id = file_id
+            self.filename = filename
+            self.metadata = metadata.get('metadata', {}) if metadata else {}
+            self.length = len(data)
+            self.upload_date = datetime.now(timezone.utc)
+            self._position = 0
+
+        def read(self, size=-1):
+            if self._position >= len(self._data):
+                return b''
+            if size == -1:
+                result = self._data[self._position:]
+                self._position = len(self._data)
+            else:
+                result = self._data[self._position:self._position + size]
+                self._position += size
+            return result
+
+        def seek(self, position):
+            self._position = position
+
+        def tell(self):
+            return self._position
+
+    def put(data: bytes, filename: str = None, **kwargs):
+        file_id = f"file-{len(handler._files) + 1}"
+        handler._files[file_id] = {
+            'data': data,
+            'filename': filename,
+            'metadata': kwargs.get('metadata', {}),
+            'upload_date': datetime.now(timezone.utc)
+        }
+        return file_id
+
+    def get(file_id: str):
+        if file_id in handler._files:
+            file_data = handler._files[file_id]
+            return MockGridFSFile(
+                file_data['data'],
+                file_id,
+                file_data['filename'],
+                {'metadata': file_data.get('metadata', {})}
+            )
+        return None
+
+    def delete(file_id: str):
+        if file_id in handler._files:
+            del handler._files[file_id]
+            return True
+        return False
+
+    def exists(file_id: str = None, filename: str = None):
+        if file_id:
+            return file_id in handler._files
+        if filename:
+            for fdata in handler._files.values():
+                if fdata['filename'] == filename:
+                    return True
+            return False
+        return False
+
+    def list_files():
+        return list(handler._files.keys())
+
+    def find(query: dict = None):
+        results = []
+        for fid, fdata in handler._files.items():
+            if query is None:
+                results.append(get(fid))
+            else:
+                match = True
+                for key, value in query.items():
+                    if key == 'filename' and fdata.get('filename') != value:
+                        match = False
+                        break
+                    elif key == 'metadata':
+                        for mk, mv in value.items():
+                            if fdata.get('metadata', {}).get(mk) != mv:
+                                match = False
+                                break
+                if match:
+                    results.append(get(fid))
+        return iter(results)
+
+    def find_one(query: dict):
+        filename = query.get('filename')
+        for fid, fdata in handler._files.items():
+            if fdata['filename'] == filename:
+                return get(fid)
+        return None
+
+    handler.put = put
+    handler.get = get
+    handler.delete = delete
+    handler.exists = exists
+    handler.list = list_files
+    handler.find = find
+    handler.find_one = find_one
+
+    return handler
+
 
 @pytest.fixture
 def mock_analysis_pipeline():

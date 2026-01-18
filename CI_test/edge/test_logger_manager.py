@@ -146,21 +146,23 @@ class TestLoggerConfiguration:
     @pytest.mark.unit
     def test_log_directory_resolution(self):
         """Test log directory path resolution"""
+        import posixpath  # Use POSIX path for consistent behavior
+
         base_dir = '/app/edge_client'
         relative_log_dir = 'logs'
         absolute_log_dir = '/var/log/edge_client'
 
-        # Relative path
-        if not os.path.isabs(relative_log_dir):
-            resolved = os.path.join(base_dir, relative_log_dir)
+        # Relative path - use posixpath for cross-platform consistency
+        if not posixpath.isabs(relative_log_dir):
+            resolved = posixpath.join(base_dir, relative_log_dir)
         else:
             resolved = relative_log_dir
 
         assert resolved == '/app/edge_client/logs'
 
         # Absolute path
-        if not os.path.isabs(absolute_log_dir):
-            resolved = os.path.join(base_dir, absolute_log_dir)
+        if not posixpath.isabs(absolute_log_dir):
+            resolved = posixpath.join(base_dir, absolute_log_dir)
         else:
             resolved = absolute_log_dir
 
@@ -353,7 +355,8 @@ class TestLogsInfo:
 
         total_size_mb = round(total_bytes / 1024 / 1024, 2)
 
-        assert total_size_mb == 150.18
+        # 157483920 / 1024 / 1024 = 150.18519... rounds to 150.19
+        assert total_size_mb == 150.19
 
 
 class TestSetupLogging:
