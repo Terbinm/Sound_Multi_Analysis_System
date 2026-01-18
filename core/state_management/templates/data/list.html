@@ -47,10 +47,10 @@
                 <select name="status" class="tech-input">
                     {% set status = filters.get('status','') %}
                     <option value="" {% if not status %}selected{% endif %}>全部</option>
-                    <option value="pending" {% if status=='pending' %}selected{% endif %}>pending</option>
-                    <option value="processing" {% if status=='processing' %}selected{% endif %}>processing</option>
-                    <option value="completed" {% if status=='completed' %}selected{% endif %}>completed</option>
-                    <option value="failed" {% if status=='failed' %}selected{% endif %}>failed</option>
+                    <option value="pending" {% if status=='pending' %}selected{% endif %}>等待中</option>
+                    <option value="processing" {% if status=='processing' %}selected{% endif %}>處理中</option>
+                    <option value="completed" {% if status=='completed' %}selected{% endif %}>已完成</option>
+                    <option value="failed" {% if status=='failed' %}selected{% endif %}>失敗</option>
                 </select>
             </div>
             <div>

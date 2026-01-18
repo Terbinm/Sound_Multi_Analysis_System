@@ -48,13 +48,13 @@
 
                 <div class="step-connector" :class="{ 'completed': currentStep > 2 }" x-show="formData.backfill_enabled"></div>
 
-                {# 步驟 3 #}
+                {# 步驟 3 (或步驟 2 若無追溯) #}
                 <div class="flex flex-col items-center">
                     <div class="step-indicator" :class="{
                         'active': currentStep === 3,
                         'completed': currentStep > 3
                     }">
-                        <span x-show="currentStep <= 3">3</span>
+                        <span x-show="currentStep <= 3" x-text="formData.backfill_enabled ? '3' : '2'"></span>
                         <i class="fas fa-check" x-show="currentStep > 3"></i>
                     </div>
                     <span class="text-sm mt-2 font-medium" :class="currentStep === 3 ? 'text-blue-600' : 'text-gray-600'">

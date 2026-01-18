@@ -91,10 +91,37 @@ def edge_device_detail(device_id: str):
             {'info_features.device_id': device_id}
         )
 
+        # 計算分析完成和失敗的錄音數量
+        # 分析完成：有 analyze_features.latest_analysis_id
+        # 分析失敗：有 error_message 欄位
+        pipeline = [
+            {'$match': {'info_features.device_id': device_id}},
+            {'$project': {
+                'has_analysis': {'$cond': [
+                    {'$ifNull': ['$analyze_features.latest_analysis_id', False]},
+                    True, False
+                ]},
+                'has_error': {'$cond': [
+                    {'$ifNull': ['$error_message', False]},
+                    True, False
+                ]}
+            }},
+            {'$group': {
+                '_id': None,
+                'analyzed_count': {'$sum': {'$cond': ['$has_analysis', 1, 0]}},
+                'error_count': {'$sum': {'$cond': ['$has_error', 1, 0]}}
+            }}
+        ]
+        stats_result = list(recordings_collection.aggregate(pipeline))
+        analyzed_count = stats_result[0]['analyzed_count'] if stats_result else 0
+        error_count = stats_result[0]['error_count'] if stats_result else 0
+
         # 取得設備統計（複製一份以避免修改原始數據）
         device_stats = dict(device.get('statistics', {}))
-        # 使用實際查詢的錄音數量
+        # 使用實際查詢的數據覆蓋
         device_stats['total_recordings'] = actual_recording_count
+        device_stats['success_count'] = analyzed_count  # 已完成分析的數量
+        device_stats['error_count'] = error_count  # 分析失敗的數量
 
         # 取得所有可用的路由規則
         available_routers = RoutingRule.get_all(enabled_only=True)

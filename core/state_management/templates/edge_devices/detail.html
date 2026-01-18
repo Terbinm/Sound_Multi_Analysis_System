@@ -61,11 +61,11 @@
                     <div class="font-semibold text-gray-900">{{ device_stats.total_recordings or 0 }}</div>
                 </div>
                 <div class="p-4 rounded-lg bg-gray-50">
-                    <div class="text-xs text-gray-500 mb-1">成功次數</div>
+                    <div class="text-xs text-gray-500 mb-1">已分析</div>
                     <div class="font-semibold text-green-600">{{ device_stats.success_count or 0 }}</div>
                 </div>
                 <div class="p-4 rounded-lg bg-gray-50">
-                    <div class="text-xs text-gray-500 mb-1">錯誤次數</div>
+                    <div class="text-xs text-gray-500 mb-1">失敗</div>
                     <div class="font-semibold text-red-600">{{ device_stats.error_count or 0 }}</div>
                 </div>
             </div>
@@ -550,7 +550,7 @@
                     <div>
                         <span class="font-medium text-gray-900">同時刪除該設備的所有錄音資料</span>
                         <p class="text-xs text-gray-500 mt-1">
-                            共 <span class="font-semibold text-red-600">{{ device_stats.total_recordings or 0 }}</span> 筆錄音，包含音訊檔案與分析記錄
+                            共 <span class="font-semibold text-red-600">{{ device_stats.get('total_recordings', 0)|default(0, true) }}</span> 筆錄音，包含音訊檔案與分析記錄
                         </p>
                     </div>
                 </label>
@@ -1012,6 +1012,13 @@ function confirmDeleteDevice() {
 
 // ==================== 設備資訊編輯 ====================
 function openDeviceInfoModal() {
+    // 從頁面顯示的名稱同步到輸入框
+    const displayElement = document.getElementById('device-name-display');
+    const editInput = document.getElementById('edit-device-name');
+    if (displayElement && editInput) {
+        const currentName = displayElement.textContent.trim();
+        editInput.value = (currentName !== '未命名設備') ? currentName : '';
+    }
     document.getElementById('device-info-modal').classList.remove('hidden');
     document.getElementById('device-info-modal').classList.add('flex');
 }

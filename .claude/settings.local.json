@@ -22,7 +22,17 @@
       "Bash(powershell -Command \"Invoke-WebRequest -Uri ''http://localhost:55103/'' -UseBasicParsing -TimeoutSec 5 | Select-Object -ExpandProperty StatusCode\")",
       "Bash(ls:*)",
       "Skill(superpowers:systematic-debugging)",
-      "Bash(.venv\\\\Scripts\\\\python.exe:*)"
+      "Bash(.venv\\\\Scripts\\\\python.exe:*)",
+      "Bash(.venv_testScriptspip install --upgrade pip)",
+      "Bash(\".venv_test/Scripts/pip.exe\" install --upgrade pip)",
+      "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" -v --tb=short)",
+      "Bash(\".venv_test/Scripts/python.exe\" -m pip install pymongo)",
+      "Bash(\".venv_test/Scripts/python.exe\" -m pip install numpy)",
+      "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" -v --tb=line)",
+      "Bash(\".venv_test/Scripts/python.exe\" -m pip install flask flask-socketio)",
+      "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" --tb=no -q)",
+      "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/state_management/services/test_websocket_manager.py::TestWebSocketEventPushing::test_emit_device_status_event -v --tb=short)",
+      "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" -v --tb=no)"
     ],
     "additionalDirectories": [
       "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\debug_tools"

@@ -1,0 +1,279 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  lint:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install linting dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort
+
+      - name: Check code formatting with Black
+        run: |
+          black --check --diff core/ sub_system/ CI_test/ --exclude '/migrations/'
+
+      - name: Check import sorting with isort
+        run: |
+          isort --check-only --diff core/ sub_system/ CI_test/
+
+      - name: Lint with flake8
+        run: |
+          flake8 core/ sub_system/ CI_test/ \
+            --max-line-length=120 \
+            --extend-ignore=E203,W503 \
+            --exclude=migrations,__pycache__,.git
+
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r CI_test/requirements-test.txt
+          pip install -r core/state_management/requirements.txt || true
+          pip install -r sub_system/analysis_service/requirements.txt || true
+
+      - name: Run State Management Unit Tests
+        run: |
+          pytest CI_test/state_management/ \
+            -m "unit" \
+            -v \
+            --tb=short \
+            --junitxml=reports/state-management-unit.xml \
+            --cov=core/state_management \
+            --cov-report=xml:reports/coverage-state-management.xml
+        continue-on-error: true
+
+      - name: Run Analysis Service Unit Tests
+        run: |
+          pytest CI_test/analysis_service/ \
+            -m "unit" \
+            -v \
+            --tb=short \
+            --junitxml=reports/analysis-service-unit.xml \
+            --cov=sub_system/analysis_service \
+            --cov-report=xml:reports/coverage-analysis-service.xml
+        continue-on-error: true
+
+      - name: Run Edge Client Unit Tests
+        run: |
+          pytest CI_test/edge/ \
+            -m "unit" \
+            -v \
+            --tb=short \
+            --junitxml=reports/edge-client-unit.xml \
+            --cov=sub_system/edge_client \
+            --cov-report=xml:reports/coverage-edge-client.xml
+        continue-on-error: true
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports-unit
+          path: reports/
+          retention-days: 7
+
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: test-unit
+    services:
+      mongodb:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ping:1})'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      rabbitmq:
+        image: rabbitmq:3.12-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd="rabbitmq-diagnostics -q ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r CI_test/requirements-test.txt
+          pip install -r core/state_management/requirements.txt || true
+          pip install -r sub_system/analysis_service/requirements.txt || true
+
+      - name: Wait for services
+        run: |
+          sleep 10
+
+      - name: Run Integration Tests
+        env:
+          MONGODB_URI: mongodb://localhost:27017
+          MONGODB_DB_NAME: test_integration_db
+          RABBITMQ_HOST: localhost
+          RABBITMQ_PORT: 5672
+          RABBITMQ_USER: guest
+          RABBITMQ_PASS: guest
+        run: |
+          pytest CI_test/integration/ \
+            -m "integration" \
+            -v \
+            --tb=short \
+            --junitxml=reports/integration.xml
+        continue-on-error: true
+
+      - name: Upload integration test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports-integration
+          path: reports/
+          retention-days: 7
+
+  test-edge-windows:
+    name: Edge Client Windows Tests
+    runs-on: windows-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r CI_test/requirements-test.txt
+
+      - name: Run Edge Client Tests on Windows
+        run: |
+          pytest CI_test/edge/ -m "unit" -v --tb=short
+        continue-on-error: true
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install bandit
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit
+
+      - name: Run security scan
+        run: |
+          bandit -r core/ sub_system/ \
+            -ll \
+            -f json \
+            -o reports/bandit-report.json \
+            --exclude '*/tests/*,*/test_*,*/__pycache__/*'
+        continue-on-error: true
+
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-report
+          path: reports/bandit-report.json
+          retention-days: 7
+
+  coverage-report:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    needs: [test-unit, test-integration]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download unit test reports
+        uses: actions/download-artifact@v4
+        with:
+          name: test-reports-unit
+          path: reports/
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install coverage tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install coverage
+
+      - name: Generate coverage summary
+        run: |
+          echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Coverage reports have been generated for:" >> $GITHUB_STEP_SUMMARY
+          echo "- State Management" >> $GITHUB_STEP_SUMMARY
+          echo "- Analysis Service" >> $GITHUB_STEP_SUMMARY
+          echo "- Edge Client" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Download the artifacts for detailed coverage information." >> $GITHUB_STEP_SUMMARY
+

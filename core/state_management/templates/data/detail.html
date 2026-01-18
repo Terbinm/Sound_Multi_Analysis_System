@@ -121,11 +121,17 @@
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-500">取樣率</span>
-                    <span class="text-gray-800 font-medium">{{ record.get('info_features', {}).get('sample_rate') or '-' }} Hz</span>
+                    <span class="text-gray-800 font-medium">
+                        {% set sr = record.get('info_features', {}).get('sample_rate') %}
+                        {% if sr %}{{ sr }} Hz{% else %}N/A{% endif %}
+                    </span>
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-500">聲道數</span>
-                    <span class="text-gray-800 font-medium">{{ record.get('info_features', {}).get('channels') or '-' }}</span>
+                    <span class="text-gray-800 font-medium">
+                        {% set ch = record.get('info_features', {}).get('channels') %}
+                        {% if ch %}{{ ch }}{% else %}N/A{% endif %}
+                    </span>
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-500">檔案大小</span>
