@@ -1,7 +1,8 @@
 # utils/mongodb_handler.py - MongoDB 操作工具（加入 Step 0 支援）
 
+import time
 from pymongo import MongoClient, ASCENDING
-from pymongo.errors import PyMongoError
+from pymongo.errors import PyMongoError, ConnectionFailure, ServerSelectionTimeoutError, OperationFailure
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -43,26 +44,60 @@ class MongoDBHandler:
         self._connect()
 
     def _connect(self):
-        """建立 MongoDB 連接"""
-        try:
-            connection_string = (
-                f"mongodb://{self.config['username']}:{self.config['password']}"
-                f"@{self.config['host']}:{self.config['port']}/admin"
-            )
-            self.mongo_client = MongoClient(connection_string)
-            self.db = self.mongo_client[self.config['database']]
-            self.collection = self.db[self.config['collection']]
+        """建立 MongoDB 連接（含無限重試機制）"""
+        retry_delay = 5  # 初始重試延遲（秒）
+        max_retry_delay = 60  # 最大重試延遲（秒）
+        attempt = 0
 
-            # 測試連接
-            self.mongo_client.admin.command('ping')
-            logger.info("✓ MongoDB 連接成功")
+        while True:
+            attempt += 1
+            try:
+                connection_string = (
+                    f"mongodb://{self.config['username']}:{self.config['password']}"
+                    f"@{self.config['host']}:{self.config['port']}/admin"
+                )
 
-            # 建立索引
-            self._create_indexes()
+                # 設置較短的 serverSelectionTimeoutMS 以加快失敗檢測
+                self.mongo_client = MongoClient(
+                    connection_string,
+                    serverSelectionTimeoutMS=5000,  # 5 秒
+                    connectTimeoutMS=10000,  # 10 秒
+                    socketTimeoutMS=20000  # 20 秒
+                )
+                self.db = self.mongo_client[self.config['database']]
+                self.collection = self.db[self.config['collection']]
 
-        except Exception as e:
-            logger.error(f"✗ MongoDB 連接失敗: {e}")
-            raise
+                # 測試連接
+                self.mongo_client.admin.command('ping')
+                logger.info("✓ MongoDB 連接成功")
+
+                # 建立索引
+                self._create_indexes()
+                return  # 連接成功，退出迴圈
+
+            except OperationFailure as e:
+                # 認證錯誤，不重試
+                logger.error(f"✗ MongoDB 認證失敗: {e}")
+                raise
+
+            except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+                # 連接錯誤，重試
+                logger.warning(
+                    f"✗ MongoDB 連接失敗 (嘗試 {attempt}): {e}. "
+                    f"等待 {retry_delay} 秒後重試..."
+                )
+                time.sleep(retry_delay)
+                # 指數退避
+                retry_delay = min(retry_delay * 2, max_retry_delay)
+
+            except Exception as e:
+                # 其他錯誤，重試
+                logger.warning(
+                    f"✗ MongoDB 連接發生未預期錯誤 (嘗試 {attempt}): {e}. "
+                    f"等待 {retry_delay} 秒後重試..."
+                )
+                time.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, max_retry_delay)
 
     def _create_indexes(self):
         """建立資料庫索引"""

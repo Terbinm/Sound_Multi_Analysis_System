@@ -31,46 +31,87 @@ class RabbitMQConsumer:
         self.running = False
         self._lock = Lock()
 
-    def connect(self):
-        """建立連接"""
-        try:
-            # 連接參數
-            credentials = pika.PlainCredentials(
-                self.config['username'],
-                self.config['password']
-            )
+    def connect(self, max_retries: int = None, retry_delay: int = None):
+        """
+        建立連接（含重試機制）
 
-            parameters = pika.ConnectionParameters(
-                host=self.config['host'],
-                port=self.config['port'],
-                virtual_host=self.config.get('virtual_host', '/'),
-                credentials=credentials,
-                heartbeat=600,
-                blocked_connection_timeout=300
-            )
+        Args:
+            max_retries: 最大重試次數，預設從配置讀取
+            retry_delay: 重試延遲（秒），預設從配置讀取
 
-            # 建立連接
-            self._connection = pika.BlockingConnection(parameters)
-            self._channel = self._connection.channel()
+        Returns:
+            bool: 連接是否成功
+        """
+        max_retries = max_retries or self.config.get('max_connect_retries', 10)
+        retry_delay = retry_delay or self.config.get('connect_retry_delay', 5)
+        max_retry_delay = self.config.get('max_retry_delay', 60)
 
-            # 確保 exchange / queue 存在
-            self._setup_infrastructure()
+        for attempt in range(max_retries):
+            try:
+                # 連接參數
+                credentials = pika.PlainCredentials(
+                    self.config['username'],
+                    self.config['password']
+                )
 
-            # 設置 QoS (每次只處理一個任務)
-            self._channel.basic_qos(
-                prefetch_count=self.config.get('prefetch_count', 1)
-            )
+                parameters = pika.ConnectionParameters(
+                    host=self.config['host'],
+                    port=self.config['port'],
+                    virtual_host=self.config.get('virtual_host', '/'),
+                    credentials=credentials,
+                    heartbeat=self.config.get('heartbeat', 60),
+                    blocked_connection_timeout=self.config.get('blocked_connection_timeout', 300),
+                    connection_attempts=3,
+                    retry_delay=2,
+                    socket_timeout=self.config.get('connection_timeout', 10)
+                )
 
-            logger.info(f"RabbitMQ 連接成功: {self.config['host']}")
-            return True
+                # 建立連接
+                self._connection = pika.BlockingConnection(parameters)
+                self._channel = self._connection.channel()
 
-        except Exception as e:
-            logger.error(
-                f"RabbitMQ 連接失敗: {e} "
-                f"(host={self.config['host']}, port={self.config['port']}, user={self.config['username']})",
-                exc_info=True
-            )
-            return False
+                # 確保 exchange / queue 存在
+                self._setup_infrastructure()
+
+                # 設置 QoS (每次只處理一個任務)
+                self._channel.basic_qos(
+                    prefetch_count=self.config.get('prefetch_count', 1)
+                )
+
+                logger.info(f"RabbitMQ 連接成功: {self.config['host']}:{self.config['port']}")
+                return True
+
+            except pika.exceptions.AMQPConnectionError as e:
+                # 連接錯誤，可重試
+                if attempt < max_retries - 1:
+                    current_delay = min(retry_delay * (2 ** attempt), max_retry_delay)
+                    logger.warning(
+                        f"RabbitMQ 連接失敗 (嘗試 {attempt + 1}/{max_retries}): {e}. "
+                        f"等待 {current_delay} 秒後重試..."
+                    )
+                    time.sleep(current_delay)
+                else:
+                    logger.error(f"RabbitMQ 連接失敗，已達最大重試次數: {e}")
+                    return False
+
+            except pika.exceptions.AuthenticationError as e:
+                # 認證錯誤，不重試
+                logger.error(f"RabbitMQ 認證失敗: {e}")
+                return False
+
+            except Exception as e:
+                logger.error(
+                    f"RabbitMQ 連接發生未預期錯誤 (嘗試 {attempt + 1}/{max_retries}): {e}",
+                    exc_info=True
+                )
+                if attempt < max_retries - 1:
+                    current_delay = min(retry_delay * (2 ** attempt), max_retry_delay)
+                    logger.info(f"等待 {current_delay} 秒後重試...")
+                    time.sleep(current_delay)
+                else:
+                    return False
+
+        return False
 
     def _setup_infrastructure(self):
         """確保 exchange、queue、綁定存在"""
@@ -242,8 +283,8 @@ class RetryableConsumer:
     def start(self):
         """啟動消費者（支持自動重連）"""
         self.running = True
-        retry_delay = 5
-        max_retry_delay = 60
+        retry_delay = self.config.get('connect_retry_delay', 5)
+        max_retry_delay = self.config.get('max_retry_delay', 60)
 
         while self.running:
             try:
@@ -252,8 +293,14 @@ class RetryableConsumer:
                 # 創建消費者
                 self.consumer = RabbitMQConsumer(self.config, self.callback)
 
-                # 開始消費
-                self.consumer.start_consuming()
+                # 嘗試連接（connect() 已包含重試機制）
+                if self.consumer.connect():
+                    # 連接成功後重置重試延遲
+                    retry_delay = self.config.get('connect_retry_delay', 5)
+                    # 開始消費
+                    self.consumer.start_consuming()
+                else:
+                    raise Exception("無法建立 RabbitMQ 連接")
 
                 # 如果正常退出，跳出循環
                 if not self.running:

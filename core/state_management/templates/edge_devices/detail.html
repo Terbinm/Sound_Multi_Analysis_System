@@ -17,78 +17,149 @@
     <!-- 主要資訊 -->
     <div class="lg:col-span-2 tech-card overflow-hidden">
         <div class="p-6">
-            <div class="flex items-start justify-between mb-6">
-                <div class="flex items-center gap-4">
-                    <!-- 設備照片/圖示 -->
+            <!-- 主要內容區域 - 左右分欄佈局 -->
+            <div class="flex flex-col lg:flex-row gap-6">
+                <!-- 左側：設備照片區塊 (放大版) -->
+                <div class="flex-shrink-0">
                     <div class="relative group">
                         {% if device.photo_path %}
-                        <div class="h-20 w-20 rounded-xl overflow-hidden shadow-lg relative">
+                        <div class="h-40 w-40 lg:h-48 lg:w-48 rounded-2xl overflow-hidden shadow-lg relative">
                             <img id="device-photo" src="{{ url_for('edge_device_api.get_device_photo', device_id=device.device_id) }}"
                                  alt="設備照片" class="h-full w-full object-cover">
-                            <span id="status-indicator" class="absolute -top-1 -right-1 h-5 w-5 rounded-full border-2 border-white shadow-sm
+                            <span id="status-indicator" class="absolute -top-1 -right-1 h-6 w-6 rounded-full border-2 border-white shadow-sm
                                 {% if device.status == 'IDLE' %}bg-green-500{% elif device.status == 'RECORDING' %}bg-red-500 animate-pulse{% else %}bg-gray-400{% endif %}">
                             </span>
                         </div>
                         {% else %}
-                        <div class="h-20 w-20 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg relative">
-                            <i class="fas fa-satellite-dish text-white text-2xl"></i>
-                            <span id="status-indicator" class="absolute -top-1 -right-1 h-5 w-5 rounded-full border-2 border-white shadow-sm
+                        <div class="h-40 w-40 lg:h-48 lg:w-48 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg relative">
+                            <i class="fas fa-satellite-dish text-white text-4xl lg:text-5xl"></i>
+                            <span id="status-indicator" class="absolute -top-1 -right-1 h-6 w-6 rounded-full border-2 border-white shadow-sm
                                 {% if device.status == 'IDLE' %}bg-green-500{% elif device.status == 'RECORDING' %}bg-red-500 animate-pulse{% else %}bg-gray-400{% endif %}">
                             </span>
                         </div>
                         {% endif %}
                         <!-- 照片上傳按鈕 (hover 時顯示) -->
                         <button onclick="openPhotoUploadModal()"
-                                class="absolute inset-0 rounded-xl bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                            <i class="fas fa-camera text-white text-lg"></i>
+                                class="absolute inset-0 rounded-2xl bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                            <div class="text-center">
+                                <i class="fas fa-camera text-white text-2xl mb-1"></i>
+                                <p class="text-white text-xs">上傳照片</p>
+                            </div>
                         </button>
                     </div>
-                    <div>
-                        <h2 class="text-2xl font-bold text-gray-900" id="device-name-display">{{ device.device_name or '未命名設備' }}</h2>
-                        <p class="text-sm text-gray-500 font-mono mt-1">{{ device.device_id }}</p>
-                    </div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="openPhotoUploadModal()"
-                            class="px-3 py-2 text-sm bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors">
-                        <i class="fas fa-camera mr-1"></i>照片
-                    </button>
-                    <button onclick="openDeviceInfoModal()"
-                            class="px-3 py-2 text-sm bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
-                        <i class="fas fa-edit mr-1"></i>編輯資訊
-                    </button>
-                    <div class="flex flex-col items-end gap-1">
-                        <span id="status-badge" class="tech-badge text-sm px-4 py-2 {% if device.status == 'IDLE' %}bg-green-100 text-green-700 border-green-200{% elif device.status == 'RECORDING' %}bg-red-100 text-red-700 border-red-200{% else %}bg-gray-100 text-gray-600 border-gray-200{% endif %}">{% if device.status == 'IDLE' %}在線{% elif device.status == 'RECORDING' %}錄音中{% else %}離線{% endif %}</span>
-                        {% if device.status == 'OFFLINE' and device.offline_reason %}
-                        <span id="offline-reason" class="text-xs text-gray-500" title="離線原因">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            {% if device.offline_reason == 'never_connected' %}從未連線
-                            {% elif device.offline_reason == 'heartbeat_timeout' %}心跳超時
-                            {% elif device.offline_reason == 'connection_lost' %}連線中斷
-                            {% else %}未知原因{% endif %}
-                        </span>
-                        {% endif %}
+
+                <!-- 右側：設備資訊區塊 -->
+                <div class="flex-1 min-w-0">
+                    <!-- 設備名稱 + 狀態 + 編輯按鈕 -->
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900" id="device-name-display">{{ device.device_name or '未命名設備' }}</h2>
+                            <p class="text-sm text-gray-500 font-mono mt-1">{{ device.device_id }}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="openDeviceInfoModal()"
+                                    class="px-3 py-2 text-sm bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                                <i class="fas fa-edit mr-1"></i>編輯
+                            </button>
+                            <div class="flex flex-col items-end gap-1">
+                                <span id="status-badge" class="tech-badge text-sm px-4 py-2 {% if device.status == 'IDLE' %}bg-green-100 text-green-700 border-green-200{% elif device.status == 'RECORDING' %}bg-red-100 text-red-700 border-red-200{% else %}bg-gray-100 text-gray-600 border-gray-200{% endif %}">{% if device.status == 'IDLE' %}在線{% elif device.status == 'RECORDING' %}錄音中{% else %}離線{% endif %}</span>
+                                {% if device.status == 'OFFLINE' and device.offline_reason %}
+                                <span id="offline-reason" class="text-xs text-gray-500" title="離線原因">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    {% if device.offline_reason == 'never_connected' %}從未連線
+                                    {% elif device.offline_reason == 'heartbeat_timeout' %}心跳超時
+                                    {% elif device.offline_reason == 'connection_lost' %}連線中斷
+                                    {% else %}未知原因{% endif %}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 位置資訊 (標籤式) -->
+                    {% set location = device.location or {} %}
+                    <div class="mb-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fas fa-map-marker-alt text-emerald-500"></i>
+                            <span class="text-sm font-medium text-gray-700">位置資訊</span>
+                            <button onclick="openLocationModal()" class="text-xs text-gray-400 hover:text-emerald-500 transition-colors">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </div>
+                        <div id="location-tags-container" class="flex flex-wrap gap-2">
+                            {% if location.name or location.building or location.floor or location.room %}
+                                {% if location.name %}
+                                <span id="location-name-tag" class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                    <i class="fas fa-location-dot mr-1.5 text-xs"></i>{{ location.name }}
+                                </span>
+                                {% endif %}
+                                {% if location.building %}
+                                <span id="location-building-tag" class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700 border border-gray-200">
+                                    <i class="fas fa-building mr-1.5 text-xs"></i>{{ location.building }}
+                                </span>
+                                {% endif %}
+                                {% if location.floor %}
+                                <span id="location-floor-tag" class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700 border border-gray-200">
+                                    <i class="fas fa-layer-group mr-1.5 text-xs"></i>{{ location.floor }}
+                                </span>
+                                {% endif %}
+                                {% if location.room %}
+                                <span id="location-room-tag" class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700 border border-gray-200">
+                                    <i class="fas fa-door-open mr-1.5 text-xs"></i>{{ location.room }}
+                                </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-sm text-gray-400">尚未設定位置</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- 管理人員 (頭像堆疊) -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fas fa-users text-blue-500"></i>
+                            <span class="text-sm font-medium text-gray-700">管理人員</span>
+                            <button onclick="openManagersModal()" class="text-xs text-gray-400 hover:text-blue-500 transition-colors">
+                                <i class="fas fa-user-plus"></i>
+                            </button>
+                        </div>
+                        <div id="managers-avatar-container">
+                            {% set manager_ids = device.manager_ids or [] %}
+                            {% if manager_ids %}
+                            <div class="flex items-center">
+                                <div id="managers-avatar-stack" class="flex -space-x-2">
+                                    <!-- 頭像會透過 JavaScript 載入 -->
+                                </div>
+                                <span id="managers-count-badge" class="ml-2 text-sm text-gray-500"></span>
+                            </div>
+                            {% else %}
+                            <span class="text-sm text-gray-400">尚未指派管理人員</span>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 設備詳細資訊 -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="p-4 rounded-lg bg-gray-50">
-                    <div class="text-xs text-gray-500 mb-1">平台</div>
-                    <div class="font-semibold text-gray-900">{{ device.platform or '未知' }}</div>
-                </div>
-                <div class="p-4 rounded-lg bg-gray-50">
-                    <div class="text-xs text-gray-500 mb-1">總錄音數</div>
-                    <div class="font-semibold text-gray-900">{{ device_stats.total_recordings or 0 }}</div>
-                </div>
-                <div class="p-4 rounded-lg bg-gray-50">
-                    <div class="text-xs text-gray-500 mb-1">已分析</div>
-                    <div class="font-semibold text-green-600">{{ device_stats.success_count or 0 }}</div>
-                </div>
-                <div class="p-4 rounded-lg bg-gray-50">
-                    <div class="text-xs text-gray-500 mb-1">失敗</div>
-                    <div class="font-semibold text-red-600">{{ device_stats.error_count or 0 }}</div>
+            <!-- 統計資訊列 - 放在底部 -->
+            <div class="mt-6 pt-6 border-t border-gray-100">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="p-4 rounded-lg bg-gray-50">
+                        <div class="text-xs text-gray-500 mb-1">平台</div>
+                        <div class="font-semibold text-gray-900">{{ device.platform or '未知' }}</div>
+                    </div>
+                    <div class="p-4 rounded-lg bg-gray-50">
+                        <div class="text-xs text-gray-500 mb-1">總錄音數</div>
+                        <div class="font-semibold text-gray-900">{{ device_stats.total_recordings or 0 }}</div>
+                    </div>
+                    <div class="p-4 rounded-lg bg-gray-50">
+                        <div class="text-xs text-gray-500 mb-1">已分析</div>
+                        <div class="font-semibold text-green-600">{{ device_stats.success_count or 0 }}</div>
+                    </div>
+                    <div class="p-4 rounded-lg bg-gray-50">
+                        <div class="text-xs text-gray-500 mb-1">失敗</div>
+                        <div class="font-semibold text-red-600">{{ device_stats.error_count or 0 }}</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -279,95 +350,6 @@
                         class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors">
                     <i class="fas fa-edit mr-1"></i> 編輯
                 </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 位置與管理人員 -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-    <!-- 位置資訊 -->
-    <div class="tech-card overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-900">
-                <i class="fas fa-map-marker-alt mr-2 text-emerald-500"></i>位置資訊
-            </h3>
-            <button onclick="openLocationModal()"
-                    class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                <i class="fas fa-edit mr-1"></i>編輯
-            </button>
-        </div>
-        <div class="p-6">
-            {% set location = device.location or {} %}
-            {% if location.name or location.building or location.floor or location.room %}
-            <div class="space-y-4">
-                {% if location.name %}
-                <div class="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">位置名稱</span>
-                    <span class="font-semibold text-gray-900" id="location-name-display">{{ location.name }}</span>
-                </div>
-                {% endif %}
-                {% if location.building %}
-                <div class="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">建築物</span>
-                    <span class="font-semibold text-gray-900" id="location-building-display">{{ location.building }}</span>
-                </div>
-                {% endif %}
-                {% if location.floor %}
-                <div class="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">樓層</span>
-                    <span class="font-semibold text-gray-900" id="location-floor-display">{{ location.floor }}</span>
-                </div>
-                {% endif %}
-                {% if location.room %}
-                <div class="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">房間</span>
-                    <span class="font-semibold text-gray-900" id="location-room-display">{{ location.room }}</span>
-                </div>
-                {% endif %}
-                {% if location.description %}
-                <div class="py-2">
-                    <span class="text-gray-600 block mb-1">描述</span>
-                    <p class="text-gray-900" id="location-description-display">{{ location.description }}</p>
-                </div>
-                {% endif %}
-            </div>
-            {% else %}
-            <div class="text-center py-8">
-                <i class="fas fa-map-marker-alt text-4xl text-gray-300 mb-4"></i>
-                <p class="text-gray-500">尚未設定位置資訊</p>
-                <p class="text-sm text-gray-400 mt-1">點擊「編輯」按鈕設定設備位置</p>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- 管理人員 -->
-    <div class="tech-card overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-900">
-                <i class="fas fa-users mr-2 text-blue-500"></i>管理人員
-            </h3>
-            <button onclick="openManagersModal()"
-                    class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                <i class="fas fa-user-plus mr-1"></i>管理
-            </button>
-        </div>
-        <div class="p-6">
-            <div id="managers-list-container">
-                {% set manager_ids = device.manager_ids or [] %}
-                {% if manager_ids %}
-                <div class="space-y-3">
-                    <!-- 管理人員列表會透過 JavaScript 載入 -->
-                    <p class="text-sm text-gray-500">載入中...</p>
-                </div>
-                {% else %}
-                <div class="text-center py-8">
-                    <i class="fas fa-user-shield text-4xl text-gray-300 mb-4"></i>
-                    <p class="text-gray-500">尚未指派管理人員</p>
-                    <p class="text-sm text-gray-400 mt-1">點擊「管理」按鈕指派管理人員</p>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -1747,16 +1729,10 @@ function saveManagers() {
 }
 
 function loadManagersDisplay() {
-    const container = document.getElementById('managers-list-container');
+    const container = document.getElementById('managers-avatar-container');
 
     if (currentManagerIds.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-8">
-                <i class="fas fa-user-shield text-4xl text-gray-300 mb-4"></i>
-                <p class="text-gray-500">尚未指派管理人員</p>
-                <p class="text-sm text-gray-400 mt-1">點擊「管理」按鈕指派管理人員</p>
-            </div>
-        `;
+        container.innerHTML = `<span class="text-sm text-gray-400">尚未指派管理人員</span>`;
         return;
     }
 
@@ -1765,31 +1741,56 @@ function loadManagersDisplay() {
     .then(r => r.json())
     .then(data => {
         if (data.success && data.managers) {
-            let html = '<div class="space-y-3">';
-            data.managers.forEach(manager => {
-                const roleClass = manager.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600';
-                const roleText = manager.role === 'admin' ? '管理員' : '一般用戶';
-                html += `
-                    <div class="flex items-center p-3 rounded-lg bg-gray-50">
-                        <div class="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold">
-                            ${manager.username.charAt(0).toUpperCase()}
-                        </div>
-                        <div class="ml-3 flex-1">
-                            <div class="flex items-center gap-2">
-                                <span class="font-medium text-gray-900">${manager.username}</span>
-                                <span class="text-xs px-2 py-0.5 rounded-full ${roleClass}">${roleText}</span>
-                            </div>
-                            ${manager.email ? `<p class="text-sm text-gray-500">${manager.email}</p>` : ''}
-                        </div>
+            const maxAvatars = 5;
+            const managers = data.managers;
+            const displayCount = Math.min(managers.length, maxAvatars);
+            const remainingCount = managers.length - maxAvatars;
+
+            // 生成頭像堆疊
+            let avatarsHtml = '';
+            for (let i = 0; i < displayCount; i++) {
+                const manager = managers[i];
+                const initial = manager.username.charAt(0).toUpperCase();
+                const isAdmin = manager.role === 'admin';
+                const bgClass = isAdmin
+                    ? 'from-purple-500 to-indigo-600'
+                    : 'from-blue-500 to-indigo-600';
+                avatarsHtml += `
+                    <div class="h-9 w-9 rounded-full bg-gradient-to-br ${bgClass} flex items-center justify-center text-white text-sm font-semibold border-2 border-white shadow-sm"
+                         title="${manager.username}${isAdmin ? ' (管理員)' : ''}">
+                        ${initial}
                     </div>
                 `;
-            });
-            html += '</div>';
-            container.innerHTML = html;
+            }
+
+            // 剩餘數量徽章
+            let remainingHtml = '';
+            if (remainingCount > 0) {
+                remainingHtml = `
+                    <div class="h-9 w-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-xs font-semibold border-2 border-white shadow-sm">
+                        +${remainingCount}
+                    </div>
+                `;
+            }
+
+            // 生成管理人員名單提示
+            const nameList = managers.map(m => m.username + (m.role === 'admin' ? ' (管理員)' : '')).join('、');
+            const countText = managers.length + ' 人';
+
+            container.innerHTML = `
+                <div class="flex items-center">
+                    <div class="flex -space-x-2" title="${nameList}">
+                        ${avatarsHtml}
+                        ${remainingHtml}
+                    </div>
+                    <span class="ml-3 text-sm text-gray-500">${countText}</span>
+                </div>
+            `;
         }
     })
     .catch(err => {
         console.error('載入管理人員失敗:', err);
+        container.innerHTML = `<span class="text-sm text-red-400">載入失敗</span>`;
     });
 }
 

@@ -173,7 +173,14 @@ RABBITMQ_CONFIG = {
     'routing_key': os.getenv('RABBITMQ_ROUTING_KEY', 'analysis.#'),
     'message_ttl_ms': int(os.getenv('RABBITMQ_MESSAGE_TTL_MS', '86400000')),
     'prefetch_count': 1,  # 每次只處理一個任務
-    'max_retries': 3  # 最大重試次數
+    'max_retries': 3,  # 任務處理最大重試次數
+    # 連線相關配置
+    'heartbeat': int(os.getenv('RABBITMQ_HEARTBEAT', '60')),  # 心跳間隔（秒）
+    'connection_timeout': int(os.getenv('RABBITMQ_CONNECTION_TIMEOUT', '10')),  # 連接超時（秒）
+    'blocked_connection_timeout': int(os.getenv('RABBITMQ_BLOCKED_TIMEOUT', '300')),  # 阻塞連接超時（秒）
+    'max_connect_retries': int(os.getenv('RABBITMQ_MAX_CONNECT_RETRIES', '10')),  # 連接最大重試次數
+    'connect_retry_delay': int(os.getenv('RABBITMQ_CONNECT_RETRY_DELAY', '5')),  # 連接重試延遲（秒）
+    'max_retry_delay': int(os.getenv('RABBITMQ_MAX_RETRY_DELAY', '60')),  # 最大重試延遲（秒）
 }
 
 # ==================== 狀態管理系統配置 (V2) ====================
