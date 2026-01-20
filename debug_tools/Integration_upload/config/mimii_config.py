@@ -27,9 +27,9 @@ class MIMIIUploadConfig(BaseUploadConfig):
     ALLOWED_LABELS = ['normal']############
 
     # 支援的機器類型
-    MACHINE_TYPES = ['fan']
-    # MACHINE_TYPES = ['pump']
-    #MACHINE_TYPES = ['slider']
+    # MACHINE_TYPES = ['fan']
+    MACHINE_TYPES = ['pump']
+    # MACHINE_TYPES = ['slider']
     # MACHINE_TYPES = ['valve']
 
     # ==================== 支援檔案格式 ====================

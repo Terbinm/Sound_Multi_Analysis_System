@@ -144,6 +144,8 @@ def fetch_step2_completed_uuids(
             ]
         }
     }
+
+
     if device_id:
         query["info_features.device_id"] = device_id
 

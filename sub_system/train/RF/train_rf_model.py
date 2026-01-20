@@ -120,7 +120,7 @@ class ModelConfig:
     # 輸出配置
     OUTPUT_CONFIG = {
         'model_dir': 'models',
-        'model_filename': 'mimii_fan_rf_classifier.pkl',
+        'model_filename': 'mimii_pump_rf_classifier.pkl',
         #'scaler_filename': 'feature_scaler.pkl',
         'metadata_filename': 'model_metadata.json',
         'report_dir': 'training_reports',
@@ -621,7 +621,8 @@ class ModelTrainer:
             'label_decoder': self.label_decoder,
             'training_date': datetime.now(timezone.utc).isoformat(),
             'model_params': ModelConfig.MODEL_CONFIG['rf_params'],
-            'training_history': self.training_history
+            'training_history': self.training_history,
+            'model_filename': config['model_filename'],
         }
 
         metadata_path = os.path.join(output_dir, config['metadata_filename'])

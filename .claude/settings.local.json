@@ -21,7 +21,14 @@
       "Bash(docker logs:*)",
       "Bash(powershell -Command \"Invoke-WebRequest -Uri ''http://localhost:55103/'' -UseBasicParsing -TimeoutSec 5 | Select-Object -ExpandProperty StatusCode\")",
       "Bash(ls:*)",
-      "Skill(superpowers:systematic-debugging)"
+      "Skill(superpowers:systematic-debugging)",
+      "Bash(powershell:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(conda activate)",
+      "Bash(where:*)",
+      "Bash(findstr:*)",
+      "Bash(C:Userschiminiconda3python.exe -m pip install pymongo python-dotenv -q)"
     ],
     "additionalDirectories": [
       "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\debug_tools"

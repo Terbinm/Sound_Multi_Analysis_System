@@ -343,8 +343,8 @@ def main():
     parser.add_argument("--rf_aggregation", default=None, help="覆寫 RF metadata aggregator (segments/mean/...)")
     parser.add_argument("--device_id", default=DEFAULT_DEVICE_ID, help="只處理指定 device 的資料 (預設 cpc006)")
 
-    parser.add_argument("--out_csv", default=r"D:\D_PycharmProjects\Sound_Multi_Analysis_System\sub_system\train\RF\outputs\cpc_normal.csv")
-    parser.add_argument("--out_summary", default=r"D:\D_PycharmProjects\Sound_Multi_Analysis_System\sub_system\train\RF\outputs\cpc_normal_summary.csv")
+    parser.add_argument("--out_csv", default=r"D:\D_PycharmProjects\Sound_Multi_Analysis_System\sub_system\train\RF\outputs\cpc_abnormal.csv")
+    parser.add_argument("--out_summary", default=r"D:\D_PycharmProjects\Sound_Multi_Analysis_System\sub_system\train\RF\outputs\cpc_abnormal_summary.csv")
 
     parser.add_argument("--mongo_host", default=DEFAULT_MONGO_CONFIG.get("host"))
     parser.add_argument("--mongo_port", type=int, default=DEFAULT_MONGO_CONFIG.get("port"))

@@ -19,7 +19,7 @@ logger = logging.getLogger('analysis_service')
 
 
 def aggregate_features(features: np.ndarray, method: Optional[str]) -> np.ndarray:
-    """�̷Ӫ����y�覡�p�X segments�ӾǷj�C"""
+    """依聚合方式 (segments/mean/max/...) 將切片特徵整合成指定型態"""
     method = (method or "mean").lower()
     if method == "segments":
         return features
@@ -39,7 +39,7 @@ def aggregate_features(features: np.ndarray, method: Optional[str]) -> np.ndarra
 
 
 def summarize_predictions(predictions: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """�p�� RF ���զX�G�ΧP�����١C"""
+    """輸出 RF 逐片段預測的統計摘要"""
     total = len(predictions)
     if total == 0:
         return {

@@ -428,15 +428,20 @@ class AudioClassifier:
             model = getattr(self, 'model', None)
             predictions = []
 
+            # 調試日誌：特徵資訊
+            logger.info(f"[DEBUG] 特徵: shape={feature_vectors.shape}, "
+                        f"min={feature_vectors.min():.4f}, max={feature_vectors.max():.4f}, "
+                        f"mean={feature_vectors.mean():.4f}")
+
             if aggregation == 'segments':
-                # segments 模式：每個 segment 單獨預測
+                # segments 模式：每個切片獨立預測（與訓練方式一致）
                 all_classes = model.predict(feature_vectors)
                 all_probas = model.predict_proba(feature_vectors)
 
                 # 統計預測分布
                 normal_cnt = sum(1 for c in all_classes if c == 0)
                 abnormal_cnt = sum(1 for c in all_classes if c == 1)
-                logger.info(f"Segments 預測分布: normal={normal_cnt}, abnormal={abnormal_cnt}, total={len(all_classes)}")
+                logger.info(f"[DEBUG] Segments 預測分布: normal={normal_cnt}, abnormal={abnormal_cnt}, total={len(all_classes)}")
 
                 valid_pointer = 0
                 for idx in range(len(features_data)):
@@ -467,8 +472,14 @@ class AudioClassifier:
                 aggregated_feature = self._aggregate_features(feature_vectors, aggregation)
                 aggregated_feature = aggregated_feature.reshape(1, -1)
 
+                logger.info(f"[DEBUG] 聚合後特徵: shape={aggregated_feature.shape}, "
+                            f"min={aggregated_feature.min():.4f}, max={aggregated_feature.max():.4f}")
+
                 prediction_class = model.predict(aggregated_feature)[0]
                 prediction_proba = model.predict_proba(aggregated_feature)[0]
+
+                logger.info(f"[DEBUG] 預測結果: class={prediction_class}, "
+                            f"proba_normal={prediction_proba[0]:.4f}, proba_abnormal={prediction_proba[1]:.4f}")
 
                 predicted_label = label_decoder.get(int(prediction_class), 'unknown')
                 confidence = float(prediction_proba[int(prediction_class)])
