@@ -201,20 +201,21 @@
                             </div>
                         </div>
 
-                        <!-- 管理人員頭像堆疊 -->
-                        <div class="managers-container" data-device-id="{{ device.device_id }}" data-manager-ids="{{ device.manager_ids | tojson if device.manager_ids else '[]' }}">
-                            {% if device.manager_ids %}
-                            <div class="flex items-center">
-                                <div class="managers-avatar-stack flex -space-x-2">
-                                    <!-- JavaScript 動態載入頭像 -->
+                        <!-- 管理人員 -->
+                        {% set manager_ids = device.manager_ids or [] %}
+                        <div class="managers-container" data-device-id="{{ device.device_id }}" data-manager-ids='{{ manager_ids | tojson }}'>
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-user-tie text-blue-500 text-sm"></i>
+                                <span class="text-sm text-gray-700">負責人：</span>
+                                {% if manager_ids and manager_ids | length > 0 %}
+                                <div class="flex items-center gap-1 managers-display">
+                                    <!-- JavaScript 動態載入名字 -->
+                                    <span class="text-sm text-gray-500">載入中...</span>
                                 </div>
-                                <span class="managers-count ml-2 text-xs text-gray-500"></span>
+                                {% else %}
+                                <span class="text-sm text-gray-400">未指派</span>
+                                {% endif %}
                             </div>
-                            {% else %}
-                            <span class="text-xs text-gray-400">
-                                <i class="fas fa-user-slash mr-1"></i>未指派管理人員
-                            </span>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -369,41 +370,13 @@ async function loadManagerAvatars() {
 }
 
 function renderManagerAvatars(container, managers) {
-    const stackEl = container.querySelector('.managers-avatar-stack');
-    const countEl = container.querySelector('.managers-count');
+    const displayEl = container.querySelector('.managers-display');
 
-    if (!stackEl) return;
+    if (!displayEl) return;
 
-    stackEl.innerHTML = '';
-
-    // 最多顯示 3 個頭像
-    const displayCount = Math.min(managers.length, 3);
-    const colors = ['bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-rose-500'];
-
-    for (let i = 0; i < displayCount; i++) {
-        const manager = managers[i];
-        const initial = (manager.username || '?')[0].toUpperCase();
-        const colorClass = colors[i % colors.length];
-
-        const avatar = document.createElement('div');
-        avatar.className = `h-7 w-7 rounded-full ${colorClass} flex items-center justify-center text-white text-xs font-medium border-2 border-white shadow-sm`;
-        avatar.title = manager.username;
-        avatar.textContent = initial;
-        stackEl.appendChild(avatar);
-    }
-
-    // 顯示剩餘數量
-    if (managers.length > 3) {
-        const more = document.createElement('div');
-        more.className = 'h-7 w-7 rounded-full bg-gray-400 flex items-center justify-center text-white text-xs font-medium border-2 border-white shadow-sm';
-        more.textContent = `+${managers.length - 3}`;
-        stackEl.appendChild(more);
-    }
-
-    // 更新計數文字
-    if (countEl) {
-        countEl.textContent = `${managers.length} 位管理人員`;
-    }
+    // 顯示管理人員名字
+    const names = managers.map(m => m.username).join('、');
+    displayEl.innerHTML = `<span class="text-sm font-medium text-gray-900">${names}</span>`;
 }
 
 // 頁面載入時執行
