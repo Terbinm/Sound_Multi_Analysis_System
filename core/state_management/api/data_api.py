@@ -305,3 +305,37 @@ def get_recording_info(analyze_uuid: str):
     except Exception as e:
         logger.error(f"Get recording info failed: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@data_api_bp.route('/<analyze_uuid>/features', methods=['GET'])
+@login_required
+def get_features(analyze_uuid: str):
+    """
+    Get info_features and analyze_features for lazy loading
+
+    Query params:
+        - type: 'info' | 'analyze' | 'all' (default: 'all')
+    """
+    try:
+        config = get_config()
+        db = get_db()
+
+        record = db[config.COLLECTIONS['recordings']].find_one({'AnalyzeUUID': analyze_uuid})
+        if not record:
+            return jsonify({'success': False, 'error': 'Recording not found'}), 404
+
+        feature_type = request.args.get('type', 'all')
+
+        result = {'success': True, 'data': {}}
+
+        if feature_type in ('info', 'all'):
+            result['data']['info_features'] = record.get('info_features', {}) or {}
+
+        if feature_type in ('analyze', 'all'):
+            result['data']['analyze_features'] = record.get('analyze_features', {}) or {}
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Get features failed: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500

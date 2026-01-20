@@ -25,6 +25,50 @@ def edge_devices_list():
         # 取得所有設備
         devices = EdgeDevice.get_all()
 
+        # 批次查詢所有設備的錄音統計
+        device_ids = [d.get('device_id') for d in devices if d.get('device_id')]
+        stats_map = {}
+
+        if device_ids:
+            db = get_db()
+            config = get_config()
+            recordings_collection = db[config.COLLECTIONS.get('recordings', 'recordings')]
+
+            pipeline = [
+                {'$match': {'info_features.device_id': {'$in': device_ids}}},
+                {'$group': {
+                    '_id': '$info_features.device_id',
+                    'total': {'$sum': 1},
+                    'analyzed': {'$sum': {'$cond': [
+                        {'$ifNull': ['$analyze_features.latest_analysis_id', False]}, 1, 0
+                    ]}},
+                    'errors': {'$sum': {'$cond': [
+                        {'$ifNull': ['$error_message', False]}, 1, 0
+                    ]}}
+                }}
+            ]
+
+            for stat in recordings_collection.aggregate(pipeline):
+                stats_map[stat['_id']] = {
+                    'total_recordings': stat['total'],
+                    'success_count': stat['analyzed'],
+                    'error_count': stat['errors']
+                }
+
+        # 合併統計資料到設備資訊
+        for device in devices:
+            device_id = device.get('device_id')
+            if device_id in stats_map:
+                # 使用資料庫查詢的統計數據
+                device['statistics'] = stats_map[device_id]
+            elif not device.get('statistics'):
+                # 設備沒有統計數據時設定預設值
+                device['statistics'] = {
+                    'total_recordings': 0,
+                    'success_count': 0,
+                    'error_count': 0
+                }
+
         # 統計資訊
         stats = {
             'total_devices': len(devices),

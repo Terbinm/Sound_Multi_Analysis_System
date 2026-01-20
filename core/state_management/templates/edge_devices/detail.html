@@ -39,11 +39,11 @@
                         </div>
                         {% endif %}
                         <!-- 照片上傳按鈕 (hover 時顯示) -->
-                        <button onclick="openPhotoUploadModal()"
+                        <button onclick="openDeviceInfoModal()"
                                 class="absolute inset-0 rounded-2xl bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                             <div class="text-center">
-                                <i class="fas fa-camera text-white text-2xl mb-1"></i>
-                                <p class="text-white text-xs">上傳照片</p>
+                                <i class="fas fa-edit text-white text-2xl mb-1"></i>
+                                <p class="text-white text-xs">編輯資訊</p>
                             </div>
                         </button>
                     </div>
@@ -83,7 +83,7 @@
                         <div class="flex items-center gap-2 mb-2">
                             <i class="fas fa-map-marker-alt text-emerald-500"></i>
                             <span class="text-sm font-medium text-gray-700">位置資訊</span>
-                            <button onclick="openLocationModal()" class="text-xs text-gray-400 hover:text-emerald-500 transition-colors">
+                            <button onclick="openDeviceInfoModal()" class="text-xs text-gray-400 hover:text-emerald-500 transition-colors">
                                 <i class="fas fa-edit"></i>
                             </button>
                         </div>
@@ -120,8 +120,8 @@
                         <div class="flex items-center gap-2 mb-2">
                             <i class="fas fa-users text-blue-500"></i>
                             <span class="text-sm font-medium text-gray-700">管理人員</span>
-                            <button onclick="openManagersModal()" class="text-xs text-gray-400 hover:text-blue-500 transition-colors">
-                                <i class="fas fa-user-plus"></i>
+                            <button onclick="openDeviceInfoModal()" class="text-xs text-gray-400 hover:text-blue-500 transition-colors">
+                                <i class="fas fa-edit"></i>
                             </button>
                         </div>
                         <div id="managers-avatar-container">
@@ -226,173 +226,185 @@
     </div>
 </div>
 
-<!-- 配置區塊 -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-    <!-- 音訊配置 -->
-    <div class="tech-card overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
-            <h3 class="text-lg font-semibold text-gray-900">音訊配置</h3>
-        </div>
-        <div class="p-6">
-            {% set audio = device.audio_config or {} %}
-            <div class="space-y-4">
-                <div class="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">預設設備索引</span>
-                    <span class="font-semibold text-gray-900">{{ audio.default_device_index or 0 }}</span>
-                </div>
-                <div class="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">取樣率</span>
-                    <span class="font-semibold text-gray-900">{{ audio.sample_rate or 16000 }} Hz</span>
-                </div>
-                <div class="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">聲道數</span>
-                    <span class="font-semibold text-gray-900">{{ audio.channels or 1 }}</span>
-                </div>
-                <div class="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">位元深度</span>
-                    <span class="font-semibold text-gray-900">{{ audio.bit_depth or 16 }} bit</span>
-                </div>
-            </div>
-
-            <!-- 可用音訊設備 -->
-            {% if audio.available_devices %}
-            <div class="mt-6">
-                <h4 class="text-sm font-semibold text-gray-700 mb-3">可用音訊設備</h4>
-                <div class="space-y-2 max-h-48 overflow-y-auto">
-                    {% for dev in audio.available_devices %}
-                    <div class="p-3 rounded-lg bg-gray-50 text-sm">
-                        <div class="flex items-center justify-between">
-                            <span class="font-medium text-gray-900">{{ dev.name }}</span>
-                            <span class="text-xs text-gray-500">索引: {{ dev.index }}</span>
-                        </div>
-                        <div class="text-xs text-gray-500 mt-1">
-                            {{ dev.max_input_channels }} 輸入聲道 | {{ dev.default_sample_rate }} Hz
-                        </div>
-                        {% if dev.supported_bit_depths %}
-                        <div class="text-xs text-gray-500 mt-1">
-                            支援位元深度: {{ dev.supported_bit_depths | join(', ') }} bit
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            <button onclick="openAudioConfigModal()"
-                    class="w-full mt-4 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-                    {% if device.status != 'IDLE' %}disabled{% endif %}>
-                <i class="fas fa-cog mr-1"></i> 編輯配置
-            </button>
-        </div>
-    </div>
-
-    <!-- 排程配置 -->
-    <div class="tech-card overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-900">排程配置</h3>
-            {% set schedule = device.schedule_config or {} %}
-            <span class="tech-badge text-xs {% if schedule.enabled %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-600{% endif %}">
-                {% if schedule.enabled %}已啟用{% else %}已停用{% endif %}
-            </span>
-        </div>
-        <div class="p-6">
-            <div class="space-y-4">
-                <div class="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">狀態</span>
-                    <span class="font-semibold {% if schedule.enabled %}text-green-600{% else %}text-gray-500{% endif %}">
-                        {% if schedule.enabled %}啟用中{% else %}未啟用{% endif %}
-                    </span>
-                </div>
-                <div class="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">間隔時間</span>
-                    <span class="font-semibold text-gray-900">
-                        {% set interval = schedule.interval_seconds or 3600 %}
-                        {% set days = (interval // 86400)|int %}
-                        {% set hours = ((interval % 86400) // 3600)|int %}
-                        {% set minutes = ((interval % 3600) // 60)|int %}
-                        {% set seconds = interval % 60 %}
-                        {% set parts = [] %}
-                        {% if days > 0 %}{% set _ = parts.append(days ~ ' 天') %}{% endif %}
-                        {% if hours > 0 %}{% set _ = parts.append(hours ~ ' 小時') %}{% endif %}
-                        {% if minutes > 0 %}{% set _ = parts.append(minutes ~ ' 分鐘') %}{% endif %}
-                        {% if seconds > 0 or parts|length == 0 %}
-                            {% if seconds == seconds|int %}
-                                {% set _ = parts.append((seconds|int) ~ ' 秒') %}
-                            {% else %}
-                                {% set _ = parts.append(seconds ~ ' 秒') %}
-                            {% endif %}
-                        {% endif %}
-                        每隔 {{ parts|join(' ') }}
-                    </span>
-                </div>
-                <div class="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">錄音時長</span>
-                    <span class="font-semibold text-gray-900">{{ schedule.duration_seconds or 60 }} 秒</span>
-                </div>
-            </div>
-
-            <div class="flex gap-2 mt-6">
-                <button onclick="toggleSchedule({% if schedule.enabled %}false{% else %}true{% endif %})"
-                        class="flex-1 px-4 py-2 rounded-lg font-medium transition-colors
-                            {% if schedule.enabled %}
-                                bg-gray-100 text-gray-700 hover:bg-gray-200
-                            {% else %}
-                                bg-emerald-500 text-white hover:bg-emerald-600
-                            {% endif %}">
-                    {% if schedule.enabled %}
-                        <i class="fas fa-pause mr-1"></i> 停用
-                    {% else %}
-                        <i class="fas fa-play mr-1"></i> 啟用
-                    {% endif %}
-                </button>
-                <button onclick="openScheduleModal()"
-                        class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors">
-                    <i class="fas fa-edit mr-1"></i> 編輯
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 路由配置 -->
+<!-- 設備配置區塊 -->
 <div class="tech-card overflow-hidden mb-8">
-    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-        <div>
-            <h3 class="text-lg font-semibold text-gray-900">路由配置</h3>
-            <p class="text-sm text-gray-500 mt-1">錄音完成後自動發送至指定路由進行分析</p>
+    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between cursor-pointer hover:bg-gray-100 transition-colors"
+         onclick="toggleConfigSection(event)">
+        <div class="flex items-center gap-3">
+            <i id="config-collapse-icon" class="fas fa-chevron-right text-gray-400 transition-transform duration-200"></i>
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-sliders-h mr-2 text-emerald-500"></i>設備配置
+                </h3>
+                <p class="text-sm text-gray-500 mt-1">音訊參數、排程錄音與自動分析路由設定</p>
+            </div>
         </div>
-        <button onclick="openRouterConfigModal()"
-                class="px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors">
-            <i class="fas fa-cog mr-1"></i> 配置路由
+        <button onclick="event.stopPropagation(); openUnifiedConfigModal()"
+                class="px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                {% if device.status != 'IDLE' %}disabled{% endif %}>
+            <i class="fas fa-edit mr-1"></i> 編輯所有設定
         </button>
     </div>
-    <div class="p-6">
-        {% set assigned_routers = device.assigned_router_ids or [] %}
-        {% if assigned_routers %}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {% for router in available_routers %}
-                {% if router.rule_id in assigned_routers %}
-                <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-200">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="font-semibold text-emerald-700">{{ router.rule_name }}</span>
-                        <span class="tech-badge text-xs bg-emerald-100 text-emerald-700">已啟用</span>
+    <div id="config-section-content" class="p-6 hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 音訊配置 -->
+            <div class="space-y-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="font-semibold text-gray-800">
+                        <i class="fas fa-microphone mr-2 text-orange-500"></i>音訊配置
+                    </h4>
+                    <button onclick="openAudioConfigModal()"
+                            class="px-3 py-1.5 bg-emerald-500 text-white rounded-lg font-medium text-sm hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                            {% if device.status != 'IDLE' %}disabled{% endif %}>
+                        <i class="fas fa-cog mr-1"></i> 編輯
+                    </button>
+                </div>
+
+                {% set audio = device.audio_config or {} %}
+                <div class="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600 text-sm">設備索引</span>
+                        <span class="font-medium text-sm text-gray-900">{{ audio.default_device_index or 0 }}</span>
                     </div>
-                    <p class="text-sm text-gray-600">{{ router.description or '無描述' }}</p>
-                    <div class="text-xs text-gray-500 mt-2">
-                        <i class="fas fa-sort-amount-up mr-1"></i>優先順序: {{ router.priority }}
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600 text-sm">取樣率</span>
+                        <span class="font-medium text-sm text-gray-900">{{ audio.sample_rate or 16000 }} Hz</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600 text-sm">聲道數</span>
+                        <span class="font-medium text-sm text-gray-900">{{ audio.channels or 1 }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600 text-sm">位元深度</span>
+                        <span class="font-medium text-sm text-gray-900">{{ audio.bit_depth or 16 }} bit</span>
+                    </div>
+                </div>
+
+                <!-- 可用音訊設備 -->
+                {% if audio.available_devices %}
+                <div class="mt-4">
+                    <h5 class="text-xs font-semibold text-gray-600 mb-2">可用音訊設備</h5>
+                    <div class="space-y-2 max-h-32 overflow-y-auto">
+                        {% for dev in audio.available_devices %}
+                        <div class="p-2 rounded bg-gray-50 text-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="font-medium text-gray-800 truncate" title="{{ dev.name }}">{{ dev.name }}</span>
+                                <span class="text-gray-500 ml-2 flex-shrink-0">#{{ dev.index }}</span>
+                            </div>
+                            <div class="text-gray-500 mt-0.5">
+                                {{ dev.max_input_channels }}ch | {{ dev.default_sample_rate }}Hz
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
                 {% endif %}
-            {% endfor %}
+            </div>
+
+            <!-- 排程配置 -->
+            <div class="space-y-4 lg:border-l lg:border-gray-200 lg:pl-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="font-semibold text-gray-800">
+                        <i class="fas fa-clock mr-2 text-blue-500"></i>排程配置
+                    </h4>
+                    {% set schedule = device.schedule_config or {} %}
+                    <span class="tech-badge text-xs {% if schedule.enabled %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+                        {% if schedule.enabled %}已啟用{% else %}已停用{% endif %}
+                    </span>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600 text-sm">狀態</span>
+                        <span class="font-medium text-sm {% if schedule.enabled %}text-green-600{% else %}text-gray-500{% endif %}">
+                            {% if schedule.enabled %}啟用中{% else %}未啟用{% endif %}
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600 text-sm">間隔時間</span>
+                        <span class="font-medium text-sm text-gray-900">
+                            {% set interval = schedule.interval_seconds or 3600 %}
+                            {% set days = (interval // 86400)|int %}
+                            {% set hours = ((interval % 86400) // 3600)|int %}
+                            {% set minutes = ((interval % 3600) // 60)|int %}
+                            {% set seconds = interval % 60 %}
+                            {% set parts = [] %}
+                            {% if days > 0 %}{% set _ = parts.append(days ~ ' 天') %}{% endif %}
+                            {% if hours > 0 %}{% set _ = parts.append(hours ~ ' 小時') %}{% endif %}
+                            {% if minutes > 0 %}{% set _ = parts.append(minutes ~ ' 分鐘') %}{% endif %}
+                            {% if seconds > 0 or parts|length == 0 %}
+                                {% if seconds == seconds|int %}
+                                    {% set _ = parts.append((seconds|int) ~ ' 秒') %}
+                                {% else %}
+                                    {% set _ = parts.append(seconds ~ ' 秒') %}
+                                {% endif %}
+                            {% endif %}
+                            每隔 {{ parts|join(' ') }}
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600 text-sm">錄音時長</span>
+                        <span class="font-medium text-sm text-gray-900">{{ schedule.duration_seconds or 60 }} 秒</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 mt-4">
+                    <button onclick="toggleSchedule({% if schedule.enabled %}false{% else %}true{% endif %})"
+                            class="flex-1 px-3 py-2 rounded-lg font-medium text-sm transition-colors
+                                {% if schedule.enabled %}
+                                    bg-gray-100 text-gray-700 hover:bg-gray-200
+                                {% else %}
+                                    bg-emerald-500 text-white hover:bg-emerald-600
+                                {% endif %}">
+                        {% if schedule.enabled %}
+                            <i class="fas fa-pause mr-1"></i> 停用
+                        {% else %}
+                            <i class="fas fa-play mr-1"></i> 啟用
+                        {% endif %}
+                    </button>
+                    <button onclick="openScheduleModal()"
+                            class="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium text-sm hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-edit mr-1"></i> 編輯
+                    </button>
+                </div>
+            </div>
+
+            <!-- 路由配置 -->
+            <div class="space-y-4 lg:border-l lg:border-gray-200 lg:pl-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="font-semibold text-gray-800">
+                        <i class="fas fa-route mr-2 text-purple-500"></i>路由配置
+                    </h4>
+                    <button onclick="openRouterConfigModal()"
+                            class="px-3 py-1.5 bg-emerald-500 text-white rounded-lg font-medium text-sm hover:bg-emerald-600 transition-colors">
+                        <i class="fas fa-cog mr-1"></i> 配置
+                    </button>
+                </div>
+
+                {% set assigned_routers = device.assigned_router_ids or [] %}
+                {% if assigned_routers %}
+                <div class="space-y-3 max-h-48 overflow-y-auto">
+                    {% for router in available_routers %}
+                        {% if router.rule_id in assigned_routers %}
+                        <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="font-medium text-sm text-emerald-700">{{ router.rule_name }}</span>
+                                <span class="text-xs bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded">優先 {{ router.priority }}</span>
+                            </div>
+                            <p class="text-xs text-gray-600">{{ router.description or '無描述' }}</p>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-6 bg-gray-50 rounded-lg">
+                    <i class="fas fa-route text-3xl text-gray-300 mb-3"></i>
+                    <p class="text-gray-500 text-sm">尚未配置任何路由</p>
+                    <p class="text-xs text-gray-400 mt-1">點擊「配置」按鈕選擇分析路由</p>
+                </div>
+                {% endif %}
+            </div>
         </div>
-        {% else %}
-        <div class="text-center py-8">
-            <i class="fas fa-route text-4xl text-gray-300 mb-4"></i>
-            <p class="text-gray-500">尚未配置任何路由</p>
-            <p class="text-sm text-gray-400 mt-1">點擊「配置路由」按鈕選擇要使用的分析路由</p>
-        </div>
-        {% endif %}
     </div>
 </div>
 
@@ -464,7 +476,7 @@
 </div>
 
 <!-- 排程設定 Modal -->
-<div id="schedule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+<div id="schedule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display: none;">
     <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
         <div class="px-6 py-4 border-b border-gray-100">
             <h3 class="text-lg font-semibold text-gray-900">編輯排程</h3>
@@ -507,7 +519,7 @@
 </div>
 
 <!-- 音訊設定 Modal -->
-<div id="audio-config-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+<div id="audio-config-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display: none;">
     <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
         <div class="px-6 py-4 border-b border-gray-100">
             <h3 class="text-lg font-semibold text-gray-900">編輯音訊配置</h3>
@@ -570,26 +582,113 @@
 </div>
 
 <!-- 設備資訊編輯 Modal -->
-<div id="device-info-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
-        <div class="px-6 py-4 border-b border-gray-100">
-            <h3 class="text-lg font-semibold text-gray-900">編輯設備資訊</h3>
+<div id="device-info-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display: none;">
+    <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-edit mr-2 text-blue-500"></i>編輯設備資訊
+            </h3>
+            <p class="text-sm text-gray-500 mt-1">修改設備名稱、位置、照片與管理人員</p>
         </div>
-        <div class="p-6">
+        <div class="p-6 overflow-y-auto flex-1">
             <form id="device-info-form">
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">設備 ID</label>
-                        <input type="text" id="edit-device-id" value="{{ device.device_id }}"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-                               readonly disabled>
-                        <p class="text-xs text-gray-500 mt-1">設備 ID 由系統自動產生，無法修改</p>
+                {% set location = device.location or {} %}
+
+                <!-- 基本資訊區塊 -->
+                <div class="mb-6">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                        <i class="fas fa-info-circle mr-2 text-blue-400"></i>基本資訊
+                    </h4>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <!-- 設備照片 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">設備照片</label>
+                            <div class="flex items-center gap-3">
+                                <div id="device-info-photo-preview" class="h-20 w-20 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                    {% if device.photo_path %}
+                                    <img src="{{ url_for('edge_device_api.get_device_photo', device_id=device.device_id) }}"
+                                         alt="設備照片" class="h-full w-full object-cover">
+                                    {% else %}
+                                    <i class="fas fa-camera text-gray-400 text-xl"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-1">
+                                    <input type="file" id="device-info-photo-input" accept="image/*" class="hidden"
+                                           onchange="previewDeviceInfoPhoto(this)">
+                                    <label for="device-info-photo-input"
+                                           class="inline-block px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg cursor-pointer transition-colors">
+                                        <i class="fas fa-upload mr-1"></i>選擇照片
+                                    </label>
+                                    <p class="text-xs text-gray-500 mt-1">支援 JPG、PNG，最大 5MB</p>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 設備名稱 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">設備名稱</label>
+                            <input type="text" id="edit-device-name" value="{{ device.device_name or '' }}"
+                                   placeholder="輸入設備名稱"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">設備名稱</label>
-                        <input type="text" id="edit-device-name" value="{{ device.device_name or '' }}"
-                               placeholder="輸入設備名稱"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                </div>
+
+                <!-- 位置資訊區塊 -->
+                <div class="mb-6">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                        <i class="fas fa-map-marker-alt mr-2 text-red-400"></i>位置資訊
+                    </h4>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">位置名稱</label>
+                            <input type="text" id="edit-location-name" value="{{ location.name or '' }}"
+                                   placeholder="例如：主機房"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">建築物</label>
+                                <input type="text" id="edit-location-building" value="{{ location.building or '' }}"
+                                       placeholder="例如：A 棟"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">樓層</label>
+                                <input type="text" id="edit-location-floor" value="{{ location.floor or '' }}"
+                                       placeholder="例如：3F"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">房間</label>
+                                <input type="text" id="edit-location-room" value="{{ location.room or '' }}"
+                                       placeholder="例如：301 室"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                            <textarea id="edit-location-description" rows="2"
+                                      placeholder="其他位置描述..."
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">{{ location.description or '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 管理人員區塊 -->
+                <div>
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                        <i class="fas fa-users mr-2 text-purple-400"></i>管理人員
+                    </h4>
+                    <div id="device-info-managers-loading" class="text-center py-4">
+                        <i class="fas fa-spinner fa-spin text-xl text-gray-400 mb-2"></i>
+                        <p class="text-sm text-gray-500">載入用戶列表...</p>
+                    </div>
+                    <div id="device-info-managers-list" class="grid grid-cols-2 gap-2 hidden max-h-40 overflow-y-auto">
+                        <!-- 用戶列表會透過 JavaScript 載入 -->
+                    </div>
+                    <div id="device-info-managers-empty" class="text-center py-4 hidden">
+                        <i class="fas fa-users-slash text-2xl text-gray-300 mb-2"></i>
+                        <p class="text-sm text-gray-500">沒有可用的用戶</p>
                     </div>
                 </div>
             </form>
@@ -598,15 +697,15 @@
             <button onclick="closeDeviceInfoModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
                 取消
             </button>
-            <button onclick="saveDeviceInfo()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
-                儲存
+            <button onclick="saveDeviceInfoAll()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                <i class="fas fa-save mr-1"></i>儲存所有變更
             </button>
         </div>
     </div>
 </div>
 
 <!-- 刪除確認 Modal -->
-<div id="delete-confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+<div id="delete-confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display: none;">
     <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 scale-95 opacity-0" id="delete-confirm-content">
         <div class="px-6 py-4 border-b border-gray-100 bg-red-50">
             <div class="flex items-center gap-3">
@@ -661,7 +760,7 @@
 </div>
 
 <!-- 路由配置 Modal -->
-<div id="router-config-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+<div id="router-config-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display: none;">
     <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[80vh] flex flex-col">
         <div class="px-6 py-4 border-b border-gray-100">
             <h3 class="text-lg font-semibold text-gray-900">配置分析路由</h3>
@@ -704,154 +803,263 @@
     </div>
 </div>
 
-<!-- 照片上傳 Modal -->
-<div id="photo-upload-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
-        <div class="px-6 py-4 border-b border-gray-100">
-            <h3 class="text-lg font-semibold text-gray-900">設備照片</h3>
+<!-- 統一編輯配置 Modal -->
+<div id="unified-config-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display: none;">
+    <div class="bg-white rounded-xl shadow-2xl max-w-6xl w-full mx-4 max-h-[95vh] min-h-[70vh] flex flex-col">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-edit mr-2 text-emerald-500"></i>編輯所有設定
+            </h3>
+            <p class="text-sm text-gray-500 mt-1">一次修改設備資訊、音訊參數、排程錄音與分析路由設定</p>
         </div>
-        <div class="p-6">
-            <!-- 目前照片預覽 -->
-            <div class="mb-6">
-                <div id="photo-preview-container" class="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-                    {% if device.photo_path %}
-                    <img id="photo-preview" src="{{ url_for('edge_device_api.get_device_photo', device_id=device.device_id) }}"
-                         alt="設備照片" class="w-full h-full object-contain">
+        <div class="p-6 overflow-y-auto flex-1">
+            <!-- 設備資訊區塊 -->
+            <div class="mb-6 pb-6 border-b border-gray-200">
+                <h4 class="font-semibold text-gray-800 mb-4">
+                    <i class="fas fa-info-circle mr-2 text-blue-500"></i>設備資訊
+                </h4>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- 基本資訊 + 照片 -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">設備照片</label>
+                            <div class="flex items-center gap-3">
+                                <div id="unified-photo-preview" class="h-16 w-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                    {% if device.photo_path %}
+                                    <img src="{{ url_for('edge_device_api.get_device_photo', device_id=device.device_id) }}"
+                                         alt="設備照片" class="h-full w-full object-cover">
+                                    {% else %}
+                                    <i class="fas fa-camera text-gray-400"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-1">
+                                    <input type="file" id="unified-photo-input" accept="image/*" class="hidden"
+                                           onchange="previewUnifiedPhoto(this)">
+                                    <button type="button" onclick="document.getElementById('unified-photo-input').click()"
+                                            class="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                        <i class="fas fa-upload mr-1"></i>上傳照片
+                                    </button>
+                                    <p class="text-xs text-gray-500 mt-1">支援 JPG、PNG 格式</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">設備名稱</label>
+                            <input type="text" id="unified-device-name" value="{{ device.device_name or '' }}"
+                                   placeholder="輸入設備名稱"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">設備 ID</label>
+                            <input type="text" value="{{ device.device_id }}"
+                                   class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 text-sm cursor-not-allowed truncate"
+                                   readonly disabled>
+                        </div>
+                    </div>
+
+                    <!-- 位置資訊 -->
+                    <div class="space-y-4 lg:border-l lg:border-gray-200 lg:pl-6">
+                        {% set location = device.location or {} %}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">位置名稱</label>
+                            <input type="text" id="unified-location-name" value="{{ location.name or '' }}"
+                                   placeholder="例如：主機房"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">建築物</label>
+                                <input type="text" id="unified-location-building" value="{{ location.building or '' }}"
+                                       placeholder="A 棟"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">樓層</label>
+                                <input type="text" id="unified-location-floor" value="{{ location.floor or '' }}"
+                                       placeholder="3F"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">房間</label>
+                            <input type="text" id="unified-location-room" value="{{ location.room or '' }}"
+                                   placeholder="301 室"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                        </div>
+                    </div>
+
+                    <!-- 管理人員 -->
+                    <div class="space-y-4 lg:border-l lg:border-gray-200 lg:pl-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">管理人員</label>
+                            <p class="text-xs text-gray-500 mb-2">選擇負責管理此設備的用戶</p>
+                        </div>
+                        <div id="unified-managers-list" class="space-y-2 max-h-40 overflow-y-auto">
+                            <div class="text-center py-4">
+                                <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                                <p class="text-xs text-gray-500 mt-1">載入中...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 設備配置區塊 -->
+            <div>
+                <h4 class="font-semibold text-gray-800 mb-4">
+                    <i class="fas fa-sliders-h mr-2 text-emerald-500"></i>設備配置
+                </h4>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- 音訊配置 -->
+                    <div class="space-y-4 min-w-0">
+                        <div class="flex items-center justify-between mb-2">
+                            <h5 class="text-sm font-medium text-gray-700">
+                                <i class="fas fa-microphone mr-2 text-orange-500"></i>音訊配置
+                            </h5>
+                        </div>
+
+                        {% set audio = device.audio_config or {} %}
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">音訊設備</label>
+                                <div class="flex gap-2 min-w-0">
+                                    <select id="unified-audio-device-index" class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm truncate">
+                                    {% if audio.available_devices %}
+                                        {% for dev in audio.available_devices %}
+                                        <option value="{{ dev.index }}" {% if dev.index == audio.default_device_index %}selected{% endif %}>
+                                            {{ dev.index }}: {{ dev.name }}
+                                        </option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="{{ audio.default_device_index or 0 }}">設備 {{ audio.default_device_index or 0 }}</option>
+                                    {% endif %}
+                                </select>
+                                <button type="button" onclick="queryAudioDevicesInModal()"
+                                        class="flex-shrink-0 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                                        title="查詢可用的音訊設備">
+                                    <i class="fas fa-sync-alt" id="unified-query-icon"></i>
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1" id="unified-audio-device-hint">點擊重新整理按鈕查詢可用設備</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">取樣率 (Hz)</label>
+                            <select id="unified-audio-sample-rate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                                <option value="8000" {% if audio.sample_rate == 8000 %}selected{% endif %}>8000</option>
+                                <option value="16000" {% if audio.sample_rate == 16000 or not audio.sample_rate %}selected{% endif %}>16000</option>
+                                <option value="22050" {% if audio.sample_rate == 22050 %}selected{% endif %}>22050</option>
+                                <option value="44100" {% if audio.sample_rate == 44100 %}selected{% endif %}>44100</option>
+                                <option value="48000" {% if audio.sample_rate == 48000 %}selected{% endif %}>48000</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">聲道數</label>
+                                <select id="unified-audio-channels" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                                    <option value="1" {% if audio.channels == 1 or not audio.channels %}selected{% endif %}>單聲道</option>
+                                    <option value="2" {% if audio.channels == 2 %}selected{% endif %}>立體聲</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">位元深度</label>
+                                <select id="unified-audio-bit-depth" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                                    <option value="16" {% if audio.bit_depth == 16 or not audio.bit_depth %}selected{% endif %}>16 bit</option>
+                                    <option value="24" {% if audio.bit_depth == 24 %}selected{% endif %}>24 bit</option>
+                                    <option value="32" {% if audio.bit_depth == 32 %}selected{% endif %}>32 bit</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 排程配置 -->
+                <div class="space-y-4 lg:border-l lg:border-gray-200 lg:pl-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <h5 class="text-sm font-medium text-gray-700">
+                            <i class="fas fa-clock mr-2 text-blue-500"></i>排程配置
+                        </h5>
+                    </div>
+
+                    {% set schedule = device.schedule_config or {} %}
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">排程狀態</label>
+                            <div class="flex items-center gap-3">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="checkbox" id="unified-schedule-enabled" {% if schedule.enabled %}checked{% endif %}
+                                           class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500">
+                                    <span class="ml-2 text-sm text-gray-700">啟用自動排程錄音</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">間隔時間</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="unified-schedule-interval"
+                                       min="0.1" step="0.1"
+                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                                <select id="unified-schedule-interval-unit" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                                    <option value="1">秒</option>
+                                    <option value="60">分鐘</option>
+                                    <option value="3600">小時</option>
+                                    <option value="86400">天</option>
+                                </select>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">間隔時間不可小於錄音時長</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">錄音時長（秒）</label>
+                            <input type="number" id="unified-schedule-duration" value="{{ schedule.duration_seconds or 60 }}"
+                                   min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 路由配置 -->
+                <div class="space-y-4 lg:border-l lg:border-gray-200 lg:pl-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <h5 class="text-sm font-medium text-gray-700">
+                            <i class="fas fa-route mr-2 text-purple-500"></i>路由配置
+                        </h5>
+                    </div>
+
+                    {% if available_routers %}
+                    <div class="space-y-2 max-h-64 overflow-y-auto">
+                        {% for router in available_routers %}
+                        <label class="flex items-start p-3 rounded-lg border border-gray-200 hover:border-emerald-300 cursor-pointer transition-colors">
+                            <input type="checkbox" name="unified_router_ids" value="{{ router.rule_id }}"
+                                   class="unified-router-checkbox mt-0.5 h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                                   {% if router.rule_id in (device.assigned_router_ids or []) %}checked{% endif %}>
+                            <div class="ml-3 flex-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-sm text-gray-900">{{ router.rule_name }}</span>
+                                    <span class="text-xs text-gray-500">優先 {{ router.priority }}</span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-0.5">{{ router.description or '無描述' }}</p>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
                     {% else %}
-                    <div id="photo-placeholder" class="text-center text-gray-400">
-                        <i class="fas fa-image text-4xl mb-2"></i>
-                        <p class="text-sm">尚未上傳照片</p>
+                    <div class="text-center py-6 bg-gray-50 rounded-lg">
+                        <i class="fas fa-route text-3xl text-gray-300 mb-3"></i>
+                        <p class="text-gray-500 text-sm">目前沒有可用的路由規則</p>
                     </div>
                     {% endif %}
                 </div>
             </div>
-
-            <!-- 上傳區域 -->
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">上傳新照片</label>
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-emerald-500 transition-colors cursor-pointer"
-                     onclick="document.getElementById('photo-input').click()">
-                    <i class="fas fa-cloud-upload-alt text-2xl text-gray-400 mb-2"></i>
-                    <p class="text-sm text-gray-600">點擊或拖曳檔案至此處</p>
-                    <p class="text-xs text-gray-400 mt-1">支援 JPG, PNG, GIF (最大 5MB)</p>
-                </div>
-                <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="previewPhoto(this)">
-            </div>
-
-            <!-- 上傳進度 -->
-            <div id="photo-upload-progress" class="hidden mb-4">
-                <div class="flex items-center justify-between mb-1">
-                    <span class="text-sm text-gray-600">上傳中...</span>
-                    <span id="photo-progress-text" class="text-sm text-gray-600">0%</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div id="photo-progress-bar" class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
-                </div>
-            </div>
-        </div>
-        <div class="px-6 py-4 border-t border-gray-100 flex justify-between">
-            <button onclick="deletePhoto()" id="delete-photo-btn"
-                    class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors {% if not device.photo_path %}hidden{% endif %}">
-                <i class="fas fa-trash-alt mr-1"></i>刪除照片
-            </button>
-            <div class="flex gap-2">
-                <button onclick="closePhotoUploadModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                    關閉
-                </button>
-                <button onclick="uploadPhoto()" id="upload-photo-btn" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors hidden">
-                    <i class="fas fa-upload mr-1"></i>上傳
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 位置編輯 Modal -->
-<div id="location-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
-        <div class="px-6 py-4 border-b border-gray-100">
-            <h3 class="text-lg font-semibold text-gray-900">編輯位置資訊</h3>
-        </div>
-        <div class="p-6">
-            <form id="location-form">
-                {% set location = device.location or {} %}
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">位置名稱</label>
-                        <input type="text" id="location-name" value="{{ location.name or '' }}"
-                               placeholder="例如：主機房"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">建築物</label>
-                            <input type="text" id="location-building" value="{{ location.building or '' }}"
-                                   placeholder="例如：A 棟"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">樓層</label>
-                            <input type="text" id="location-floor" value="{{ location.floor or '' }}"
-                                   placeholder="例如：3F"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">房間</label>
-                        <input type="text" id="location-room" value="{{ location.room or '' }}"
-                               placeholder="例如：301 室"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
-                        <textarea id="location-description" rows="3"
-                                  placeholder="其他位置描述..."
-                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">{{ location.description or '' }}</textarea>
-                    </div>
-                </div>
-            </form>
         </div>
         <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
-            <button onclick="closeLocationModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+            <button onclick="closeUnifiedConfigModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
                 取消
             </button>
-            <button onclick="saveLocation()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
-                儲存
+            <button onclick="saveUnifiedConfig()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
+                <i class="fas fa-save mr-1"></i>儲存所有設定
             </button>
         </div>
     </div>
 </div>
 
-<!-- 管理人員選擇 Modal -->
-<div id="managers-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[80vh] flex flex-col">
-        <div class="px-6 py-4 border-b border-gray-100">
-            <h3 class="text-lg font-semibold text-gray-900">管理人員</h3>
-            <p class="text-sm text-gray-500 mt-1">選擇負責管理此設備的用戶</p>
-        </div>
-        <div class="p-6 overflow-y-auto flex-1">
-            <div id="managers-loading" class="text-center py-8">
-                <i class="fas fa-spinner fa-spin text-2xl text-gray-400 mb-2"></i>
-                <p class="text-sm text-gray-500">載入用戶列表...</p>
-            </div>
-            <div id="managers-list" class="space-y-2 hidden">
-                <!-- 用戶列表會透過 JavaScript 載入 -->
-            </div>
-            <div id="managers-empty" class="text-center py-8 hidden">
-                <i class="fas fa-users-slash text-4xl text-gray-300 mb-4"></i>
-                <p class="text-gray-500">沒有可用的用戶</p>
-            </div>
-        </div>
-        <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
-            <button onclick="closeManagersModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                取消
-            </button>
-            <button onclick="saveManagers()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
-                儲存
-            </button>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -859,6 +1067,54 @@
 <script>
 const deviceId = '{{ device.device_id }}';
 const socket = io();
+
+// ==================== Modal 管理器 ====================
+const ModalManager = {
+    /**
+     * 開啟 Modal
+     * @param {string} modalId - Modal 的 ID
+     * @param {Function|null} onOpen - 開啟後的回調函數
+     */
+    open(modalId, onOpen = null) {
+        const modal = document.getElementById(modalId);
+        if (!modal) {
+            console.warn(`Modal "${modalId}" not found`);
+            return;
+        }
+
+        // 先移除 hidden class，再設定 display（避免 !important 衝突）
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            modal.style.display = 'flex';
+            if (onOpen) onOpen();
+        });
+    },
+
+    /**
+     * 關閉 Modal
+     * @param {string} modalId - Modal 的 ID
+     * @param {Function|null} onClose - 關閉後的回調函數
+     */
+    close(modalId, onClose = null) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
+        if (onClose) onClose();
+    },
+
+    /**
+     * 關閉所有 Modal
+     */
+    closeAll() {
+        const modals = document.querySelectorAll('[id$="-modal"]');
+        modals.forEach(modal => {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        });
+    }
+};
 
 socket.on('connect', function() {
     socket.emit('subscribe', {room: 'edge_devices'});
@@ -1095,13 +1351,11 @@ function openScheduleModal() {
     document.getElementById('schedule-interval').value = displayValue;
     document.getElementById('schedule-interval-unit').value = unitValue;
 
-    document.getElementById('schedule-modal').classList.remove('hidden');
-    document.getElementById('schedule-modal').classList.add('flex');
+    ModalManager.open('schedule-modal');
 }
 
 function closeScheduleModal() {
-    document.getElementById('schedule-modal').classList.add('hidden');
-    document.getElementById('schedule-modal').classList.remove('flex');
+    ModalManager.close('schedule-modal');
 }
 
 function saveSchedule() {
@@ -1143,13 +1397,11 @@ function saveSchedule() {
 }
 
 function openAudioConfigModal() {
-    document.getElementById('audio-config-modal').classList.remove('hidden');
-    document.getElementById('audio-config-modal').classList.add('flex');
+    ModalManager.open('audio-config-modal');
 }
 
 function closeAudioConfigModal() {
-    document.getElementById('audio-config-modal').classList.add('hidden');
-    document.getElementById('audio-config-modal').classList.remove('flex');
+    ModalManager.close('audio-config-modal');
 }
 
 function saveAudioConfig() {
@@ -1175,6 +1427,387 @@ function saveAudioConfig() {
     });
 }
 
+// ========== 設備配置摺疊功能 ==========
+function toggleConfigSection(event) {
+    const content = document.getElementById('config-section-content');
+    const icon = document.getElementById('config-collapse-icon');
+
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        icon.classList.add('rotate-90');
+    } else {
+        content.classList.add('hidden');
+        icon.classList.remove('rotate-90');
+    }
+}
+
+// ========== 統一編輯配置功能 ==========
+function openUnifiedConfigModal() {
+    // 計算間隔時間的最佳單位顯示
+    const intervalSeconds = {{ (device.schedule_config or {}).interval_seconds or 3600 }};
+    let displayValue, unitValue;
+
+    if (intervalSeconds >= 86400 && intervalSeconds % 86400 === 0) {
+        displayValue = intervalSeconds / 86400;
+        unitValue = '86400';
+    } else if (intervalSeconds >= 3600 && intervalSeconds % 3600 === 0) {
+        displayValue = intervalSeconds / 3600;
+        unitValue = '3600';
+    } else if (intervalSeconds >= 60 && intervalSeconds % 60 === 0) {
+        displayValue = intervalSeconds / 60;
+        unitValue = '60';
+    } else {
+        displayValue = intervalSeconds;
+        unitValue = '1';
+    }
+
+    document.getElementById('unified-schedule-interval').value = displayValue;
+    document.getElementById('unified-schedule-interval-unit').value = unitValue;
+
+    // 載入管理人員列表
+    loadUnifiedManagersList();
+
+    ModalManager.open('unified-config-modal');
+}
+
+function loadUnifiedManagersList() {
+    const container = document.getElementById('unified-managers-list');
+
+    // 載入所有用戶
+    fetch('/api/edge-devices/users/list')
+    .then(r => r.json())
+    .then(data => {
+        if (data.users && data.users.length > 0) {
+            let html = '';
+            data.users.forEach(user => {
+                const userId = user.id || user.user_id;
+                const isChecked = currentManagerIds.includes(userId) ? 'checked' : '';
+                const isAdmin = user.role === 'admin';
+                const roleText = isAdmin ? ' (管理員)' : '';
+                html += `
+                    <label class="flex items-center p-2 rounded-lg border border-gray-200 hover:border-emerald-300 cursor-pointer transition-colors">
+                        <input type="checkbox" name="unified_manager_ids" value="${userId}"
+                               class="unified-manager-checkbox h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500" ${isChecked}>
+                        <span class="ml-2 text-sm text-gray-700">${user.username}${roleText}</span>
+                    </label>
+                `;
+            });
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-users-slash text-2xl text-gray-300 mb-2"></i>
+                    <p class="text-xs text-gray-500">沒有可用的用戶</p>
+                </div>
+            `;
+        }
+    })
+    .catch(err => {
+        console.error('載入用戶列表失敗:', err);
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-exclamation-circle text-2xl text-red-400 mb-2"></i>
+                <p class="text-xs text-red-500">載入失敗</p>
+            </div>
+        `;
+    });
+}
+
+function closeUnifiedConfigModal() {
+    ModalManager.close('unified-config-modal', () => {
+        // 清除選擇的照片
+        document.getElementById('unified-photo-input').value = '';
+    });
+}
+
+// 照片預覽
+function previewUnifiedPhoto(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('unified-photo-preview');
+            preview.innerHTML = `<img src="${e.target.result}" alt="預覽" class="h-full w-full object-cover">`;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// 上傳照片
+async function uploadUnifiedPhoto() {
+    const input = document.getElementById('unified-photo-input');
+    if (!input.files || !input.files[0]) {
+        return true; // 沒有選擇照片，跳過
+    }
+
+    const formData = new FormData();
+    formData.append('photo', input.files[0]);
+
+    try {
+        const res = await fetch(`/api/edge-devices/${deviceId}/photo`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await res.json();
+        if (!result.success) {
+            showToast('照片上傳失敗: ' + (result.message || '未知錯誤'), 'error');
+            return false;
+        }
+        return true;
+    } catch (err) {
+        showToast('照片上傳失敗: ' + err.message, 'error');
+        return false;
+    }
+}
+
+function queryAudioDevicesInModal() {
+    const icon = document.getElementById('unified-query-icon');
+    const hint = document.getElementById('unified-audio-device-hint');
+    const select = document.getElementById('unified-audio-device-index');
+
+    // 顯示載入中狀態
+    icon.classList.add('fa-spin');
+    hint.textContent = '正在查詢音訊設備...';
+    hint.classList.remove('text-green-600', 'text-red-600');
+    hint.classList.add('text-blue-600');
+
+    fetch(`/api/edge-devices/${deviceId}/audio-devices`)
+    .then(r => r.json())
+    .then(data => {
+        icon.classList.remove('fa-spin');
+
+        if (data.success) {
+            hint.textContent = '已發送查詢請求，正在等待設備回應...';
+
+            // 輪詢檢查設備列表更新
+            let pollCount = 0;
+            const maxPolls = 10;
+            const pollInterval = setInterval(() => {
+                pollCount++;
+                fetch(`/api/edge-devices/${deviceId}`)
+                .then(r => r.json())
+                .then(deviceData => {
+                    if (deviceData.success && deviceData.device) {
+                        const audioConfig = deviceData.device.audio_config || {};
+                        const devices = audioConfig.available_devices || [];
+
+                        if (devices.length > 0) {
+                            clearInterval(pollInterval);
+
+                            // 更新下拉選單
+                            const currentValue = select.value;
+                            select.innerHTML = '';
+                            devices.forEach(dev => {
+                                const option = document.createElement('option');
+                                option.value = dev.index;
+                                option.textContent = `${dev.index}: ${dev.name}`;
+                                if (dev.index == currentValue || dev.index == audioConfig.default_device_index) {
+                                    option.selected = true;
+                                }
+                                select.appendChild(option);
+                            });
+
+                            hint.textContent = `已更新，找到 ${devices.length} 個音訊設備`;
+                            hint.classList.remove('text-blue-600');
+                            hint.classList.add('text-green-600');
+                        } else if (pollCount >= maxPolls) {
+                            clearInterval(pollInterval);
+                            hint.textContent = '查詢逾時，請稍後再試';
+                            hint.classList.remove('text-blue-600');
+                            hint.classList.add('text-red-600');
+                        }
+                    }
+                });
+            }, 1500);
+        } else {
+            hint.textContent = '錯誤: ' + (data.message || '未知錯誤');
+            hint.classList.remove('text-blue-600');
+            hint.classList.add('text-red-600');
+        }
+    })
+    .catch(err => {
+        icon.classList.remove('fa-spin');
+        hint.textContent = '查詢失敗: ' + err.message;
+        hint.classList.remove('text-blue-600');
+        hint.classList.add('text-red-600');
+    });
+}
+
+async function saveUnifiedConfig() {
+    // 收集設備資訊
+    const deviceName = document.getElementById('unified-device-name').value.trim();
+    const locationData = {
+        name: document.getElementById('unified-location-name').value.trim(),
+        building: document.getElementById('unified-location-building').value.trim(),
+        floor: document.getElementById('unified-location-floor').value.trim(),
+        room: document.getElementById('unified-location-room').value.trim()
+    };
+    const selectedManagerIds = Array.from(document.querySelectorAll('.unified-manager-checkbox:checked'))
+        .map(cb => cb.value);
+
+    // 收集音訊配置資料
+    const audioData = {
+        default_device_index: parseInt(document.getElementById('unified-audio-device-index').value),
+        sample_rate: parseInt(document.getElementById('unified-audio-sample-rate').value),
+        channels: parseInt(document.getElementById('unified-audio-channels').value),
+        bit_depth: parseInt(document.getElementById('unified-audio-bit-depth').value)
+    };
+
+    const intervalValue = parseFloat(document.getElementById('unified-schedule-interval').value);
+    const intervalUnit = parseInt(document.getElementById('unified-schedule-interval-unit').value);
+    const intervalSeconds = intervalValue * intervalUnit;
+    const durationSeconds = parseInt(document.getElementById('unified-schedule-duration').value);
+    const scheduleEnabled = document.getElementById('unified-schedule-enabled').checked;
+
+    // 前端驗證：間隔時間必須大於 0
+    if (intervalSeconds <= 0) {
+        showToast('間隔時間必須大於 0', 'error');
+        return;
+    }
+
+    // 前端驗證：間隔時間不能小於錄音時長
+    if (intervalSeconds < durationSeconds) {
+        showToast('間隔時間不可小於錄音時長（' + durationSeconds + ' 秒）', 'error');
+        return;
+    }
+
+    const scheduleData = {
+        interval_seconds: intervalSeconds,
+        duration_seconds: durationSeconds
+    };
+
+    const selectedRouterIds = Array.from(document.querySelectorAll('.unified-router-checkbox:checked'))
+        .map(cb => cb.value);
+
+    let hasError = false;
+
+    // 上傳照片（如果有選擇）
+    const photoUploaded = await uploadUnifiedPhoto();
+    if (!photoUploaded) {
+        hasError = true;
+    }
+
+    // 儲存設備名稱
+    try {
+        const nameRes = await fetch(`/api/edge-devices/${deviceId}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({device_name: deviceName})
+        });
+        const nameResult = await nameRes.json();
+        if (!nameResult.success) {
+            showToast('設備名稱儲存失敗: ' + (nameResult.message || '未知錯誤'), 'error');
+            hasError = true;
+        }
+    } catch (err) {
+        showToast('設備名稱儲存失敗: ' + err.message, 'error');
+        hasError = true;
+    }
+
+    // 儲存位置資訊
+    try {
+        const locationRes = await fetch(`/api/edge-devices/${deviceId}/location`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(locationData)
+        });
+        const locationResult = await locationRes.json();
+        if (!locationResult.success) {
+            showToast('位置資訊儲存失敗: ' + (locationResult.message || '未知錯誤'), 'error');
+            hasError = true;
+        }
+    } catch (err) {
+        showToast('位置資訊儲存失敗: ' + err.message, 'error');
+        hasError = true;
+    }
+
+    // 儲存管理人員
+    try {
+        const managersRes = await fetch(`/api/edge-devices/${deviceId}/managers`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({manager_ids: selectedManagerIds})
+        });
+        const managersResult = await managersRes.json();
+        if (!managersResult.success) {
+            showToast('管理人員儲存失敗: ' + (managersResult.message || '未知錯誤'), 'error');
+            hasError = true;
+        }
+    } catch (err) {
+        showToast('管理人員儲存失敗: ' + err.message, 'error');
+        hasError = true;
+    }
+
+    // 儲存音訊配置
+    try {
+        const audioRes = await fetch(`/api/edge-devices/${deviceId}/audio-config`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(audioData)
+        });
+        const audioResult = await audioRes.json();
+        if (!audioResult.success) {
+            showToast('音訊配置儲存失敗: ' + (audioResult.message || '未知錯誤'), 'error');
+            hasError = true;
+        }
+    } catch (err) {
+        showToast('音訊配置儲存失敗: ' + err.message, 'error');
+        hasError = true;
+    }
+
+    // 儲存排程配置
+    try {
+        const scheduleRes = await fetch(`/api/edge-devices/${deviceId}/schedule`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(scheduleData)
+        });
+        const scheduleResult = await scheduleRes.json();
+        if (!scheduleResult.success) {
+            showToast('排程配置儲存失敗: ' + (scheduleResult.error || scheduleResult.message || '未知錯誤'), 'error');
+            hasError = true;
+        }
+    } catch (err) {
+        showToast('排程配置儲存失敗: ' + err.message, 'error');
+        hasError = true;
+    }
+
+    // 啟用/停用排程
+    try {
+        const action = scheduleEnabled ? 'enable' : 'disable';
+        const toggleRes = await fetch(`/api/edge-devices/${deviceId}/schedule/${action}`, {method: 'POST'});
+        const toggleResult = await toggleRes.json();
+        if (!toggleResult.success) {
+            showToast('排程狀態更新失敗: ' + (toggleResult.message || '未知錯誤'), 'error');
+            hasError = true;
+        }
+    } catch (err) {
+        showToast('排程狀態更新失敗: ' + err.message, 'error');
+        hasError = true;
+    }
+
+    // 儲存路由配置
+    try {
+        const routerRes = await fetch(`/api/edge-devices/${deviceId}/routers`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({router_ids: selectedRouterIds})
+        });
+        const routerResult = await routerRes.json();
+        if (!routerResult.success) {
+            showToast('路由配置儲存失敗: ' + (routerResult.message || '未知錯誤'), 'error');
+            hasError = true;
+        }
+    } catch (err) {
+        showToast('路由配置儲存失敗: ' + err.message, 'error');
+        hasError = true;
+    }
+
+    if (!hasError) {
+        showToast('所有設定已儲存成功', 'success');
+        setTimeout(() => location.reload(), 500);
+    }
+}
+
 function deleteDevice() {
     // 檢查設備狀態，僅允許刪除離線設備
     const deleteBtn = document.getElementById('delete-btn');
@@ -1196,27 +1829,22 @@ function deleteDevice() {
 }
 
 function openDeleteConfirmModal() {
-    const modal = document.getElementById('delete-confirm-modal');
-    const content = document.getElementById('delete-confirm-content');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    // 觸發進入動畫
-    requestAnimationFrame(() => {
+    ModalManager.open('delete-confirm-modal', () => {
+        // 觸發進入動畫
+        const content = document.getElementById('delete-confirm-content');
         content.classList.remove('scale-95', 'opacity-0');
         content.classList.add('scale-100', 'opacity-100');
     });
 }
 
 function closeDeleteConfirmModal() {
-    const modal = document.getElementById('delete-confirm-modal');
     const content = document.getElementById('delete-confirm-content');
     // 觸發離開動畫
     content.classList.remove('scale-100', 'opacity-100');
     content.classList.add('scale-95', 'opacity-0');
     // 等待動畫完成後隱藏
     setTimeout(() => {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
+        ModalManager.close('delete-confirm-modal');
     }, 300);
 }
 
@@ -1259,7 +1887,7 @@ function confirmDeleteDevice() {
     });
 }
 
-// ==================== 設備資訊編輯 ====================
+// ==================== 設備資訊編輯（整合版）====================
 function openDeviceInfoModal() {
     // 從頁面顯示的名稱同步到輸入框
     const displayElement = document.getElementById('device-name-display');
@@ -1268,48 +1896,170 @@ function openDeviceInfoModal() {
         const currentName = displayElement.textContent.trim();
         editInput.value = (currentName !== '未命名設備') ? currentName : '';
     }
-    document.getElementById('device-info-modal').classList.remove('hidden');
-    document.getElementById('device-info-modal').classList.add('flex');
+
+    // 載入管理人員列表
+    loadDeviceInfoManagersList();
+
+    ModalManager.open('device-info-modal');
 }
 
 function closeDeviceInfoModal() {
-    document.getElementById('device-info-modal').classList.add('hidden');
-    document.getElementById('device-info-modal').classList.remove('flex');
+    ModalManager.close('device-info-modal', () => {
+        // 清除照片選擇
+        const photoInput = document.getElementById('device-info-photo-input');
+        if (photoInput) photoInput.value = '';
+    });
 }
 
-function saveDeviceInfo() {
-    const deviceName = document.getElementById('edit-device-name').value.trim();
+// 照片預覽
+function previewDeviceInfoPhoto(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
 
-    fetch(`/api/edge-devices/${deviceId}`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({device_name: deviceName})
-    })
+        // 檢查檔案大小 (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('檔案大小不可超過 5MB', 'error');
+            input.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('device-info-photo-preview');
+            preview.innerHTML = `<img src="${e.target.result}" alt="預覽" class="h-full w-full object-cover">`;
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// 載入管理人員列表
+function loadDeviceInfoManagersList() {
+    const loadingEl = document.getElementById('device-info-managers-loading');
+    const listEl = document.getElementById('device-info-managers-list');
+    const emptyEl = document.getElementById('device-info-managers-empty');
+
+    loadingEl.classList.remove('hidden');
+    listEl.classList.add('hidden');
+    emptyEl.classList.add('hidden');
+
+    fetch('/api/edge-devices/users/list')
     .then(r => r.json())
     .then(data => {
-        if (data.success) {
-            // 更新頁面顯示
-            document.getElementById('device-name-display').textContent = deviceName || '未命名設備';
-            closeDeviceInfoModal();
-            showToast('設備資訊已更新', 'success');
+        loadingEl.classList.add('hidden');
+
+        if (data.success && data.users && data.users.length > 0) {
+            let html = '';
+            data.users.forEach(user => {
+                const userId = user.id || user.user_id;
+                const isChecked = currentManagerIds.includes(userId) ? 'checked' : '';
+                const isAdmin = user.role === 'admin';
+                const roleText = isAdmin ? ' (管理員)' : '';
+                html += `
+                    <label class="flex items-center p-2 rounded-lg border border-gray-200 hover:border-blue-300 cursor-pointer transition-colors">
+                        <input type="checkbox" name="device_info_manager_ids" value="${userId}"
+                               class="device-info-manager-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" ${isChecked}>
+                        <span class="ml-2 text-sm text-gray-700 truncate">${user.username}${roleText}</span>
+                    </label>
+                `;
+            });
+            listEl.innerHTML = html;
+            listEl.classList.remove('hidden');
         } else {
-            showToast('更新失敗: ' + (data.error || '未知錯誤'), 'error');
+            emptyEl.classList.remove('hidden');
         }
     })
     .catch(err => {
-        showToast('更新失敗: ' + err.message, 'error');
+        loadingEl.classList.add('hidden');
+        showToast('載入用戶列表失敗: ' + err.message, 'error');
     });
+}
+
+// 儲存所有設備資訊
+async function saveDeviceInfoAll() {
+    const saveBtn = document.querySelector('#device-info-modal button[onclick="saveDeviceInfoAll()"]');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>儲存中...';
+
+    try {
+        // 1. 上傳照片（如果有選擇）
+        const photoInput = document.getElementById('device-info-photo-input');
+        if (photoInput.files && photoInput.files[0]) {
+            const formData = new FormData();
+            formData.append('photo', photoInput.files[0]);
+            const photoRes = await fetch(`/api/edge-devices/${deviceId}/photo`, {
+                method: 'POST',
+                body: formData
+            });
+            const photoResult = await photoRes.json();
+            if (!photoResult.success) {
+                showToast('照片上傳失敗: ' + (photoResult.error || '未知錯誤'), 'error');
+            }
+        }
+
+        // 2. 儲存設備名稱
+        const deviceName = document.getElementById('edit-device-name').value.trim();
+        const nameRes = await fetch(`/api/edge-devices/${deviceId}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({device_name: deviceName})
+        });
+        const nameResult = await nameRes.json();
+        if (!nameResult.success) {
+            showToast('設備名稱更新失敗: ' + (nameResult.error || '未知錯誤'), 'error');
+        }
+
+        // 3. 儲存位置資訊
+        const locationData = {
+            name: document.getElementById('edit-location-name').value.trim(),
+            building: document.getElementById('edit-location-building').value.trim(),
+            floor: document.getElementById('edit-location-floor').value.trim(),
+            room: document.getElementById('edit-location-room').value.trim(),
+            description: document.getElementById('edit-location-description').value.trim()
+        };
+        const locationRes = await fetch(`/api/edge-devices/${deviceId}/location`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(locationData)
+        });
+        const locationResult = await locationRes.json();
+        if (!locationResult.success) {
+            showToast('位置資訊更新失敗: ' + (locationResult.error || '未知錯誤'), 'error');
+        }
+
+        // 4. 儲存管理人員
+        const checkboxes = document.querySelectorAll('.device-info-manager-checkbox:checked');
+        const managerIds = Array.from(checkboxes).map(cb => cb.value);
+        const managersRes = await fetch(`/api/edge-devices/${deviceId}/managers`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({manager_ids: managerIds})
+        });
+        const managersResult = await managersRes.json();
+        if (managersResult.success) {
+            currentManagerIds = managerIds;
+        } else {
+            showToast('管理人員更新失敗: ' + (managersResult.error || '未知錯誤'), 'error');
+        }
+
+        // 完成後重新載入頁面
+        showToast('設備資訊已更新', 'success');
+        setTimeout(() => location.reload(), 1000);
+
+    } catch (err) {
+        showToast('儲存失敗: ' + err.message, 'error');
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
+    }
 }
 
 // ==================== 路由配置 ====================
 function openRouterConfigModal() {
-    document.getElementById('router-config-modal').classList.remove('hidden');
-    document.getElementById('router-config-modal').classList.add('flex');
+    ModalManager.open('router-config-modal');
 }
 
 function closeRouterConfigModal() {
-    document.getElementById('router-config-modal').classList.add('hidden');
-    document.getElementById('router-config-modal').classList.remove('flex');
+    ModalManager.close('router-config-modal');
 }
 
 function saveRouterConfig() {
@@ -1474,259 +2224,8 @@ function createRecordingsTable() {
     }
 }
 
-// ==================== 照片上傳功能 ====================
-let selectedPhotoFile = null;
-
-function openPhotoUploadModal() {
-    document.getElementById('photo-upload-modal').classList.remove('hidden');
-    document.getElementById('photo-upload-modal').classList.add('flex');
-}
-
-function closePhotoUploadModal() {
-    document.getElementById('photo-upload-modal').classList.add('hidden');
-    document.getElementById('photo-upload-modal').classList.remove('flex');
-    // 重置選擇的檔案
-    selectedPhotoFile = null;
-    document.getElementById('photo-input').value = '';
-    document.getElementById('upload-photo-btn').classList.add('hidden');
-}
-
-function previewPhoto(input) {
-    if (input.files && input.files[0]) {
-        const file = input.files[0];
-
-        // 檢查檔案大小 (5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            showToast('檔案大小不可超過 5MB', 'error');
-            input.value = '';
-            return;
-        }
-
-        // 檢查檔案類型
-        if (!file.type.startsWith('image/')) {
-            showToast('請選擇圖片檔案', 'error');
-            input.value = '';
-            return;
-        }
-
-        selectedPhotoFile = file;
-
-        // 預覽圖片
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const container = document.getElementById('photo-preview-container');
-            container.innerHTML = `<img id="photo-preview" src="${e.target.result}" alt="預覽" class="w-full h-full object-contain">`;
-        };
-        reader.readAsDataURL(file);
-
-        // 顯示上傳按鈕
-        document.getElementById('upload-photo-btn').classList.remove('hidden');
-    }
-}
-
-function uploadPhoto() {
-    if (!selectedPhotoFile) {
-        showToast('請先選擇照片', 'error');
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('photo', selectedPhotoFile);
-
-    // 顯示進度條
-    document.getElementById('photo-upload-progress').classList.remove('hidden');
-    document.getElementById('upload-photo-btn').disabled = true;
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `/api/edge-devices/${deviceId}/photo`);
-
-    xhr.upload.onprogress = function(e) {
-        if (e.lengthComputable) {
-            const percent = (e.loaded / e.total) * 100;
-            document.getElementById('photo-progress-bar').style.width = percent + '%';
-            document.getElementById('photo-progress-text').textContent = Math.round(percent) + '%';
-        }
-    };
-
-    xhr.onload = function() {
-        document.getElementById('photo-upload-progress').classList.add('hidden');
-        document.getElementById('upload-photo-btn').disabled = false;
-
-        if (xhr.status === 200) {
-            const data = JSON.parse(xhr.responseText);
-            if (data.success) {
-                showToast('照片上傳成功', 'success');
-                // 重新載入頁面以更新照片
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showToast('上傳失敗: ' + (data.error || '未知錯誤'), 'error');
-            }
-        } else {
-            showToast('上傳失敗: HTTP ' + xhr.status, 'error');
-        }
-    };
-
-    xhr.onerror = function() {
-        document.getElementById('photo-upload-progress').classList.add('hidden');
-        document.getElementById('upload-photo-btn').disabled = false;
-        showToast('上傳失敗: 網路錯誤', 'error');
-    };
-
-    xhr.send(formData);
-}
-
-function deletePhoto() {
-    if (!confirm('確定要刪除設備照片嗎？')) {
-        return;
-    }
-
-    fetch(`/api/edge-devices/${deviceId}/photo`, { method: 'DELETE' })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast('照片已刪除', 'success');
-            setTimeout(() => location.reload(), 1000);
-        } else {
-            showToast('刪除失敗: ' + (data.error || '未知錯誤'), 'error');
-        }
-    })
-    .catch(err => {
-        showToast('刪除失敗: ' + err.message, 'error');
-    });
-}
-
-// ==================== 位置編輯功能 ====================
-function openLocationModal() {
-    document.getElementById('location-modal').classList.remove('hidden');
-    document.getElementById('location-modal').classList.add('flex');
-}
-
-function closeLocationModal() {
-    document.getElementById('location-modal').classList.add('hidden');
-    document.getElementById('location-modal').classList.remove('flex');
-}
-
-function saveLocation() {
-    const data = {
-        name: document.getElementById('location-name').value.trim(),
-        building: document.getElementById('location-building').value.trim(),
-        floor: document.getElementById('location-floor').value.trim(),
-        room: document.getElementById('location-room').value.trim(),
-        description: document.getElementById('location-description').value.trim()
-    };
-
-    fetch(`/api/edge-devices/${deviceId}/location`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast('位置資訊已更新', 'success');
-            setTimeout(() => location.reload(), 1000);
-        } else {
-            showToast('更新失敗: ' + (data.error || '未知錯誤'), 'error');
-        }
-    })
-    .catch(err => {
-        showToast('更新失敗: ' + err.message, 'error');
-    });
-}
-
-// ==================== 管理人員功能 ====================
-let allUsers = [];
+// ==================== 管理人員顯示功能 ====================
 let currentManagerIds = {{ (device.manager_ids or []) | tojson }};
-
-function openManagersModal() {
-    document.getElementById('managers-modal').classList.remove('hidden');
-    document.getElementById('managers-modal').classList.add('flex');
-    loadUsersList();
-}
-
-function closeManagersModal() {
-    document.getElementById('managers-modal').classList.add('hidden');
-    document.getElementById('managers-modal').classList.remove('flex');
-}
-
-function loadUsersList() {
-    const loadingEl = document.getElementById('managers-loading');
-    const listEl = document.getElementById('managers-list');
-    const emptyEl = document.getElementById('managers-empty');
-
-    loadingEl.classList.remove('hidden');
-    listEl.classList.add('hidden');
-    emptyEl.classList.add('hidden');
-
-    fetch('/api/edge-devices/users/list')
-    .then(r => r.json())
-    .then(data => {
-        loadingEl.classList.add('hidden');
-
-        if (data.success && data.users && data.users.length > 0) {
-            allUsers = data.users;
-            renderUsersList();
-            listEl.classList.remove('hidden');
-        } else {
-            emptyEl.classList.remove('hidden');
-        }
-    })
-    .catch(err => {
-        loadingEl.classList.add('hidden');
-        showToast('載入用戶列表失敗: ' + err.message, 'error');
-    });
-}
-
-function renderUsersList() {
-    const listEl = document.getElementById('managers-list');
-    listEl.innerHTML = '';
-
-    allUsers.forEach(user => {
-        const isChecked = currentManagerIds.includes(user.id);
-        const roleClass = user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600';
-        const roleText = user.role === 'admin' ? '管理員' : '一般用戶';
-
-        const div = document.createElement('label');
-        div.className = 'flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 cursor-pointer transition-colors';
-        div.innerHTML = `
-            <input type="checkbox" value="${user.id}" class="manager-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                   ${isChecked ? 'checked' : ''}>
-            <div class="ml-3 flex-1">
-                <div class="flex items-center gap-2">
-                    <span class="font-medium text-gray-900">${user.username}</span>
-                    <span class="text-xs px-2 py-0.5 rounded-full ${roleClass}">${roleText}</span>
-                </div>
-                ${user.email ? `<p class="text-sm text-gray-500">${user.email}</p>` : ''}
-            </div>
-        `;
-        listEl.appendChild(div);
-    });
-}
-
-function saveManagers() {
-    const checkboxes = document.querySelectorAll('.manager-checkbox:checked');
-    const managerIds = Array.from(checkboxes).map(cb => cb.value);
-
-    fetch(`/api/edge-devices/${deviceId}/managers`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({manager_ids: managerIds})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast('管理人員已更新', 'success');
-            currentManagerIds = managerIds;
-            closeManagersModal();
-            loadManagersDisplay();
-        } else {
-            showToast('更新失敗: ' + (data.error || '未知錯誤'), 'error');
-        }
-    })
-    .catch(err => {
-        showToast('更新失敗: ' + err.message, 'error');
-    });
-}
 
 function loadManagersDisplay() {
     const container = document.getElementById('managers-avatar-container');
@@ -1775,7 +2274,17 @@ function loadManagersDisplay() {
 
             // 生成管理人員名單提示
             const nameList = managers.map(m => m.username + (m.role === 'admin' ? ' (管理員)' : '')).join('、');
-            const countText = managers.length + ' 人';
+
+            // 生成顯示的姓名文字（前 3 名 + "等 N 人"）
+            const maxDisplayNames = 3;
+            let displayNameText = '';
+            if (managers.length <= maxDisplayNames) {
+                displayNameText = managers.map(m => m.username).join('、');
+            } else {
+                const displayedNames = managers.slice(0, maxDisplayNames).map(m => m.username).join('、');
+                const remainingNameCount = managers.length - maxDisplayNames;
+                displayNameText = `${displayedNames} 等 ${remainingNameCount} 人`;
+            }
 
             container.innerHTML = `
                 <div class="flex items-center">
@@ -1783,7 +2292,7 @@ function loadManagersDisplay() {
                         ${avatarsHtml}
                         ${remainingHtml}
                     </div>
-                    <span class="ml-3 text-sm text-gray-500">${countText}</span>
+                    <span class="ml-3 text-sm text-gray-600">${displayNameText}</span>
                 </div>
             `;
         }
