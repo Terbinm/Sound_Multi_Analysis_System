@@ -204,7 +204,7 @@
                 <div class="flex items-center justify-between">
                     <div class="text-xs text-gray-500">
                         {% if device.connection_info and device.connection_info.last_heartbeat %}
-                            最後上線: {{ device.connection_info.last_heartbeat.strftime('%Y-%m-%d %H:%M') }}
+                            最後上線: {{ device.connection_info.last_heartbeat | to_taipei_tz }}
                         {% else %}
                             從未連線
                         {% endif %}

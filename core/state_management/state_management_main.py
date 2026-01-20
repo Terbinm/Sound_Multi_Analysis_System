@@ -96,6 +96,29 @@ def setup_logging(config):
     )
 
 
+def _to_taipei_timezone(dt, fmt='%Y-%m-%d %H:%M'):
+    """
+    將 UTC 時間轉換為 UTC+8（台北時區）
+
+    Args:
+        dt: datetime 物件
+        fmt: 輸出格式字串
+
+    Returns:
+        格式化後的時區轉換字串
+    """
+    if dt is None:
+        return ''
+    from datetime import timezone, timedelta
+    # 如果是 naive datetime，假設為 UTC
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    # 轉換為 UTC+8
+    taipei_tz = timezone(timedelta(hours=8))
+    taipei_dt = dt.astimezone(taipei_tz)
+    return taipei_dt.strftime(fmt)
+
+
 def create_app():
     """創建並配置 Flask 應用"""
     # 創建 Flask 應用
@@ -160,6 +183,10 @@ def create_app():
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(views_bp)
+
+    # 自訂 Jinja2 過濾器 - 時區轉換 (UTC -> UTC+8)
+    # 使用 jinja_env.filters 直接註冊，確保在 gunicorn/gevent 環境下穩定運作
+    app.jinja_env.filters['to_taipei_tz'] = _to_taipei_timezone
 
     # 健康檢查端點
     @app.route('/health', methods=['GET'])
