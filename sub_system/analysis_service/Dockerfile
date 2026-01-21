@@ -8,25 +8,31 @@ WORKDIR /app
 # 設定非互動模式，避免 apt 安裝時卡住
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 安裝 Python 和系統依賴
+# 安裝 Python 3.11 和系統依賴
 RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y \
     python3.11 \
     python3.11-venv \
+    python3.11-distutils \
     python3-pip \
     gcc \
     g++ \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3.11 /usr/bin/python \
-    && ln -sf /usr/bin/pip3 /usr/bin/pip
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
 # ============ 第一層：ML 大型依賴（很少變動，充分利用快取）============
 # PyTorch GPU 版本 + torchaudio (CUDA 12.8)
-RUN pip install --no-cache-dir \
+# 使用 python -m pip 確保安裝到正確的 Python 版本
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip install --no-cache-dir \
     torch torchaudio --index-url https://download.pytorch.org/whl/cu128
 
 # ============ 第二層：核心依賴（偶爾變動）============
-RUN pip install --no-cache-dir \
+RUN python -m pip install --no-cache-dir \
     pymongo==4.6.1 \
     pika==1.3.2 \
     numpy>=1.24.3 \
