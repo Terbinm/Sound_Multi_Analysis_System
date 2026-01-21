@@ -41,7 +41,8 @@ RUN python -m pip install --no-cache-dir \
     soundfile==0.12.1 \
     python-dotenv==1.0.1 \
     requests==2.31.0 \
-    scikit-learn>=1.3.0
+    scikit-learn>=1.3.0 \
+    pytorch_lightning
 
 # ============ 第三層：應用程式碼（經常變動）============
 # 複製應用程式檔案
