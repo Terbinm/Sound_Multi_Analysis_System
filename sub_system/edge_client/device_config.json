@@ -20,7 +20,7 @@
   "audio_config": {
     "default_device_index": 0,
     "channels": 1,
-    "sample_rate": 44100,
+    "sample_rate": 16000,
     "bit_depth": 16
   },
   "logging_config": {
