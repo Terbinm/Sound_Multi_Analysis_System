@@ -1,21 +1,29 @@
-# 分析後端 Dockerfile
-# 優化建置時間：使用分層快取，將很少變動的依賴放在前面
-FROM python:3.9-slim
+# 分析後端 Dockerfile (GPU 版本)
+# 使用 NVIDIA CUDA 基礎映像以支援 GPU 加速
+FROM nvidia/cuda:12.8.0-runtime-ubuntu22.04
 
 # 設定工作目錄
 WORKDIR /app
 
-# 安裝系統依賴（很少變動）
+# 設定非互動模式，避免 apt 安裝時卡住
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 安裝 Python 和系統依賴
 RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-venv \
+    python3-pip \
     gcc \
     g++ \
     libsndfile1 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python \
+    && ln -sf /usr/bin/pip3 /usr/bin/pip
 
 # ============ 第一層：ML 大型依賴（很少變動，充分利用快取）============
-# PyTorch CPU 版本（約 700MB，很少更新）
+# PyTorch GPU 版本 + torchaudio (CUDA 12.8)
 RUN pip install --no-cache-dir \
-    torch --index-url https://download.pytorch.org/whl/cpu
+    torch torchaudio --index-url https://download.pytorch.org/whl/cu128
 
 # ============ 第二層：核心依賴（偶爾變動）============
 RUN pip install --no-cache-dir \

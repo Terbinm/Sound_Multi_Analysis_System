@@ -79,7 +79,7 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  # 分析服務
+  # 分析服務 (GPU 版本)
   analysis_service:
     build:
       context: ..
@@ -88,6 +88,14 @@ services:
     restart: unless-stopped
     env_file:
       - ../.env
+    # 啟用 NVIDIA GPU 支援
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       # MongoDB 配置（使用 Docker 服務名稱）
       - MONGODB_HOST=mongodb

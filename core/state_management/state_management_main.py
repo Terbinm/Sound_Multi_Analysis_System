@@ -119,6 +119,48 @@ def _to_taipei_timezone(dt, fmt='%Y-%m-%d %H:%M'):
     return taipei_dt.strftime(fmt)
 
 
+def _auto_init_admin(logger):
+    """
+    自動初始化管理員帳號（冪等操作）
+    從環境變數讀取 INIT_ADMIN_USERNAME, INIT_ADMIN_EMAIL, INIT_ADMIN_PASSWORD
+    若管理員已存在則跳過
+    """
+    try:
+        admin_username = os.getenv('INIT_ADMIN_USERNAME')
+        admin_email = os.getenv('INIT_ADMIN_EMAIL')
+        admin_password = os.getenv('INIT_ADMIN_PASSWORD')
+
+        if not all([admin_username, admin_email, admin_password]):
+            logger.debug("未設定完整的 INIT_ADMIN 環境變數，跳過自動初始化管理員")
+            return
+
+        from models.user import User
+        from flask_bcrypt import generate_password_hash
+
+        # 檢查是否已存在（冪等性）
+        existing_user = User.find_by_username(admin_username)
+        if existing_user:
+            logger.info(f"管理員帳號 '{admin_username}' 已存在，跳過初始化")
+            return
+
+        # 創建管理員
+        password_hash = generate_password_hash(admin_password).decode('utf-8')
+        user = User.create(
+            username=admin_username,
+            email=admin_email,
+            password_hash=password_hash,
+            role=User.ROLE_ADMIN
+        )
+
+        if user:
+            logger.info(f"✓ 自動創建管理員帳號: {admin_username}")
+        else:
+            logger.warning("自動創建管理員帳號失敗")
+
+    except Exception as e:
+        logger.warning(f"自動初始化管理員時發生錯誤: {e}")
+
+
 def create_app():
     """創建並配置 Flask 應用"""
     # 創建 Flask 應用
@@ -302,6 +344,9 @@ def create_app():
             # 測試連接
             db.command('ping')
             logger.info("MongoDB 連接成功")
+
+            # 自動初始化管理員帳號（冪等操作，已存在則跳過）
+            _auto_init_admin(logger)
         except Exception as e:
             logger.warning(f"MongoDB 連接失敗: {e}")
 

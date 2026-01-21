@@ -35,7 +35,8 @@
       "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" -v --tb=no)",
       "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" --tb=short)",
       "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" --tb=no -q --timeout=120)",
-      "Bash(.venv_test/Scripts/python.exe -m pytest CI_test/ -m \"unit\" --tb=short)"
+      "Bash(.venv_test/Scripts/python.exe -m pytest CI_test/ -m \"unit\" --tb=short)",
+      "WebSearch"
     ],
     "additionalDirectories": [
       "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\debug_tools"
