@@ -257,6 +257,9 @@ class MultiBackendManager:
         self.on_query_audio_devices: callable | None = None
         self.on_update_config: callable | None = None
 
+        # 修復 10：狀態獲取回調（用於重連後同步狀態）
+        self.get_current_state: callable | None = None
+
         # Internal state
         self._connections: dict[str, BackendConnection] = {}
         self._aggregator = CommandAggregator(config.command_dedup_seconds)
@@ -325,6 +328,31 @@ class MultiBackendManager:
             'platform': sys.platform
         })
 
+    def _sync_state_to_backend(self, conn: BackendConnection):
+        """
+        修復 10：重連後同步當前狀態到後端
+
+        Args:
+            conn: 要同步的後端連接
+        """
+        if not self.get_current_state:
+            return
+
+        try:
+            state = self.get_current_state()
+            if state:
+                # 發送當前狀態作為心跳，讓後端立即知道設備狀態
+                conn.emit('edge.heartbeat', {
+                    'device_id': self.device_id,
+                    'status': state.get('status', 'IDLE'),
+                    'current_recording': state.get('current_recording_uuid'),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'is_reconnect_sync': True  # 標記這是重連後的同步
+                })
+                logger.info(f"[{conn.config.id}] Synced state after reconnect: status={state.get('status')}")
+        except Exception as e:
+            logger.error(f"[{conn.config.id}] Failed to sync state: {e}")
+
     def _start_reconnect_monitor(self):
         """Start background reconnection thread"""
         if self._reconnect_thread and self._reconnect_thread.is_alive():
@@ -348,6 +376,8 @@ class MultiBackendManager:
                     logger.info(f"Attempting to reconnect {backend_id}")
                     if conn.connect():
                         self._register_device(conn)
+                        # 修復 10：重連成功後同步當前狀態
+                        self._sync_state_to_backend(conn)
 
     def disconnect_all(self):
         """Disconnect from all backends"""

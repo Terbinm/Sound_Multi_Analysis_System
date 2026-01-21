@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -44,10 +45,13 @@ class EdgeClient:
         self.backends.on_stop = self._handle_stop
         self.backends.on_query_audio_devices = self._handle_query_devices
         self.backends.on_update_config = self._handle_update_config
+        # 修復 10：設定狀態獲取回調，用於重連後同步
+        self.backends.get_current_state = self._get_state_snapshot
 
-        # State
-        self.status = 'IDLE'
-        self.current_recording_uuid: str | None = None
+        # 修復 8-9：線程安全的狀態管理
+        self._state_lock = threading.RLock()  # 使用可重入鎖保護狀態
+        self._status = 'IDLE'
+        self._current_recording_uuid: str | None = None
         self._heartbeat_thread = None
         self._heartbeat_stop = None
 
@@ -56,22 +60,79 @@ class EdgeClient:
             f"backends={len(self.config.backends)}"
         )
 
+    # 修復 8-9：線程安全的狀態存取方法
+    @property
+    def status(self) -> str:
+        """線程安全地獲取狀態"""
+        with self._state_lock:
+            return self._status
+
+    @status.setter
+    def status(self, value: str):
+        """線程安全地設定狀態"""
+        with self._state_lock:
+            self._status = value
+
+    @property
+    def current_recording_uuid(self) -> str | None:
+        """線程安全地獲取當前錄音 UUID"""
+        with self._state_lock:
+            return self._current_recording_uuid
+
+    @current_recording_uuid.setter
+    def current_recording_uuid(self, value: str | None):
+        """線程安全地設定當前錄音 UUID"""
+        with self._state_lock:
+            self._current_recording_uuid = value
+
+    def _get_state_snapshot(self) -> dict:
+        """
+        原子地獲取狀態快照（用於心跳等需要同時讀取多個狀態的場景）
+
+        Returns:
+            包含 status 和 current_recording_uuid 的字典
+        """
+        with self._state_lock:
+            return {
+                'status': self._status,
+                'current_recording_uuid': self._current_recording_uuid
+            }
+
+    def _set_recording_state(self, recording_uuid: str):
+        """
+        原子地設定錄音狀態
+
+        Args:
+            recording_uuid: 錄音 UUID
+        """
+        with self._state_lock:
+            self._status = 'RECORDING'
+            self._current_recording_uuid = recording_uuid
+
+    def _clear_recording_state(self):
+        """原子地清除錄音狀態"""
+        with self._state_lock:
+            self._status = 'IDLE'
+            self._current_recording_uuid = None
+
     def _handle_record(self, data: dict):
         """Handle recording command"""
-        if self.status == 'RECORDING':
-            logger.warning("Already recording, ignoring command")
-            return
+        # 使用原子操作檢查並設定狀態，避免競態條件
+        with self._state_lock:
+            if self._status == 'RECORDING':
+                logger.warning("Already recording, ignoring command")
+                return
 
-        # Parse parameters
-        duration = data.get('duration', 10)
-        channels = data.get('channels', self.config.audio_config.channels)
-        sample_rate = data.get('sample_rate', self.config.audio_config.sample_rate)
-        device_index = data.get('device_index', self.config.audio_config.default_device_index)
-        recording_uuid = data.get('recording_uuid')
+            # Parse parameters
+            duration = data.get('duration', 10)
+            channels = data.get('channels', self.config.audio_config.channels)
+            sample_rate = data.get('sample_rate', self.config.audio_config.sample_rate)
+            device_index = data.get('device_index', self.config.audio_config.default_device_index)
+            recording_uuid = data.get('recording_uuid')
 
-        # Update state
-        self.status = 'RECORDING'
-        self.current_recording_uuid = recording_uuid
+            # 原子地更新狀態
+            self._status = 'RECORDING'
+            self._current_recording_uuid = recording_uuid
 
         # Broadcast recording started
         self.backends.broadcast('edge.recording_started', {
@@ -136,8 +197,8 @@ class EdgeClient:
             })
 
         finally:
-            self.status = 'IDLE'
-            self.current_recording_uuid = None
+            # 使用原子操作清除錄音狀態
+            self._clear_recording_state()
 
     def _handle_stop(self, data: dict):
         """Handle stop command"""
@@ -220,10 +281,12 @@ class EdgeClient:
 
         while self._heartbeat_stop and not self._heartbeat_stop.is_set():
             if self.backends.has_any_connection():
+                # 修復 9：使用原子操作獲取狀態快照，確保 status 和 current_recording_uuid 一致
+                state = self._get_state_snapshot()
                 self.backends.broadcast('edge.heartbeat', {
                     'device_id': self.config.device_id,
-                    'status': self.status,
-                    'current_recording': self.current_recording_uuid,
+                    'status': state['status'],
+                    'current_recording': state['current_recording_uuid'],
                     'timestamp': datetime.now(timezone.utc).isoformat()
                 })
 

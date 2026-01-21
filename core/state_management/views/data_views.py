@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Tuple, Optional
 
-from flask import render_template, request, abort, url_for
+from flask import render_template, request, abort
 from flask_login import login_required
 
 from views import views_bp
@@ -177,9 +177,41 @@ def data_list():
         recordings_col = db[config.COLLECTIONS['recordings']]
         logs_col = db[config.COLLECTIONS['task_execution_logs']]
 
-        # 解析查詢參數
-        filters = request.args.to_dict(flat=True)
+        # === 查詢篩選選項 ===
+        filter_options = {
+            'dataset_uuids': sorted([u for u in recordings_col.distinct('info_features.dataset_UUID') if u]),
+            'routers': [],
+            'rules': [],
+            'configs': [],
+            'methods': []
+        }
 
+        # 從 RoutingRule 獲取 router 和 rule 選項
+        all_rules = RoutingRule.get_all(enabled_only=False)
+        for rule in all_rules:
+            filter_options['rules'].append({
+                'id': rule.rule_id,
+                'name': rule.rule_name
+            })
+            for rid in rule.router_ids:
+                filter_options['routers'].append({
+                    'id': rid,
+                    'name': rule.rule_name
+                })
+
+        # 從 AnalysisConfig 獲取 config 和 method 選項
+        all_configs = AnalysisConfig.get_all(enabled_only=False, limit=None)
+        method_set = set()
+        for cfg in all_configs:
+            filter_options['configs'].append({
+                'id': cfg.config_id,
+                'name': cfg.config_name
+            })
+            if cfg.analysis_method_id:
+                method_set.add(cfg.analysis_method_id)
+        filter_options['methods'] = sorted(method_set)
+
+        # 解析查詢參數
         page = max(request.args.get('page', 1, type=int), 1)
         page_size = request.args.get('page_size', 20, type=int)
         page_size = max(1, min(page_size, 100))
@@ -204,13 +236,15 @@ def data_list():
                 return render_template(
                     'data/list.html',
                     records=[],
-                    filters=request.args,
                     pagination={
                         'page': page,
                         'page_size': page_size,
                         'total': 0,
                         'pages': 0
-                    }
+                    },
+                    router_names={},
+                    config_names={},
+                    filter_options=filter_options
                 )
             base_query['AnalyzeUUID'] = {'$in': matched_uuids}
 
@@ -239,32 +273,16 @@ def data_list():
             'pages': (total + page_size - 1) // page_size
         }
 
-        # 準備分頁 URL（避免在模板中使用 ** 解包）
-        filters['page'] = page
-        filters['page_size'] = page_size
-
-        def _page_url(target_page: int) -> str:
-            params = filters.copy()
-            params['page'] = max(1, target_page)
-            params['page_size'] = page_size
-            return url_for('views.data_list', **params)
-
-        max_page = pagination['pages'] or 1
-        prev_url = _page_url(page - 1 if page > 1 else 1)
-        next_url = _page_url(page + 1 if page < max_page else max_page)
-
         # 建立名稱映射表
         name_mappings = _build_name_mappings(records)
 
         return render_template(
             'data/list.html',
             records=records,
-            filters=filters,
             pagination=pagination,
-            prev_url=prev_url,
-            next_url=next_url,
             router_names=name_mappings['routers'],
-            config_names=name_mappings['configs']
+            config_names=name_mappings['configs'],
+            filter_options=filter_options
         )
 
     except Exception as exc:
@@ -272,10 +290,10 @@ def data_list():
         return render_template(
             'data/list.html',
             records=[],
-            filters=filters if 'filters' in locals() else request.args,
             pagination={'page': 1, 'page_size': 20, 'total': 0, 'pages': 0},
             router_names={},
             config_names={},
+            filter_options={'dataset_uuids': [], 'routers': [], 'rules': [], 'configs': [], 'methods': []},
             error=str(exc)
         )
 

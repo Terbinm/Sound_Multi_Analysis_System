@@ -3,83 +3,184 @@
 {% block page_title %}資料列表{% endblock %}
 
 {% block content %}
+{# 確保 filter_options 有預設值 #}
+{% set filter_options = filter_options|default({'dataset_uuids': [], 'routers': [], 'rules': [], 'configs': [], 'methods': []}) %}
+{# 定義分頁 URL 生成 macro #}
+{% macro page_url(target_page) %}
+{{ url_for('views.data_list',
+    q=request.args.get('q', ''),
+    dataset_uuid=request.args.get('dataset_uuid', ''),
+    router_id=request.args.get('router_id', ''),
+    rule_id=request.args.get('rule_id', ''),
+    config_id=request.args.get('config_id', ''),
+    analysis_method_id=request.args.get('analysis_method_id', ''),
+    status=request.args.get('status', ''),
+    page_size=pagination.page_size,
+    page=target_page
+) }}
+{% endmacro %}
+
 <div class="space-y-6">
-    <div class="tech-card">
-        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+    <!-- 篩選區塊 -->
+    <div class="tech-card overflow-hidden">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 via-purple-50 to-white">
             <div class="flex items-center justify-between">
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900">資料篩選</h3>
-                    <p class="text-sm text-gray-600 mt-1">依照 Router、設定或關鍵字查詢資料並查看最新處理結果</p>
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-filter text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900">資料篩選</h3>
+                        <p class="text-sm text-gray-500 mt-0.5">依照 Router、設定或關鍵字查詢資料</p>
+                    </div>
                 </div>
-                <a href="{{ url_for('views.data_list') }}" class="tech-button-outline">
-                    <i class="fas fa-sync-alt mr-2"></i>重置篩選
+                <a href="{{ url_for('views.data_list') }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 font-medium text-sm hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-200">
+                    <i class="fas fa-undo"></i>
+                    <span>重置篩選</span>
                 </a>
             </div>
         </div>
-        <form method="get" class="px-6 py-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-                <label class="tech-label">關鍵字 (UUID / 檔名)</label>
-                <input type="text" name="q" value="{{ filters.get('q','') }}"
-                       class="tech-input" placeholder="輸入 AnalyzeUUID 或檔名的一部分">
-            </div>
-            <div>
-                <label class="tech-label">Dataset UUID</label>
-                <input type="text" name="dataset_uuid" value="{{ filters.get('dataset_uuid','') }}" class="tech-input">
-            </div>
-            <div>
-                <label class="tech-label">Router ID</label>
-                <input type="text" name="router_id" value="{{ filters.get('router_id','') }}" class="tech-input">
-            </div>
-            <div>
-                <label class="tech-label">Rule ID</label>
-                <input type="text" name="rule_id" value="{{ filters.get('rule_id','') }}" class="tech-input">
-            </div>
-            <div>
-                <label class="tech-label">設定 Config ID</label>
-                <input type="text" name="config_id" value="{{ filters.get('config_id','') }}" class="tech-input">
-            </div>
-            <div>
-                <label class="tech-label">分析方法</label>
-                <input type="text" name="analysis_method_id" value="{{ filters.get('analysis_method_id','') }}" class="tech-input">
-            </div>
-            <div>
-                <label class="tech-label">處理狀態</label>
-                <select name="status" class="tech-input">
-                    {% set status = filters.get('status','') %}
-                    <option value="" {% if not status %}selected{% endif %}>全部</option>
-                    <option value="pending" {% if status=='pending' %}selected{% endif %}>等待中</option>
-                    <option value="processing" {% if status=='processing' %}selected{% endif %}>處理中</option>
-                    <option value="completed" {% if status=='completed' %}selected{% endif %}>已完成</option>
-                    <option value="failed" {% if status=='failed' %}selected{% endif %}>失敗</option>
-                </select>
-            </div>
-            <div>
-                <label class="tech-label">每頁筆數</label>
-                <select name="page_size" class="tech-input">
-                    {% set page_size = filters.get('page_size', pagination.page_size) %}
-                    {% for size in [10,20,50,100] %}
-                    <option value="{{ size }}" {% if page_size|string == size|string %}selected{% endif %}>{{ size }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="flex items-end">
-                <button type="submit" class="tech-button">
-                    <i class="fas fa-filter mr-2"></i>套用篩選
-                </button>
+        <form id="filterForm" method="get" class="px-6 py-5 bg-gradient-to-b from-gray-50/50 to-white">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <!-- 關鍵字：保持 text input -->
+                <div>
+                    <label class="tech-label">
+                        <i class="fas fa-search"></i>關鍵字
+                    </label>
+                    <div class="tech-input-wrapper">
+                        <i class="fas fa-search tech-input-icon"></i>
+                        <input type="text" name="q" value="{{ request.args.get('q', '') }}"
+                               class="tech-input" placeholder="UUID 或檔名...">
+                    </div>
+                </div>
+
+                <!-- Dataset UUID：下拉選單 -->
+                <div>
+                    <label class="tech-label">
+                        <i class="fas fa-database"></i>Dataset UUID
+                    </label>
+                    <select name="dataset_uuid" class="tech-input auto-submit">
+                        <option value="">全部 Dataset</option>
+                        {% for uuid in filter_options.dataset_uuids|default([]) %}
+                        <option value="{{ uuid }}" {% if request.args.get('dataset_uuid') == uuid %}selected{% endif %}>
+                            {{ uuid[:20] }}{% if uuid|length > 20 %}...{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Router：下拉選單 -->
+                <div>
+                    <label class="tech-label">
+                        <i class="fas fa-route"></i>Router
+                    </label>
+                    <select name="router_id" class="tech-input auto-submit">
+                        <option value="">全部 Router</option>
+                        {% for router in filter_options.routers|default([]) %}
+                        <option value="{{ router.id }}" {% if request.args.get('router_id') == router.id %}selected{% endif %}>
+                            {{ router.name }} ({{ router.id[:8] }}...)
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- 路由規則：下拉選單 -->
+                <div>
+                    <label class="tech-label">
+                        <i class="fas fa-code-branch"></i>路由規則
+                    </label>
+                    <select name="rule_id" class="tech-input auto-submit">
+                        <option value="">全部規則</option>
+                        {% for rule in filter_options.rules|default([]) %}
+                        <option value="{{ rule.id }}" {% if request.args.get('rule_id') == rule.id %}selected{% endif %}>
+                            {{ rule.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- 分析設定：下拉選單 -->
+                <div>
+                    <label class="tech-label">
+                        <i class="fas fa-cog"></i>分析設定
+                    </label>
+                    <select name="config_id" class="tech-input auto-submit">
+                        <option value="">全部設定</option>
+                        {% for cfg in filter_options.configs|default([]) %}
+                        <option value="{{ cfg.id }}" {% if request.args.get('config_id') == cfg.id %}selected{% endif %}>
+                            {{ cfg.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- 分析方法：下拉選單 -->
+                <div>
+                    <label class="tech-label">
+                        <i class="fas fa-flask"></i>分析方法
+                    </label>
+                    <select name="analysis_method_id" class="tech-input auto-submit">
+                        <option value="">全部方法</option>
+                        {% for method in filter_options.methods|default([]) %}
+                        <option value="{{ method }}" {% if request.args.get('analysis_method_id') == method %}selected{% endif %}>
+                            {{ method }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- 處理狀態：下拉選單 -->
+                <div>
+                    <label class="tech-label">
+                        <i class="fas fa-tasks"></i>處理狀態
+                    </label>
+                    <select name="status" class="tech-input auto-submit">
+                        {% set current_status = request.args.get('status', '') %}
+                        <option value="" {% if not current_status %}selected{% endif %}>全部狀態</option>
+                        <option value="pending" {% if current_status == 'pending' %}selected{% endif %}>⏳ 等待中</option>
+                        <option value="processing" {% if current_status == 'processing' %}selected{% endif %}>🔄 處理中</option>
+                        <option value="completed" {% if current_status == 'completed' %}selected{% endif %}>✅ 已完成</option>
+                        <option value="failed" {% if current_status == 'failed' %}selected{% endif %}>❌ 失敗</option>
+                    </select>
+                </div>
+
+                <!-- 每頁筆數：下拉選單 -->
+                <div>
+                    <label class="tech-label">
+                        <i class="fas fa-list-ol"></i>每頁筆數
+                    </label>
+                    <select name="page_size" class="tech-input auto-submit">
+                        {% for size in [10, 20, 50, 100] %}
+                        <option value="{{ size }}" {% if pagination.page_size == size %}selected{% endif %}>{{ size }} 筆</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
         </form>
     </div>
 
+    <!-- 資料列表區塊 -->
     <div class="tech-card overflow-hidden">
-        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 via-indigo-50 to-white">
             <div class="flex items-center justify-between">
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900">資料列表</h3>
-                    <p class="text-sm text-gray-600 mt-1">共 {{ pagination.total }} 筆，頁 {{ pagination.page }} / {{ pagination.pages }}</p>
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-table text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900">資料列表</h3>
+                        <p class="text-sm text-gray-500 mt-0.5">
+                            共 <span class="font-semibold text-indigo-600">{{ pagination.total }}</span> 筆
+                            {% if pagination.pages > 0 %}
+                            ，第 <span class="font-semibold">{{ pagination.page }}</span> / {{ pagination.pages }} 頁
+                            {% endif %}
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
 
+        {% if records %}
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
@@ -129,8 +230,8 @@
                                 {% endif %}
                             {% else %}
                                 <span class="text-gray-400 text-xs">尚無執行紀錄</span>
-                        {% endif %}
-                    </td>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 text-sm">
                             {% if latest %}
                                 {% set status = latest.status %}
@@ -156,40 +257,108 @@
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-600">
                             {% set ts = rec.upload_time %}
-                            {{ ts.strftime('%m/%d %H:%M') if ts and ts.__class__.__name__=='datetime' else ts or '-' }}
+                            {{ ts.strftime('%m/%d %H:%M') if ts and ts.__class__.__name__ == 'datetime' else ts or '-' }}
                         </td>
                         <td class="px-4 py-3 text-right text-sm">
                             <a href="{{ url_for('views.data_detail', analyze_uuid=rec.analyze_uuid) }}"
-                               class="tech-button-outline">
-                                <i class="fas fa-eye mr-2"></i>詳情
+                               class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 hover:shadow-md transition-all duration-200">
+                                <i class="fas fa-eye"></i>
+                                <span>詳情</span>
                             </a>
                         </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">沒有符合條件的資料</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
 
-        <div class="px-6 py-4 flex items-center justify-between">
-            <div class="text-sm text-gray-600">
-                顯示第 {{ (pagination.page - 1) * pagination.page_size + 1 if pagination.total else 0 }}
-                - {{ (pagination.page - 1) * pagination.page_size + records|length }} 筆，共 {{ pagination.total }} 筆
+        <!-- 分頁區塊 -->
+        {% if pagination.pages > 1 %}
+        <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+            <div class="text-sm text-gray-500">
+                顯示第 <span class="font-medium text-gray-700">{{ ((pagination.page - 1) * pagination.page_size) + 1 }}</span> -
+                <span class="font-medium text-gray-700">{{ [pagination.page * pagination.page_size, pagination.total]|min }}</span> 筆，
+                共 <span class="font-medium text-indigo-600">{{ pagination.total }}</span> 筆
             </div>
-            <div class="flex gap-2">
-                <a href="{{ prev_url }}"
-                   class="tech-button-outline {% if pagination.page<=1 %}opacity-50 cursor-not-allowed{% endif %}">
-                    <i class="fas fa-chevron-left"></i>
+            <div class="flex items-center gap-1.5">
+                <!-- 上一頁 -->
+                {% if pagination.page > 1 %}
+                <a href="{{ page_url(pagination.page - 1) }}"
+                   class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 bg-white hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all duration-200 shadow-sm">
+                    <i class="fas fa-chevron-left text-xs"></i>
+                    <span>上一頁</span>
                 </a>
-                <a href="{{ next_url }}"
-                   class="tech-button-outline {% if pagination.page>=pagination.pages %}opacity-50 cursor-not-allowed{% endif %}">
-                    <i class="fas fa-chevron-right"></i>
+                {% endif %}
+
+                <!-- 頁碼按鈕 -->
+                {% for p in range(1, pagination.pages + 1) %}
+                    {% if p == pagination.page %}
+                        <span class="inline-flex items-center justify-center min-w-[2.5rem] h-10 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-sm font-semibold shadow-md">{{ p }}</span>
+                    {% elif p == 1 or p == pagination.pages or (p >= pagination.page - 2 and p <= pagination.page + 2) %}
+                        <a href="{{ page_url(p) }}"
+                           class="inline-flex items-center justify-center min-w-[2.5rem] h-10 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 bg-white hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all duration-200 shadow-sm">
+                            {{ p }}
+                        </a>
+                    {% elif p == pagination.page - 3 or p == pagination.page + 3 %}
+                        <span class="px-1 text-gray-400">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                <!-- 下一頁 -->
+                {% if pagination.page < pagination.pages %}
+                <a href="{{ page_url(pagination.page + 1) }}"
+                   class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 bg-white hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all duration-200 shadow-sm">
+                    <span>下一頁</span>
+                    <i class="fas fa-chevron-right text-xs"></i>
                 </a>
+                {% endif %}
             </div>
         </div>
+        {% else %}
+        <!-- 只有一頁時 -->
+        <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+            <div class="text-sm text-gray-500">
+                共 <span class="font-medium text-indigo-600">{{ pagination.total }}</span> 筆資料
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- 無資料時 -->
+        <div class="px-6 py-16 text-center">
+            <div class="tech-empty-state">
+                <div class="mx-auto mb-4">
+                    <i class="fas fa-database text-6xl text-gray-300"></i>
+                </div>
+                <p class="text-lg font-medium text-gray-600">沒有符合條件的資料</p>
+                <p class="text-sm text-gray-500 mt-2">請嘗試調整篩選條件或重置篩選。</p>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 所有帶有 auto-submit class 的下拉選單，選擇後自動提交
+    document.querySelectorAll('.auto-submit').forEach(function(select) {
+        select.addEventListener('change', function() {
+            document.getElementById('filterForm').submit();
+        });
+    });
+
+    // 關鍵字輸入框按 Enter 時提交
+    const keywordInput = document.querySelector('input[name="q"]');
+    if (keywordInput) {
+        keywordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('filterForm').submit();
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

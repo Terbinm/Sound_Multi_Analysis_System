@@ -118,16 +118,53 @@ class EdgeDeviceManager:
                     device_id: 設備 ID
                     status: 當前狀態
                     current_recording: 當前錄音 UUID（可選）
+                    timestamp: 心跳時間戳（可選，用於防止舊心跳覆蓋新狀態）
+                    is_reconnect_sync: 是否為重連後的狀態同步（可選）
                 }
             """
             try:
                 device_id = data.get('device_id')
                 status = data.get('status', 'IDLE')
                 current_recording = data.get('current_recording')
+                heartbeat_timestamp = data.get('timestamp')
+                is_reconnect_sync = data.get('is_reconnect_sync', False)
 
                 if not device_id:
                     logger.warning("收到心跳但缺少 device_id")
                     return
+
+                # 修復 5：心跳時間戳驗證，防止舊心跳覆蓋新狀態
+                device = EdgeDevice.get_by_id(device_id)
+                if device and heartbeat_timestamp:
+                    try:
+                        from datetime import datetime
+                        # 解析心跳時間戳
+                        if isinstance(heartbeat_timestamp, str):
+                            # 移除 Z 結尾並解析 ISO 格式
+                            ts_str = heartbeat_timestamp.replace('Z', '+00:00')
+                            heartbeat_time = datetime.fromisoformat(ts_str)
+                        else:
+                            heartbeat_time = heartbeat_timestamp
+
+                        # 獲取設備最後更新時間
+                        last_updated = device.get('updated_at')
+                        if last_updated and not is_reconnect_sync:
+                            # 確保 last_updated 有時區資訊
+                            if last_updated.tzinfo is None:
+                                from datetime import timezone
+                                last_updated = last_updated.replace(tzinfo=timezone.utc)
+                            if heartbeat_time.tzinfo is None:
+                                heartbeat_time = heartbeat_time.replace(tzinfo=timezone.utc)
+
+                            # 如果心跳時間早於最後更新時間，跳過此心跳
+                            if heartbeat_time < last_updated:
+                                logger.debug(
+                                    f"跳過過期心跳: device={device_id}, "
+                                    f"heartbeat_time={heartbeat_time}, last_updated={last_updated}"
+                                )
+                                return
+                    except Exception as e:
+                        logger.debug(f"心跳時間戳解析失敗，繼續處理: {e}")
 
                 # 更新心跳
                 success = EdgeDevice.update_heartbeat(

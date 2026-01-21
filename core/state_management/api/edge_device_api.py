@@ -372,12 +372,10 @@ def send_record_command(device_id):
                 'error': '無法找到設備的連線資訊'
             }), 500
 
-        # 推送錄音狀態更新
-        websocket_manager.broadcast('edge_device.recording_started', {
-            'device_id': device_id,
-            'recording_uuid': recording_uuid,
-            'parameters': recording_params
-        }, room='edge_devices')
+        # 修復 4：移除過早廣播
+        # 原先在此處廣播 'edge_device.recording_started' 事件，但此時 edge client 尚未確認開始錄音
+        # 改由 edge_device_manager.py 的 handle_recording_started 處理器在收到 edge client 確認後廣播
+        # 這樣可以確保事件的時序正確性
 
         return jsonify({
             'success': True,

@@ -242,18 +242,18 @@ class EdgeScheduleService:
                 logger.debug(f"設備 {device_id} 不在排程時間範圍內，跳過本次錄音")
                 return
 
-            # 檢查設備是否在線
-            device = EdgeDevice.get_by_id(device_id)
+            # 修復 13：使用原子操作檢查並鎖定設備狀態，防止競態條件
+            # 只有當設備狀態為 IDLE 時才觸發錄音，並原子地更新狀態
+            lock_result = self._try_acquire_recording_lock(device_id)
+
+            if not lock_result['success']:
+                reason = lock_result.get('reason', '未知原因')
+                logger.warning(f"排程觸發但無法獲取錄音鎖: {device_id}, 原因: {reason}")
+                return
+
+            device = lock_result.get('device')
             if not device:
                 logger.warning(f"排程觸發但設備不存在: {device_id}")
-                return
-
-            if device.get('status') == 'offline':
-                logger.warning(f"排程觸發但設備離線: {device_id}")
-                return
-
-            if device.get('status') == 'recording':
-                logger.warning(f"排程觸發但設備正在錄音中: {device_id}")
                 return
 
             # 獲取設備音訊配置
@@ -287,11 +287,118 @@ class EdgeScheduleService:
                     logger.info(f"排程錄音已觸發: 設備 {device_id}, recording_uuid: {recording_uuid}")
                 else:
                     logger.error(f"排程錄音觸發失敗: 設備 {device_id}")
+                    # 如果發送失敗，釋放鎖（恢復狀態為 IDLE）
+                    self._release_recording_lock(device_id)
             else:
                 logger.error("EdgeDeviceManager 未注入")
+                self._release_recording_lock(device_id)
 
         except Exception as e:
             logger.error(f"排程觸發錄音失敗 ({device_id}): {e}", exc_info=True)
+            # 發生異常時釋放鎖
+            try:
+                self._release_recording_lock(device_id)
+            except Exception:
+                pass
+
+    def _try_acquire_recording_lock(self, device_id: str) -> Dict[str, Any]:
+        """
+        修復 13：嘗試原子地獲取錄音鎖
+
+        使用 MongoDB 的 findOneAndUpdate 原子操作，只有當設備狀態為 IDLE 時才更新
+
+        Args:
+            device_id: 設備 ID
+
+        Returns:
+            {
+                'success': bool,
+                'reason': str (如果失敗),
+                'device': dict (設備資料，如果成功)
+            }
+        """
+        try:
+            from utils.mongodb_handler import get_db
+            config = get_config()
+
+            db = get_db()
+            collection_name = config.COLLECTIONS.get('edge_devices', 'edge_devices')
+            collection = db[collection_name]
+
+            # 使用 findOneAndUpdate 原子操作
+            # 只有當 status 為 IDLE 時才更新，並返回更新前的文檔
+            result = collection.find_one_and_update(
+                {
+                    '_id': device_id,
+                    'status': 'IDLE'  # 只有 IDLE 狀態才能觸發
+                },
+                {
+                    '$set': {
+                        'connection_info.schedule_lock': True,
+                        'connection_info.schedule_lock_time': datetime.now(),
+                        'updated_at': datetime.now()
+                    }
+                },
+                return_document=True  # 返回更新後的文檔
+            )
+
+            if result:
+                return {
+                    'success': True,
+                    'device': result
+                }
+            else:
+                # 檢查設備狀態以提供更詳細的原因
+                device = EdgeDevice.get_by_id(device_id)
+                if not device:
+                    return {'success': False, 'reason': '設備不存在'}
+                elif device.get('status') == 'OFFLINE':
+                    return {'success': False, 'reason': '設備離線'}
+                elif device.get('status') == 'RECORDING':
+                    return {'success': False, 'reason': '設備正在錄音中'}
+                else:
+                    return {'success': False, 'reason': f"設備狀態為 {device.get('status')}"}
+
+        except Exception as e:
+            logger.error(f"獲取錄音鎖失敗 ({device_id}): {e}", exc_info=True)
+            return {'success': False, 'reason': str(e)}
+
+    def _release_recording_lock(self, device_id: str) -> bool:
+        """
+        修復 13：釋放錄音鎖
+
+        Args:
+            device_id: 設備 ID
+
+        Returns:
+            是否成功
+        """
+        try:
+            from utils.mongodb_handler import get_db
+            config = get_config()
+
+            db = get_db()
+            collection_name = config.COLLECTIONS.get('edge_devices', 'edge_devices')
+            collection = db[collection_name]
+
+            result = collection.update_one(
+                {'_id': device_id},
+                {
+                    '$unset': {
+                        'connection_info.schedule_lock': '',
+                        'connection_info.schedule_lock_time': ''
+                    },
+                    '$set': {
+                        'updated_at': datetime.now()
+                    }
+                }
+            )
+
+            return result.modified_count > 0
+
+        except Exception as e:
+            logger.error(f"釋放錄音鎖失敗 ({device_id}): {e}", exc_info=True)
+            return False
 
     def _is_within_time_range(
         self,

@@ -80,9 +80,18 @@ class EdgeDeviceDetail {
     initSocket() {
         this.socket = io();
 
-        this.socket.on('connect', () => {
+        // 修復 3：改善訂閱時機 - 確保無論連接狀態都能訂閱
+        const subscribeToRoom = () => {
             this.socket.emit('subscribe', {room: 'edge_devices'});
-        });
+        };
+
+        // 如果 Socket 已連接，立即訂閱
+        if (this.socket.connected) {
+            subscribeToRoom();
+        }
+
+        // 監聽連接事件（重新連接時也會觸發）
+        this.socket.on('connect', subscribeToRoom);
 
         // 狀態更新
         this.socket.on('edge_device.status_changed', (data) => {
@@ -99,9 +108,11 @@ class EdgeDeviceDetail {
         });
 
         // 錄音開始
+        // 修復 2：錄音開始時同時更新狀態 badge
         this.socket.on('edge_device.recording_started', (data) => {
             if (data.device_id === this.deviceId) {
                 this.showRecordingProgress();
+                this.updateStatusDisplay('RECORDING');  // 新增：更新狀態為錄音中
             }
         });
 
@@ -113,9 +124,11 @@ class EdgeDeviceDetail {
         });
 
         // 錄音完成
+        // 修復 1：錄音完成時同時更新狀態 badge
         this.socket.on('edge_device.recording_completed', (data) => {
             if (data.device_id === this.deviceId) {
                 this.hideRecordingProgress();
+                this.updateStatusDisplay('IDLE');  // 新增：更新狀態為在線
             }
         });
 
