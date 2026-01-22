@@ -192,6 +192,14 @@ class Config:
     # 允許的模型檔案副檔名（常數定義）
     UPLOAD_EXTENSIONS = {'.pkl', '.pth', '.h5', '.onnx', '.pb'}
 
+    # ==================== 應用標題與版本配置 ====================
+    # 允許自訂標題，預設值用於未設定時
+    APP_TITLE = os.environ.get('APP_TITLE', '狀態管理系統')
+    APP_VERSION = os.environ.get('APP_VERSION', '1.0.0')
+    # SERVICE_NAME 用於 API 端點識別（已被 health_check 使用）
+    SERVICE_NAME = os.environ.get('SERVICE_NAME', 'State Management Service')
+    VERSION = APP_VERSION  # 別名，兼容現有程式碼
+
     # ==================== 系統常數定義 ====================
     # 這些是系統層級的常數，不應透過環境變數修改，也不應在業務邏輯中硬編碼
 

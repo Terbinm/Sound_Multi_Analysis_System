@@ -230,6 +230,15 @@ def create_app():
     # 使用 jinja_env.filters 直接註冊，確保在 gunicorn/gevent 環境下穩定運作
     app.jinja_env.filters['to_taipei_tz'] = _to_taipei_timezone
 
+    # 注入應用配置到所有 Jinja2 模板
+    @app.context_processor
+    def inject_app_config():
+        """將應用配置注入到所有 Jinja2 模板"""
+        return {
+            'app_title': config.APP_TITLE,
+            'app_version': config.APP_VERSION
+        }
+
     # 健康檢查端點
     @app.route('/health', methods=['GET'])
     def health_check():
@@ -378,4 +387,5 @@ if __name__ == '__main__':
         )
 
     # 使用 socketio.run 而不是 app.run，以支持 WebSocket
+    logging.getLogger(__name__).info(f"正在啟動伺服器: http://{run_kwargs['host']}:{run_kwargs['port']}")
     socketio.run(app, **run_kwargs)

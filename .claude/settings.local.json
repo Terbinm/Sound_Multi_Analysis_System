@@ -36,7 +36,8 @@
       "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" --tb=short)",
       "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" --tb=no -q --timeout=120)",
       "Bash(.venv_test/Scripts/python.exe -m pytest CI_test/ -m \"unit\" --tb=short)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:127.0.0.1)"
     ],
     "additionalDirectories": [
       "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\debug_tools"

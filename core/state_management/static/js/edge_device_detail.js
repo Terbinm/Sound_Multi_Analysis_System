@@ -386,6 +386,9 @@ class EdgeDeviceDetail {
 
     // ==================== 統一編輯配置功能 ====================
     openUnifiedConfigModal(intervalSeconds) {
+        // 防護：確保 intervalSeconds 是有效數字，預設為 3600 秒（1 小時）
+        intervalSeconds = Number(intervalSeconds) || 3600;
+
         let displayValue, unitValue;
 
         if (intervalSeconds >= 86400 && intervalSeconds % 86400 === 0) {

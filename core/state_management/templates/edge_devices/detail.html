@@ -684,6 +684,21 @@
                             <i class="fas fa-clock mr-2 text-blue-500"></i>排程配置
                         </h5>
                         {% set schedule = device.schedule_config or {} %}
+                        {% set interval_secs = schedule.interval_seconds or 3600 %}
+                        {# 計算最適合的顯示單位和數值 #}
+                        {% if interval_secs >= 86400 and interval_secs % 86400 == 0 %}
+                            {% set interval_display = (interval_secs // 86400) | int %}
+                            {% set interval_unit = '86400' %}
+                        {% elif interval_secs >= 3600 and interval_secs % 3600 == 0 %}
+                            {% set interval_display = (interval_secs // 3600) | int %}
+                            {% set interval_unit = '3600' %}
+                        {% elif interval_secs >= 60 and interval_secs % 60 == 0 %}
+                            {% set interval_display = (interval_secs // 60) | int %}
+                            {% set interval_unit = '60' %}
+                        {% else %}
+                            {% set interval_display = interval_secs %}
+                            {% set interval_unit = '1' %}
+                        {% endif %}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">排程狀態</label>
                             <label class="flex items-center cursor-pointer">
@@ -696,13 +711,14 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">間隔時間</label>
                             <div class="flex gap-2">
                                 <input type="number" id="unified-schedule-interval"
+                                       value="{{ interval_display }}"
                                        min="0.1" step="0.1"
-                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
-                                <select id="unified-schedule-interval-unit" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
-                                    <option value="1">秒</option>
-                                    <option value="60">分鐘</option>
-                                    <option value="3600">小時</option>
-                                    <option value="86400">天</option>
+                                       class="flex-[3] min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                                <select id="unified-schedule-interval-unit" class="flex-1 w-20 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                                    <option value="1" {% if interval_unit == '1' %}selected{% endif %}>秒</option>
+                                    <option value="60" {% if interval_unit == '60' %}selected{% endif %}>分鐘</option>
+                                    <option value="3600" {% if interval_unit == '3600' %}selected{% endif %}>小時</option>
+                                    <option value="86400" {% if interval_unit == '86400' %}selected{% endif %}>天</option>
                                 </select>
                             </div>
                             <p class="text-xs text-gray-500 mt-1">間隔時間不可小於錄音時長</p>

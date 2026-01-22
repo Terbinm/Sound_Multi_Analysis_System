@@ -4,7 +4,7 @@
   "backends": [
     {
       "id": "main",
-      "url": "http://localhost:55103",
+      "url": "http://127.0.0.1:55104",
       "is_primary": true,
       "enabled": true,
       "retry_count": 3,
@@ -18,9 +18,9 @@
     "connection_timeout": 10
   },
   "audio_config": {
-    "default_device_index": 0,
+    "default_device_index": 1,
     "channels": 1,
-    "sample_rate": 16000,
+    "sample_rate": 48000,
     "bit_depth": 16
   },
   "logging_config": {
