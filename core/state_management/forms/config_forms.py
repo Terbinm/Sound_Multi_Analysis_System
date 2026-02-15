@@ -64,6 +64,9 @@ class RoutingRuleForm(FlaskForm):
     actions = TextAreaField('操作 (JSON 格式)',
                            validators=[DataRequired(message='請輸入操作設定')],
                            render_kw={'rows': 8, 'placeholder': '請輸入 JSON 格式的操作設定'})
+    router_ids = StringField('Router IDs（選填，以逗號分隔）',
+                            validators=[Optional()],
+                            render_kw={'placeholder': 'Stamping_Die_LEAF_RF, Other_Router'})
     enabled = BooleanField('啟用', default=True)
     submit = SubmitField('儲存')
 

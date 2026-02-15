@@ -5,9 +5,16 @@ import pandas as pd
 import soundfile as sf
 import os
 import tempfile
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Union
 from pathlib import Path
 from utils.logger import logger
+
+try:
+    from nptdms import TdmsFile
+    TDMS_AVAILABLE = True
+except ImportError:
+    TDMS_AVAILABLE = False
+    logger.warning("nptdms 未安裝，TDMS 檔案讀取功能將無法使用")
 
 
 class AudioConverter:
@@ -56,6 +63,10 @@ class AudioConverter:
 
             # 如果是 WAV 檔案，不需要轉檔
             if file_ext == '.wav':
+                return False
+
+            # 如果是 TDMS 檔案，不需要轉檔（直接讀取）
+            if file_ext == '.tdms':
                 return False
 
             # 如果是 CSV 檔案，需要轉檔
@@ -233,3 +244,195 @@ class AudioConverter:
                     logger.debug(f"已清理臨時檔案: {filepath}")
         except Exception as e:
             logger.warning(f"清理臨時檔案失敗 {filepath}: {e}")
+
+    def load_tdms_multi_channel(
+        self,
+        tdms_path: str,
+        channels: List[str] = None,
+        group_index: int = 0
+    ) -> Dict[str, np.ndarray]:
+        """
+        讀取 TDMS 檔案多個通道
+
+        參考 Models_training/data_preprocessing/tdms_preprocessing/tdms_loader.py
+
+        Args:
+            tdms_path: TDMS 檔案路徑
+            channels: 通道名稱列表，預設為 ['Ch0-T1', 'Ch1-T5', 'Ch4-T3']
+            group_index: 群組索引，預設為 0
+
+        Returns:
+            {通道名: numpy array 訊號數據} 字典，若全部失敗則返回空字典
+        """
+        if channels is None:
+            channels = ['Ch0-T1', 'Ch1-T5', 'Ch4-T3']
+
+        if not TDMS_AVAILABLE:
+            logger.error("nptdms 未安裝，無法讀取 TDMS 檔案。請執行: pip install nptdms")
+            return {}
+
+        try:
+            logger.info(f"開始讀取 TDMS 多通道: {tdms_path}, channels={channels}")
+
+            tdms_file = TdmsFile.read(str(tdms_path))
+            groups = tdms_file.groups()
+
+            if not groups:
+                logger.error(f"TDMS 檔案沒有群組: {tdms_path}")
+                return {}
+
+            if group_index >= len(groups):
+                logger.error(f"群組索引超出範圍: {group_index} >= {len(groups)}")
+                return {}
+
+            group = groups[group_index]
+            available_channels = {ch.name: ch for ch in group.channels()}
+
+            if not available_channels:
+                logger.error(f"群組 '{group.name}' 沒有通道")
+                return {}
+
+            logger.debug(f"可用通道: {list(available_channels.keys())}")
+
+            # 讀取指定的多個通道
+            result = {}
+            for ch_name in channels:
+                if ch_name in available_channels:
+                    channel_data = available_channels[ch_name][:].astype(np.float32)
+                    result[ch_name] = channel_data
+                    logger.debug(f"✓ 讀取通道 '{ch_name}': {len(channel_data)} 採樣點")
+                else:
+                    logger.warning(f"找不到通道 '{ch_name}'，跳過")
+
+            if result:
+                logger.info(f"✓ TDMS 多通道讀取成功: {len(result)} 個通道")
+            else:
+                logger.error(f"所有指定通道都不存在: {channels}")
+                logger.info(f"可用通道: {list(available_channels.keys())}")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"讀取 TDMS 多通道失敗 {tdms_path}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return {}
+
+    def load_tdms(
+        self,
+        tdms_path: str,
+        channel: Union[int, str] = 5,
+        group_index: int = 0
+    ) -> Optional[np.ndarray]:
+        """
+        讀取 TDMS 檔案指定通道（向後相容）
+
+        參考 Models_training/data_preprocessing/tdms_preprocessing/tdms_loader.py
+
+        Args:
+            tdms_path: TDMS 檔案路徑
+            channel: 通道索引（int）或通道名稱（str），預設為 5
+            group_index: 群組索引，預設為 0
+
+        Returns:
+            numpy array 訊號數據，或 None（如果失敗）
+        """
+        if not TDMS_AVAILABLE:
+            logger.error("nptdms 未安裝，無法讀取 TDMS 檔案。請執行: pip install nptdms")
+            return None
+
+        try:
+            logger.info(f"開始讀取 TDMS: {tdms_path}, channel={channel}")
+
+            tdms_file = TdmsFile.read(str(tdms_path))
+            groups = tdms_file.groups()
+
+            if not groups:
+                logger.error(f"TDMS 檔案沒有群組: {tdms_path}")
+                return None
+
+            if group_index >= len(groups):
+                logger.error(f"群組索引超出範圍: {group_index} >= {len(groups)}")
+                return None
+
+            group = groups[group_index]
+            channels = group.channels()
+
+            if not channels:
+                logger.error(f"群組 '{group.name}' 沒有通道")
+                return None
+
+            # 根據通道參數類型取得通道
+            if isinstance(channel, int):
+                # 通道索引
+                if channel >= len(channels):
+                    logger.error(f"通道索引超出範圍: {channel} >= {len(channels)}")
+                    logger.info(f"可用通道: {[ch.name for ch in channels]}")
+                    return None
+                target_channel = channels[channel]
+            else:
+                # 通道名稱
+                target_channel = None
+                for ch in channels:
+                    if ch.name == channel:
+                        target_channel = ch
+                        break
+                if target_channel is None:
+                    logger.error(f"找不到通道: {channel}")
+                    logger.info(f"可用通道: {[ch.name for ch in channels]}")
+                    return None
+
+            # 讀取通道數據
+            channel_data = target_channel[:].astype(np.float32)
+
+            logger.info(f"✓ TDMS 讀取成功: channel='{target_channel.name}', samples={len(channel_data)}")
+
+            return channel_data
+
+        except Exception as e:
+            logger.error(f"讀取 TDMS 失敗 {tdms_path}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return None
+
+    def get_tdms_info(self, tdms_path: str) -> Optional[Dict[str, Any]]:
+        """
+        獲取 TDMS 檔案資訊
+
+        Args:
+            tdms_path: TDMS 檔案路徑
+
+        Returns:
+            包含群組和通道資訊的字典
+        """
+        if not TDMS_AVAILABLE:
+            logger.error("nptdms 未安裝")
+            return None
+
+        try:
+            tdms_file = TdmsFile.read(str(tdms_path))
+            info = {
+                'groups': [],
+                'total_channels': 0
+            }
+
+            for group in tdms_file.groups():
+                group_info = {
+                    'name': group.name,
+                    'channels': []
+                }
+                for ch in group.channels():
+                    ch_info = {
+                        'name': ch.name,
+                        'dtype': str(ch.dtype) if hasattr(ch, 'dtype') else 'unknown',
+                        'length': len(ch) if hasattr(ch, '__len__') else 0
+                    }
+                    group_info['channels'].append(ch_info)
+                    info['total_channels'] += 1
+                info['groups'].append(group_info)
+
+            return info
+
+        except Exception as e:
+            logger.error(f"獲取 TDMS 資訊失敗: {e}")
+            return None

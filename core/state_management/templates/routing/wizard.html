@@ -170,6 +170,20 @@
                            placeholder="預設：default">
                 </div>
 
+                {# Router IDs #}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Router IDs（選填，以逗號分隔）
+                    </label>
+                    <p class="text-xs text-gray-500 mb-2">
+                        指定此規則的 Router ID，用於外部系統（如 Integration Upload）觸發分析任務。若留空，將使用自動生成的 rule_id。
+                    </p>
+                    <input type="text"
+                           x-model="formData.router_ids"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Stamping_Die_LEAF_RF, Other_Router">
+                </div>
+
                 {# JSON 篩選條件 #}
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">

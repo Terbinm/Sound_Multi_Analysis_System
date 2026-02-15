@@ -69,6 +69,10 @@ def routing_create():
                 flash(f'JSON 格式錯誤: {str(e)}', 'danger')
                 return render_template('routing/edit.html', form=form, mode='create')
 
+            # 解析 router_ids（逗號分隔轉陣列）
+            router_ids_str = form.router_ids.data.strip() if form.router_ids.data else ''
+            router_ids = [rid.strip() for rid in router_ids_str.split(',') if rid.strip()]
+
             # 建立規則
             rule = RoutingRule.create({
                 'rule_name': form.rule_name.data,
@@ -76,7 +80,8 @@ def routing_create():
                 'priority': priority,
                 'conditions': conditions,
                 'actions': actions,
-                'enabled': form.enabled.data
+                'enabled': form.enabled.data,
+                'router_ids': router_ids
             })
 
             if rule:
@@ -122,6 +127,10 @@ def routing_edit(rule_id):
                     rule=rule
                 )
 
+            # 解析 router_ids（逗號分隔轉陣列）
+            router_ids_str = form.router_ids.data.strip() if form.router_ids.data else ''
+            router_ids = [rid.strip() for rid in router_ids_str.split(',') if rid.strip()]
+
             # 更新規則
             success = RoutingRule.update(
                 rule.rule_id,
@@ -131,7 +140,8 @@ def routing_edit(rule_id):
                     'priority': priority,
                     'conditions': conditions,
                     'actions': actions,
-                    'enabled': form.enabled.data
+                    'enabled': form.enabled.data,
+                    'router_ids': router_ids
                 }
             )
 
@@ -153,6 +163,7 @@ def routing_edit(rule_id):
         form.priority.data = str(rule.priority)
         form.conditions.data = json.dumps(rule.conditions, indent=2, ensure_ascii=False)
         form.actions.data = json.dumps(rule.actions, indent=2, ensure_ascii=False)
+        form.router_ids.data = ', '.join(rule.router_ids) if rule.router_ids else ''
         form.enabled.data = rule.enabled
 
     return render_template(

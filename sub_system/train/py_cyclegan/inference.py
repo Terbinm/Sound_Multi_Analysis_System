@@ -113,6 +113,21 @@ class CycleGANConverter:
             f"direction={self.direction}"
         )
 
+        # 輸入正規化（GAN 訓練時使用正規化數據）
+        if self.apply_normalization and self.normalization:
+            input_key = "a" if self.direction.upper() == "AB" else "b"
+            mean_in = f"mean_{input_key}"
+            std_in = f"std_{input_key}"
+            if mean_in in self.normalization and std_in in self.normalization:
+                mean = np.asarray(self.normalization[mean_in], dtype=np.float32)
+                std = np.asarray(self.normalization[std_in], dtype=np.float32)
+                features = (features - mean) / std
+                logger.debug(
+                    f"[Step 3] CycleGAN 輸入正規化: "
+                    f"mean shape={mean.shape}, std shape={std.shape}, "
+                    f"正規化後值範圍=[{features.min():.4f}, {features.max():.4f}]"
+                )
+
         tensor = torch.tensor(features, dtype=torch.float32, device=self.device).unsqueeze(0)
         with torch.no_grad():
             if self.direction.upper() == "AB":

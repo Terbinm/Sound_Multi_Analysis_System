@@ -305,6 +305,96 @@ class MongoDBUploader:
             self.logger.error(f"✗ 刪除記錄失敗：{exc}")
             return 0
 
+    def count_records_by_dataset(self, dataset_uuid: str) -> int:
+        """
+        計算指定 dataset_UUID 的記錄數
+
+        Args:
+            dataset_uuid: 資料集 UUID
+
+        Returns:
+            記錄數量
+        """
+        try:
+            query = {'info_features.dataset_UUID': dataset_uuid}
+            return self.collection.count_documents(query)
+        except Exception as exc:
+            self.logger.error(f"計算 {dataset_uuid} 記錄數時發生錯誤：{exc}")
+            return 0
+
+    def delete_records_by_dataset(self, dataset_uuid: str, with_backup: bool = True) -> Dict[str, Any]:
+        """
+        刪除指定 dataset_UUID 的記錄
+
+        Args:
+            dataset_uuid: 要刪除的資料集 UUID
+            with_backup: 是否先備份
+
+        Returns:
+            包含 deleted_count 和 backup_file 的字典
+        """
+        import json
+        from datetime import datetime
+        from pathlib import Path
+
+        result = {
+            'deleted_count': 0,
+            'backup_file': None,
+            'success': False
+        }
+
+        try:
+            # 查詢符合條件的記錄數
+            query = {'info_features.dataset_UUID': dataset_uuid}
+            count = self.collection.count_documents(query)
+
+            if count == 0:
+                self.logger.info(f"沒有找到 dataset_UUID={dataset_uuid} 的記錄")
+                result['success'] = True
+                return result
+
+            self.logger.info(f"找到 {count} 筆 dataset_UUID={dataset_uuid} 的記錄")
+
+            # 備份（如果需要）
+            if with_backup:
+                records = list(self.collection.find(query))
+
+                # 轉換 ObjectId 為字串
+                for record in records:
+                    if '_id' in record:
+                        record['_id'] = str(record['_id'])
+                    if 'files' in record and 'raw' in record['files']:
+                        if 'fileId' in record['files']['raw'] and record['files']['raw']['fileId']:
+                            record['files']['raw']['fileId'] = str(record['files']['raw']['fileId'])
+                    if 'created_at' in record:
+                        record['created_at'] = str(record['created_at'])
+                    if 'updated_at' in record:
+                        record['updated_at'] = str(record['updated_at'])
+
+                # 備份檔案
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                backup_dir = Path('reports/backups')
+                backup_dir.mkdir(parents=True, exist_ok=True)
+                backup_file = backup_dir / f"backup_{dataset_uuid}_{timestamp}.json"
+
+                with open(backup_file, 'w', encoding='utf-8') as f:
+                    json.dump(records, f, indent=2, ensure_ascii=False, default=str)
+
+                self.logger.info(f"✓ 已備份 {len(records)} 筆記錄至 {backup_file}")
+                result['backup_file'] = str(backup_file)
+
+            # 刪除記錄
+            delete_result = self.collection.delete_many(query)
+            result['deleted_count'] = delete_result.deleted_count
+            result['success'] = True
+
+            self.logger.info(f"✓ 已刪除 {result['deleted_count']} 筆 {dataset_uuid} 記錄")
+            return result
+
+        except Exception as exc:
+            self.logger.error(f"✗ 刪除 {dataset_uuid} 記錄失敗：{exc}")
+            return result
+
     def restore_from_backup(self, backup_file: Path) -> Dict[str, int]:
         """
         從備份檔還原記錄

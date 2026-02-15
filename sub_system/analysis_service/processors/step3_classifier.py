@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pickle
+import joblib
 
 from sub_system.train.py_cyclegan.inference import CycleGANConverter
 from sub_system.train.RF.inference import RFClassifier
@@ -316,9 +317,21 @@ class AudioClassifier:
                     f"RF 模型檔案不存在: {model_path}"
                 )
 
-            with open(model_path, 'rb') as f:
-                self.model = pickle.load(f)
-            logger.info(f"✓ 模型載入成功: {model_path}")
+            # 載入模型（支援 joblib 和 pickle 格式）
+            try:
+                loaded_data = joblib.load(model_path)
+            except Exception:
+                # fallback to pickle
+                with open(model_path, 'rb') as f:
+                    loaded_data = pickle.load(f)
+
+            # 支援 dict 格式（訓練端儲存 {'model': ..., 'params': ...}）
+            if isinstance(loaded_data, dict) and 'model' in loaded_data:
+                self.model = loaded_data['model']
+                logger.info(f"✓ 模型載入成功 (dict format): {model_path}")
+            else:
+                self.model = loaded_data
+                logger.info(f"✓ 模型載入成功: {model_path}")
 
             # 優先使用配置中指定的 metadata 路徑（用戶上傳的檔案）
             config_metadata_path = self.config.get('metadata_path')
@@ -417,7 +430,7 @@ class AudioClassifier:
             logger.debug(f"[Step 3] RF 分類配置: 有效特徵={len(valid_features)}/{len(features_data)}, 聚合方式={aggregation}")
 
             # 解碼標籤
-            label_decoder = (self.metadata or {}).get('label_decoder', {0: 'normal', 1: 'abnormal'})
+            label_decoder = (self.metadata or {}).get('label_decoder', {0: 'normal', 1: 'anomaly'})
             if isinstance(label_decoder, dict):
                 # 處理 JSON 中字串鍵的情況（JSON 的鍵一定是字串）
                 label_decoder = {
@@ -438,25 +451,38 @@ class AudioClassifier:
                 all_classes = model.predict(feature_vectors)
                 all_probas = model.predict_proba(feature_vectors)
 
-                # 統計預測分布
-                normal_cnt = sum(1 for c in all_classes if c == 0)
-                abnormal_cnt = sum(1 for c in all_classes if c == 1)
+                # 獲取類別索引映射
+                class_list = list(model.classes_)
+                normal_idx = class_list.index('normal') if 'normal' in class_list else 0
+                abnormal_idx = 1 - normal_idx  # 假設只有兩類
+
+                # 統計預測分布（處理字串或整數類別）
+                normal_cnt = sum(1 for c in all_classes if c == 'normal' or c == normal_idx)
+                abnormal_cnt = len(all_classes) - normal_cnt
                 logger.info(f"[DEBUG] Segments 預測分布: normal={normal_cnt}, abnormal={abnormal_cnt}, total={len(all_classes)}")
 
                 valid_pointer = 0
                 for idx in range(len(features_data)):
                     if idx in valid_indices:
-                        pred_class = int(all_classes[valid_pointer])
+                        pred_class_raw = all_classes[valid_pointer]
                         pred_proba = all_probas[valid_pointer]
-                        predicted_label = label_decoder.get(pred_class, 'unknown')
-                        confidence = float(pred_proba[pred_class])
+
+                        # 處理字串或整數類別
+                        if isinstance(pred_class_raw, str):
+                            predicted_label = pred_class_raw
+                            class_idx = class_list.index(pred_class_raw) if pred_class_raw in class_list else 0
+                        else:
+                            class_idx = int(pred_class_raw)
+                            predicted_label = label_decoder.get(class_idx, 'unknown')
+
+                        confidence = float(pred_proba[class_idx])
 
                         prediction = {
                             'segment_id': idx + 1,
                             'prediction': predicted_label,
                             'confidence': confidence,
-                            'proba_normal': float(pred_proba[0]),
-                            'proba_abnormal': float(pred_proba[1])
+                            'proba_normal': float(pred_proba[normal_idx]),
+                            'proba_abnormal': float(pred_proba[abnormal_idx])
                         }
                         valid_pointer += 1
                     else:
@@ -478,11 +504,23 @@ class AudioClassifier:
                 prediction_class = model.predict(aggregated_feature)[0]
                 prediction_proba = model.predict_proba(aggregated_feature)[0]
 
-                logger.info(f"[DEBUG] 預測結果: class={prediction_class}, "
-                            f"proba_normal={prediction_proba[0]:.4f}, proba_abnormal={prediction_proba[1]:.4f}")
+                # 獲取類別索引映射
+                class_list = list(model.classes_)
+                normal_idx = class_list.index('normal') if 'normal' in class_list else 0
+                abnormal_idx = 1 - normal_idx  # 假設只有兩類
 
-                predicted_label = label_decoder.get(int(prediction_class), 'unknown')
-                confidence = float(prediction_proba[int(prediction_class)])
+                logger.info(f"[DEBUG] 預測結果: class={prediction_class}, "
+                            f"proba_normal={prediction_proba[normal_idx]:.4f}, proba_abnormal={prediction_proba[abnormal_idx]:.4f}")
+
+                # 處理字串或整數類別
+                if isinstance(prediction_class, str):
+                    predicted_label = prediction_class
+                    class_idx = class_list.index(prediction_class) if prediction_class in class_list else 0
+                else:
+                    predicted_label = label_decoder.get(int(prediction_class), 'unknown')
+                    class_idx = int(prediction_class)
+
+                confidence = float(prediction_proba[class_idx])
 
                 for idx in range(len(features_data)):
                     if idx in valid_indices:
@@ -490,8 +528,8 @@ class AudioClassifier:
                             'segment_id': idx + 1,
                             'prediction': predicted_label,
                             'confidence': confidence,
-                            'proba_normal': float(prediction_proba[0]),
-                            'proba_abnormal': float(prediction_proba[1])
+                            'proba_normal': float(prediction_proba[normal_idx]),
+                            'proba_abnormal': float(prediction_proba[abnormal_idx])
                         }
                     else:
                         prediction = {
@@ -644,6 +682,246 @@ class AudioClassifier:
         else:
             return np.mean(features, axis=0)
 
+    # ===== 預測結果聚合方法（與 Models_training 一致） =====
+    # 參考: Models_training/training/random_forest/aggregator.py
+
+    def _aggregate_predictions_by_ratio(
+        self,
+        predictions: List[str],
+        threshold: float = 0.3
+    ) -> str:
+        """
+        比例門檻聚合：異常比例 >= threshold 則判定異常
+
+        Args:
+            predictions: 預測標籤列表 ['normal', 'anomaly', ...]
+            threshold: 異常比例門檻，預設 0.3 (30%)
+
+        Returns:
+            最終預測標籤
+        """
+        if not predictions:
+            return 'unknown'
+
+        abnormal_count = sum(1 for p in predictions if p == 'anomaly')
+        abnormal_ratio = abnormal_count / len(predictions)
+
+        logger.debug(f"[聚合-ratio] 異常比例: {abnormal_ratio:.2%} (門檻: {threshold:.0%})")
+
+        return 'anomaly' if abnormal_ratio >= threshold else 'normal'
+
+    def _aggregate_predictions_by_consecutive(
+        self,
+        predictions: List[str],
+        threshold: int = 5
+    ) -> str:
+        """
+        連續異常聚合：連續 >= threshold 個異常則判定異常
+
+        Args:
+            predictions: 預測標籤列表 ['normal', 'anomaly', ...]
+            threshold: 連續異常數量門檻，預設 5
+
+        Returns:
+            最終預測標籤
+        """
+        if not predictions:
+            return 'unknown'
+
+        max_consecutive = 0
+        current_consecutive = 0
+
+        for pred in predictions:
+            if pred == 'anomaly':
+                current_consecutive += 1
+                max_consecutive = max(max_consecutive, current_consecutive)
+            else:
+                current_consecutive = 0
+
+        logger.debug(f"[聚合-consecutive] 最大連續異常: {max_consecutive} (門檻: {threshold})")
+
+        return 'anomaly' if max_consecutive >= threshold else 'normal'
+
+    def _aggregate_predictions_combined(
+        self,
+        predictions: List[str],
+        ratio_threshold: float = 0.3,
+        consecutive_threshold: int = 5
+    ) -> str:
+        """
+        組合聚合：比例 OR 連續（任一條件滿足即判定異常）
+
+        這是 Models_training 推薦的聚合方式
+
+        Args:
+            predictions: 預測標籤列表
+            ratio_threshold: 異常比例門檻
+            consecutive_threshold: 連續異常數量門檻
+
+        Returns:
+            最終預測標籤
+        """
+        by_ratio = self._aggregate_predictions_by_ratio(predictions, ratio_threshold)
+        by_consecutive = self._aggregate_predictions_by_consecutive(predictions, consecutive_threshold)
+
+        result = 'anomaly' if (by_ratio == 'anomaly' or by_consecutive == 'anomaly') else 'normal'
+
+        logger.debug(f"[聚合-combined] ratio={by_ratio}, consecutive={by_consecutive} → {result}")
+
+        return result
+
+    def _aggregate_predictions_strict(
+        self,
+        predictions: List[str],
+        probabilities: List[float],
+        ratio_threshold: float = 0.3,
+        probability_threshold: float = 0.6
+    ) -> str:
+        """
+        嚴格聚合：比例 AND 高機率（兩個條件都滿足才判定異常）
+
+        Args:
+            predictions: 預測標籤列表
+            probabilities: 異常機率列表
+            ratio_threshold: 異常比例門檻
+            probability_threshold: 高機率門檻
+
+        Returns:
+            最終預測標籤
+        """
+        if not predictions or not probabilities:
+            return 'unknown'
+
+        # 條件 1: 異常比例
+        abnormal_count = sum(1 for p in predictions if p == 'anomaly')
+        abnormal_ratio = abnormal_count / len(predictions)
+        ratio_met = abnormal_ratio >= ratio_threshold
+
+        # 條件 2: 平均異常機率
+        avg_abnormal_prob = np.mean(probabilities)
+        prob_met = avg_abnormal_prob >= probability_threshold
+
+        logger.debug(
+            f"[聚合-strict] ratio={abnormal_ratio:.2%} (門檻:{ratio_threshold:.0%}, 滿足:{ratio_met}), "
+            f"avg_prob={avg_abnormal_prob:.2%} (門檻:{probability_threshold:.0%}, 滿足:{prob_met})"
+        )
+
+        return 'anomaly' if (ratio_met and prob_met) else 'normal'
+
+    def _aggregate_predictions_mean_probability(
+        self,
+        probabilities: List[float],
+        threshold: float = 0.5
+    ) -> str:
+        """
+        平均機率聚合：平均異常機率 >= threshold 則判定異常
+
+        Args:
+            probabilities: 異常機率列表
+            threshold: 機率門檻
+
+        Returns:
+            最終預測標籤
+        """
+        if not probabilities:
+            return 'unknown'
+
+        avg_prob = np.mean(probabilities)
+        logger.debug(f"[聚合-mean] 平均異常機率: {avg_prob:.2%} (門檻: {threshold:.0%})")
+
+        return 'anomaly' if avg_prob >= threshold else 'normal'
+
+    def aggregate_segment_predictions(
+        self,
+        predictions: List[Dict[str, Any]],
+        method: str = 'combined',
+        config: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        聚合切片級預測結果為檔案級預測
+
+        支援的聚合方式（與 Models_training 一致）：
+        - 'mean': 平均機率聚合
+        - 'ratio': 異常比例聚合 (30%)
+        - 'consecutive': 連續異常聚合 (5個)
+        - 'combined': 組合聚合（ratio OR consecutive）- 推薦
+        - 'strict': 嚴格聚合（ratio AND 高機率）
+
+        Args:
+            predictions: 切片預測結果列表
+            method: 聚合方式
+            config: 聚合配置（門檻值等）
+
+        Returns:
+            聚合後的檔案級預測結果
+        """
+        config = config or {}
+
+        # 提取預測標籤和機率
+        pred_labels = [p.get('prediction', 'unknown') for p in predictions if p.get('prediction') != 'unknown']
+        abnormal_probs = [p.get('proba_abnormal', 0.5) for p in predictions if 'proba_abnormal' in p]
+
+        if not pred_labels:
+            return {
+                'final_prediction': 'unknown',
+                'confidence': 0.0,
+                'aggregation_method': method,
+                'total_segments': len(predictions),
+                'valid_segments': 0
+            }
+
+        # 根據聚合方式計算最終預測
+        if method == 'ratio':
+            threshold = config.get('ratio_threshold', 0.3)
+            final_pred = self._aggregate_predictions_by_ratio(pred_labels, threshold)
+
+        elif method == 'consecutive':
+            threshold = config.get('consecutive_threshold', 5)
+            final_pred = self._aggregate_predictions_by_consecutive(pred_labels, threshold)
+
+        elif method == 'combined':
+            ratio_th = config.get('ratio_threshold', 0.3)
+            consec_th = config.get('consecutive_threshold', 5)
+            final_pred = self._aggregate_predictions_combined(pred_labels, ratio_th, consec_th)
+
+        elif method == 'strict':
+            ratio_th = config.get('ratio_threshold', 0.3)
+            prob_th = config.get('probability_threshold', 0.6)
+            final_pred = self._aggregate_predictions_strict(pred_labels, abnormal_probs, ratio_th, prob_th)
+
+        elif method == 'mean':
+            threshold = config.get('mean_threshold', 0.5)
+            final_pred = self._aggregate_predictions_mean_probability(abnormal_probs, threshold)
+
+        else:
+            # 預設使用 combined
+            logger.warning(f"未知聚合方式 '{method}'，使用 combined")
+            final_pred = self._aggregate_predictions_combined(pred_labels)
+
+        # 計算信心度
+        if abnormal_probs:
+            if final_pred == 'anomaly':
+                confidence = float(np.mean(abnormal_probs))
+            else:
+                confidence = float(1.0 - np.mean(abnormal_probs))
+        else:
+            confidence = 0.5
+
+        # 統計
+        abnormal_count = sum(1 for p in pred_labels if p == 'anomaly')
+        normal_count = sum(1 for p in pred_labels if p == 'normal')
+
+        return {
+            'final_prediction': final_pred,
+            'confidence': round(confidence, 4),
+            'aggregation_method': method,
+            'total_segments': len(predictions),
+            'valid_segments': len(pred_labels),
+            'abnormal_count': abnormal_count,
+            'normal_count': normal_count,
+            'abnormal_ratio': round(abnormal_count / len(pred_labels), 4) if pred_labels else 0.0
+        }
+
     def _random_classify_all(self, features_data: List[List[float]]) -> Dict[str, Any]:
         """
         隨機分類所有切片
@@ -710,7 +988,7 @@ class AudioClassifier:
 
         prediction = {
             'segment_id': segment_id,
-            'prediction': 'normal' if is_normal else 'abnormal',
+            'prediction': 'normal' if is_normal else 'anomaly',
             'confidence': np.random.uniform(0.6, 0.95)
         }
 
@@ -742,7 +1020,7 @@ class AudioClassifier:
 
         # 統計各類別數量
         normal_count = sum(1 for p in predictions if p['prediction'] == 'normal')
-        abnormal_count = sum(1 for p in predictions if p['prediction'] == 'abnormal')
+        abnormal_count = sum(1 for p in predictions if p['prediction'] == 'anomaly')
         unknown_count = sum(1 for p in predictions if p['prediction'] == 'unknown')
 
         # 計算百分比
@@ -751,7 +1029,7 @@ class AudioClassifier:
 
         # 決定最終判斷
         if abnormal_count > normal_count:
-            final_prediction = 'abnormal'
+            final_prediction = 'anomaly'
         elif normal_count > abnormal_count:
             final_prediction = 'normal'
         else:

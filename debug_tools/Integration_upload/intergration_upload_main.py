@@ -25,6 +25,7 @@ from debug_tools.Integration_upload.config.base_config import BaseUploadConfig
 from debug_tools.Integration_upload.uploaders.cpc_uploader import CPCBatchUploader
 from debug_tools.Integration_upload.uploaders.mafaulda_uploader import MAFAULDABatchUploader
 from debug_tools.Integration_upload.uploaders.mimii_uploader import MIMIIBatchUploader
+from debug_tools.Integration_upload.uploaders.tdms_uploader import TDMSBatchUploader
 from debug_tools.Integration_upload.core.mongodb_handler import MongoDBUploader
 
 
@@ -38,16 +39,20 @@ class IntegrationUploadCLI:
         'CPC': (CPCBatchUploader, f'{PACKAGE_PREFIX}.config.cpc_config', 'CPCUploadConfig'),
         'MAFAULDA': (MAFAULDABatchUploader, f'{PACKAGE_PREFIX}.config.mafaulda_config', 'MAFAULDAUploadConfig'),
         'MIMII': (MIMIIBatchUploader, f'{PACKAGE_PREFIX}.config.mimii_config', 'MIMIIUploadConfig'),
+        'TDMS': (TDMSBatchUploader, f'{PACKAGE_PREFIX}.config.tdms_config', 'TDMSUploadConfig'),
     }
 
     DATASET_COMBINATIONS = {
-        '1': (['CPC', 'MAFAULDA', 'MIMII'], '全部上傳'),
+        '1': (['CPC', 'MAFAULDA', 'MIMII', 'TDMS'], '全部上傳'),
         '2': (['CPC'], '只上傳 CPC'),
         '3': (['MAFAULDA'], '只上傳 MAFAULDA'),
         '4': (['MIMII'], '只上傳 MIMII'),
-        '5': (['CPC', 'MAFAULDA'], 'CPC + MAFAULDA'),
-        '6': (['CPC', 'MIMII'], 'CPC + MIMII'),
-        '7': (['MAFAULDA', 'MIMII'], 'MAFAULDA + MIMII'),
+        '5': (['TDMS'], '只上傳 TDMS'),
+        '6': (['CPC', 'MAFAULDA'], 'CPC + MAFAULDA'),
+        '7': (['CPC', 'MIMII'], 'CPC + MIMII'),
+        '8': (['MAFAULDA', 'MIMII'], 'MAFAULDA + MIMII'),
+        '9': (['CPC', 'TDMS'], 'CPC + TDMS'),
+        '10': (['MIMII', 'TDMS'], 'MIMII + TDMS'),
     }
 
     def __init__(self) -> None:
@@ -356,7 +361,7 @@ class IntegrationUploadCLI:
 
 
         while True:
-            choice = input("\n請選擇 (1-7): ").strip()
+            choice = input("\n請選擇 (1-10): ").strip()
             if choice in self.DATASET_COMBINATIONS:
                 self.selected_datasets, description = self.DATASET_COMBINATIONS[choice]
                 print(f"\n已選擇：{description}")
@@ -390,11 +395,12 @@ class IntegrationUploadCLI:
             print("  5. 刪除進度 + 保留資料庫 + 正式上傳")
             print("  6. 繼續先前進度 + 正式上傳")
             print("\n【資料庫管理】")
-            print("  7. 刪除資料庫資料（僅record表）")
-            print("  8. 從備份檔還原資料庫")
+            print("  7. 刪除資料庫資料（僅record表，全部）")
+            print("  8. 刪除指定資料集記錄（僅record表）")
+            print("  9. 從備份檔還原資料庫")
 
             while True:
-                choice = input("\n請選擇 (1-8): ").strip()
+                choice = input("\n請選擇 (1-9): ").strip()
                 if choice == '1':
                     return 'dry_run', True, True    # Dry-run, 刪除進度, 刪除資料庫
                 elif choice == '2':
@@ -408,8 +414,10 @@ class IntegrationUploadCLI:
                 elif choice == '6':
                     return 'upload', False, False   # 正式上傳, 保留進度, 保留資料庫
                 elif choice == '7':
-                    return 'delete_db', False, False  # 僅刪除資料庫
+                    return 'delete_db', False, False  # 僅刪除資料庫（全部）
                 elif choice == '8':
+                    return 'delete_dataset', False, False  # 刪除指定資料集
+                elif choice == '9':
                     return 'restore', False, False  # 還原模式
                 else:
                     print("無效的選項，請重新輸入。")
@@ -417,18 +425,21 @@ class IntegrationUploadCLI:
             print("\n請選擇上傳模式：")
             print("  1. Dry-run 模式")
             print("  2. 正式上傳模式")
-            print("  3. 刪除資料庫資料（僅record表）")
-            print("  4. 從備份檔還原資料庫")
+            print("  3. 刪除資料庫資料（僅record表，全部）")
+            print("  4. 刪除指定資料集記錄（僅record表）")
+            print("  5. 從備份檔還原資料庫")
 
             while True:
-                choice = input("\n請選擇 (1-4): ").strip()
+                choice = input("\n請選擇 (1-5): ").strip()
                 if choice == '1':
                     return 'dry_run', False, False  # Dry-run
                 elif choice == '2':
                     return 'upload', False, False   # 正式上傳
                 elif choice == '3':
-                    return 'delete_db', False, False  # 僅刪除資料庫
+                    return 'delete_db', False, False  # 僅刪除資料庫（全部）
                 elif choice == '4':
+                    return 'delete_dataset', False, False  # 刪除指定資料集
+                elif choice == '5':
                     return 'restore', False, False  # 還原模式
                 else:
                     print("無效的選項，請重新輸入。")
@@ -663,6 +674,103 @@ class IntegrationUploadCLI:
             print(f"\n✗ 還原資料庫失敗：{e}")
             return False
 
+    def delete_dataset_records(self) -> bool:
+        """
+        刪除指定資料集的記錄
+
+        Returns:
+            是否成功
+        """
+        print("\n" + "=" * 70)
+        print("刪除指定資料集記錄（僅 record 表）")
+        print("=" * 70)
+
+        mongodb_config = BaseUploadConfig.MONGODB_CONFIG
+
+        try:
+            uploader = MongoDBUploader(
+                mongodb_config=mongodb_config,
+                use_gridfs=False,
+                logger=self.logger
+            )
+
+            # 顯示各資料集的記錄數
+            print("\n各資料集記錄數：")
+            print("-" * 40)
+
+            dataset_counts = {}
+            for dataset_name, (_, config_module, config_class_name) in self.DATASET_MAP.items():
+                try:
+                    config_module_obj = __import__(config_module, fromlist=[config_class_name])
+                    config_class = getattr(config_module_obj, config_class_name)
+                    dataset_uuid = config_class.DATASET_CONFIG.get('dataset_UUID', '')
+
+                    if dataset_uuid:
+                        count = uploader.count_records_by_dataset(dataset_uuid)
+                        dataset_counts[dataset_name] = (dataset_uuid, count)
+                        print(f"  {dataset_name} ({dataset_uuid}): {count:,} 筆")
+                except Exception as e:
+                    print(f"  {dataset_name}: 無法讀取 ({e})")
+
+            if not dataset_counts:
+                print("\n沒有找到任何資料集記錄。")
+                uploader.close()
+                return True
+
+            # 讓使用者選擇要刪除的資料集
+            print("\n請選擇要刪除的資料集：")
+            dataset_list = list(dataset_counts.keys())
+            for idx, name in enumerate(dataset_list, 1):
+                uuid_str, count = dataset_counts[name]
+                print(f"  {idx}. {name} ({count:,} 筆)")
+            print(f"  0. 取消")
+
+            while True:
+                choice = input("\n請選擇 (0-{}): ".format(len(dataset_list))).strip()
+                if choice == '0':
+                    print("\n已取消操作。")
+                    uploader.close()
+                    return True
+
+                try:
+                    idx = int(choice)
+                    if 1 <= idx <= len(dataset_list):
+                        selected_dataset = dataset_list[idx - 1]
+                        dataset_uuid, count = dataset_counts[selected_dataset]
+                        break
+                    else:
+                        print("無效的選項，請重新輸入。")
+                except ValueError:
+                    print("無效的選項，請重新輸入。")
+
+            # 確認刪除
+            print(f"\n⚠️  即將刪除 {selected_dataset} 的 {count:,} 筆記錄")
+            print(f"    dataset_UUID: {dataset_uuid}")
+            confirm = input("\n確認刪除？請輸入 'y' 確認: ").strip().lower()
+
+            if confirm != 'y':
+                print("\n已取消刪除操作。")
+                uploader.close()
+                return True
+
+            # 執行刪除
+            result = uploader.delete_records_by_dataset(dataset_uuid, with_backup=True)
+
+            if result['success']:
+                print(f"\n✓ 已刪除 {result['deleted_count']:,} 筆記錄")
+                if result['backup_file']:
+                    print(f"✓ 備份檔案：{result['backup_file']}")
+            else:
+                print("\n✗ 刪除失敗")
+
+            uploader.close()
+            return result['success']
+
+        except Exception as e:
+            self.logger.error(f"刪除資料集記錄時發生錯誤：{e}")
+            print(f"\n✗ 刪除失敗：{e}")
+            return False
+
     def initialize_uploaders(self) -> bool:
         """
         初始化選定的上傳器
@@ -825,6 +933,15 @@ class IntegrationUploadCLI:
                 print("\n✓ 資料庫刪除完成。")
             else:
                 print("\n✗ 資料庫刪除失敗或已取消。")
+            print("\n程序執行完畢。")
+            return
+
+        # 刪除指定資料集記錄模式：執行刪除後直接結束
+        if mode == 'delete_dataset':
+            if self.delete_dataset_records():
+                print("\n✓ 資料集記錄刪除完成。")
+            else:
+                print("\n✗ 資料集記錄刪除失敗或已取消。")
             print("\n程序執行完畢。")
             return
 

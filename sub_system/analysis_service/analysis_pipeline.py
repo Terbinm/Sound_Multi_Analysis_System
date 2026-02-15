@@ -1,9 +1,10 @@
-# analysis_pipeline.py - 分析流程管理器（加入 Step 0 轉檔）
+# analysis_pipeline.py - 分析流程管理器（加入 Step 0 轉檔 + TDMS 支援）
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 import os
 import traceback
+from pathlib import Path
 from bson.objectid import ObjectId
 
 from config import SERVICE_CONFIG, USE_GRIDFS, AUDIO_CONFIG, CONVERSION_CONFIG, LEAF_CONFIG, CLASSIFICATION_CONFIG
@@ -12,6 +13,7 @@ from utils.mongodb_handler import MongoDBHandler, StepNames
 from processors.step0_converter import AudioConverter
 from processors.step1_slicer import AudioSlicer
 from processors.step2_leaf import LEAFFeatureExtractor
+from processors.step2_statistical_features import StatisticalFeatureExtractor
 from processors.step3_classifier import AudioClassifier
 from gridfs_handler import AnalysisGridFSHandler
 
@@ -43,12 +45,22 @@ class AnalysisPipeline:
             self.converter = AudioConverter(AUDIO_CONFIG, CONVERSION_CONFIG)
             self.slicer = AudioSlicer(AUDIO_CONFIG)
             self.leaf_extractor = LEAFFeatureExtractor(LEAF_CONFIG, AUDIO_CONFIG)
+            self.stat_extractor = StatisticalFeatureExtractor(sample_rate=10000)
             self.classifier = AudioClassifier(CLASSIFICATION_CONFIG)
             self.current_config = {
                 "audio": dict(AUDIO_CONFIG),
                 "conversion": dict(CONVERSION_CONFIG),
                 "leaf": dict(LEAF_CONFIG),
-                "classification": dict(CLASSIFICATION_CONFIG)
+                "classification": dict(CLASSIFICATION_CONFIG),
+                "input": {"format": "wav"},
+                "feature": {"method": "leaf"},
+                "tdms": {"channels": ["Ch0-T1", "Ch1-T5", "Ch4-T3"], "tdms_sample_rate": 10000, "slice_duration": 1.5},
+                "aggregation": {
+                    "ratio_threshold": 0.3,
+                    "consecutive_threshold": 5,
+                    "probability_threshold": 0.6,
+                    "mean_threshold": 0.5
+                }
             }
             logger.info("✓ 所有處理器初始化成功 (使用預設配置)")
         except Exception as e:
@@ -63,7 +75,16 @@ class AnalysisPipeline:
             "audio": dict(AUDIO_CONFIG),
             "conversion": dict(CONVERSION_CONFIG),
             "leaf": dict(LEAF_CONFIG),
-            "classification": dict(CLASSIFICATION_CONFIG)
+            "classification": dict(CLASSIFICATION_CONFIG),
+            "input": {"format": "wav"},
+            "feature": {"method": "leaf"},
+            "tdms": {"channels": ["Ch0-T1", "Ch1-T5", "Ch4-T3"], "tdms_sample_rate": 10000, "slice_duration": 1.5},
+            "aggregation": {
+                "ratio_threshold": 0.3,
+                "consecutive_threshold": 5,
+                "probability_threshold": 0.6,
+                "mean_threshold": 0.5
+            }
         }
 
         def merge_section(target: Dict[str, Any], incoming: Dict[str, Any]):
@@ -71,6 +92,8 @@ class AnalysisPipeline:
                 return target
             for k, v in incoming.items():
                 if k not in target:
+                    # 允許新增未定義的鍵
+                    target[k] = v
                     continue
                 if isinstance(target[k], dict) and isinstance(v, dict):
                     target[k] = merge_section(dict(target[k]), v)
@@ -93,11 +116,16 @@ class AnalysisPipeline:
             merge_section(merged["conversion"], parameters.get("conversion", {}))
             merge_section(merged["leaf"], parameters.get("leaf", {}))
             merge_section(merged["classification"], parameters.get("classification", {}))
+            merge_section(merged["input"], parameters.get("input", {}))
+            merge_section(merged["feature"], parameters.get("feature", {}))
+            merge_section(merged["tdms"], parameters.get("tdms", {}))
+            merge_section(merged["aggregation"], parameters.get("aggregation", {}))
 
         # 套用到各處理器
         self.converter.apply_config(merged["audio"], merged["conversion"])
         self.slicer.apply_config(merged["audio"])
         self.leaf_extractor.apply_config(merged["leaf"], merged["audio"])
+        self.stat_extractor.apply_config({"sample_rate": merged["tdms"].get("tdms_sample_rate", 10000)})
         self.classifier.apply_config(merged["classification"])
         self.current_config = merged
         logger.info("✓ 已套用 runtime 配置到處理器")
@@ -117,7 +145,16 @@ class AnalysisPipeline:
             "audio": dict(AUDIO_CONFIG),
             "conversion": dict(CONVERSION_CONFIG),
             "leaf": dict(LEAF_CONFIG),
-            "classification": dict(CLASSIFICATION_CONFIG)
+            "classification": dict(CLASSIFICATION_CONFIG),
+            "input": {"format": "wav"},
+            "feature": {"method": "leaf"},
+            "tdms": {"channels": ["Ch0-T1", "Ch1-T5", "Ch4-T3"], "tdms_sample_rate": 10000, "slice_duration": 1.5},
+            "aggregation": {
+                "ratio_threshold": 0.3,
+                "consecutive_threshold": 5,
+                "probability_threshold": 0.6,
+                "mean_threshold": 0.5
+            }
         }
 
         def merge_section(target: Dict[str, Any], incoming: Dict[str, Any]):
@@ -125,6 +162,8 @@ class AnalysisPipeline:
                 return target
             for k, v in incoming.items():
                 if k not in target:
+                    # 允許新增未定義的鍵
+                    target[k] = v
                     continue
                 if isinstance(target[k], dict) and isinstance(v, dict):
                     target[k] = merge_section(dict(target[k]), v)
@@ -147,11 +186,16 @@ class AnalysisPipeline:
             merge_section(merged["conversion"], parameters.get("conversion", {}))
             merge_section(merged["leaf"], parameters.get("leaf", {}))
             merge_section(merged["classification"], parameters.get("classification", {}))
+            merge_section(merged["input"], parameters.get("input", {}))
+            merge_section(merged["feature"], parameters.get("feature", {}))
+            merge_section(merged["tdms"], parameters.get("tdms", {}))
+            merge_section(merged["aggregation"], parameters.get("aggregation", {}))
 
         # 套用到音訊處理器
         self.converter.apply_config(merged["audio"], merged["conversion"])
         self.slicer.apply_config(merged["audio"])
         self.leaf_extractor.apply_config(merged["leaf"], merged["audio"])
+        self.stat_extractor.apply_config({"sample_rate": merged["tdms"].get("tdms_sample_rate", 10000)})
 
         # 套用到分類器（包含模型路徑）
         self.classifier.apply_config_with_models(full_config, local_paths)
@@ -208,7 +252,29 @@ class AnalysisPipeline:
                 self._mark_error(analyze_uuid, "無法獲取音頻檔案", analysis_id=analysis_id)
                 return False
 
-            # 判斷是否需要轉檔
+            # 判斷輸入格式和處理流程
+            input_format = self._get_input_format(temp_file_path)
+            feature_method = self.current_config.get('feature', {}).get('method', 'leaf')
+
+            # TDMS 專用流程
+            if input_format == 'tdms':
+                try:
+                    result = self._execute_tdms_pipeline(
+                        analyze_uuid, temp_file_path, record, analysis_id, task_context
+                    )
+                    if result:
+                        logger.debug(f"✓ TDMS 記錄處理完成: {analyze_uuid}")
+                    return result
+                finally:
+                    # 清理臨時檔案
+                    if temp_file_path and os.path.exists(temp_file_path):
+                        try:
+                            os.remove(temp_file_path)
+                            logger.debug(f"已清理臨時檔案: {temp_file_path}")
+                        except Exception as e:
+                            logger.warning(f"清理臨時檔案失敗: {e}")
+
+            # 標準 WAV/CSV 流程
             needs_conversion = self.converter.needs_conversion(temp_file_path)
 
             working_file_path = self._execute_step0(
@@ -230,9 +296,13 @@ class AnalysisPipeline:
                 if not self._execute_step1(analyze_uuid, working_file_path, target_channels, analysis_id):
                     return False
 
-                # Step 2: LEAF 特徵提取
-                if not self._execute_step2(analyze_uuid, working_file_path, analysis_id):
-                    return False
+                # Step 2: 特徵提取（根據配置選擇 LEAF 或統計特徵）
+                if feature_method == 'statistical':
+                    if not self._execute_step2_statistical(analyze_uuid, working_file_path, analysis_id):
+                        return False
+                else:
+                    if not self._execute_step2(analyze_uuid, working_file_path, analysis_id):
+                        return False
 
                 # Step 3: 分類
                 if not self._execute_step3(analyze_uuid, analysis_id):
@@ -457,6 +527,284 @@ class AnalysisPipeline:
                 if step.get('features_name') == step_name:
                     return step
         return None
+
+    def _get_input_format(self, filepath: str) -> str:
+        """
+        根據檔案副檔名判斷輸入格式
+
+        Args:
+            filepath: 檔案路徑
+
+        Returns:
+            輸入格式: 'wav', 'csv', 'tdms'
+        """
+        ext = Path(filepath).suffix.lower()
+        if ext == '.tdms':
+            return 'tdms'
+        elif ext == '.csv':
+            return 'csv'
+        else:
+            return 'wav'
+
+    def _execute_tdms_pipeline(
+        self,
+        analyze_uuid: str,
+        filepath: str,
+        record: Dict[str, Any],
+        analysis_id: str,
+        task_context: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        執行 TDMS 專用分析流程（多通道支援）
+
+        流程：
+        1. 讀取 TDMS 多個通道
+        2. 各通道切片（不重疊）
+        3. 所有切片統一提取統計特徵（12維）
+        4. RF 分類
+        5. 聚合所有通道的所有切片結果
+
+        訓練時每個通道的每個片段是獨立樣本，預測時也要保持一致。
+        例如：3 通道 × 40 片段 = 120 個預測，最後聚合判斷。
+
+        Args:
+            analyze_uuid: 記錄 UUID
+            filepath: TDMS 檔案路徑
+            record: MongoDB 記錄
+            analysis_id: 分析 run ID
+            task_context: 任務上下文
+
+        Returns:
+            是否成功
+        """
+        try:
+            logger.info(f"[TDMS Pipeline] 開始處理 TDMS 檔案（多通道）: {filepath}")
+
+            # 取得 TDMS 配置
+            tdms_config = self.current_config.get('tdms', {})
+            channels = tdms_config.get('channels', ['Ch0-T1', 'Ch1-T5', 'Ch4-T3'])
+            sample_rate = tdms_config.get('tdms_sample_rate', 10000)
+            slice_duration = tdms_config.get('slice_duration', 1.5)
+
+            # Step 0: 讀取 TDMS 多通道
+            logger.debug(f"[TDMS Step 0] 讀取 TDMS 多通道: channels={channels}")
+            channel_signals = self.converter.load_tdms_multi_channel(filepath, channels=channels)
+
+            if not channel_signals:
+                error_msg = f"TDMS 檔案讀取失敗，無有效通道 (channels={channels})"
+                logger.error(f"[TDMS Step 0] {error_msg}")
+                self._mark_error(analyze_uuid, error_msg, analysis_id=analysis_id)
+                return False
+
+            # 計算總採樣點數（取最長通道）
+            total_samples = max(len(sig) for sig in channel_signals.values())
+
+            # 記錄 Step 0 結果
+            step0_info = {
+                'needs_conversion': False,
+                'conversion_state': 'tdms_loaded',
+                'original_format': '.tdms',
+                'original_path': filepath,
+                'tdms_channels': list(channel_signals.keys()),
+                'tdms_channels_requested': channels,
+                'tdms_sample_rate': sample_rate,
+                'signal_length': total_samples,
+                'signal_duration_seconds': total_samples / sample_rate,
+                'channels_loaded': len(channel_signals)
+            }
+            self.mongodb.save_conversion_results(
+                analyze_uuid, step0_info, analysis_id=analysis_id, conversion_state='tdms_loaded'
+            )
+            logger.debug(
+                f"[TDMS Step 0] ✓ TDMS 多通道讀取成功: {len(channel_signals)} 通道, "
+                f"最長 {total_samples} 採樣點, {total_samples/sample_rate:.2f}秒"
+            )
+
+            # Step 1: 各通道切片，收集所有切片
+            logger.debug(f"[TDMS Step 1] 多通道切片: duration={slice_duration}s, sample_rate={sample_rate}Hz")
+            all_slices = []  # 所有通道的所有切片（含 data）
+            slice_records = []  # 儲存用（不含 numpy array）
+
+            for ch_name, signal in channel_signals.items():
+                ch_slices = self.slicer.slice_signal(
+                    signal,
+                    slice_duration=slice_duration,
+                    sample_rate=sample_rate,
+                    overlap=False
+                )
+
+                if not ch_slices:
+                    logger.warning(f"[TDMS Step 1] 通道 '{ch_name}' 切片失敗，跳過")
+                    continue
+
+                for s in ch_slices:
+                    # 加入通道資訊
+                    s['channel'] = ch_name
+                    all_slices.append(s)
+
+                    # 記錄用（不含 numpy array）
+                    slice_records.append({
+                        'selec': s['selec'],
+                        'start': s['start'],
+                        'end': s['end'],
+                        'sample_start': s['sample_start'],
+                        'sample_end': s['sample_end'],
+                        'channel': ch_name
+                    })
+
+                logger.debug(f"[TDMS Step 1] 通道 '{ch_name}': {len(ch_slices)} 個切片")
+
+            if not all_slices:
+                error_msg = "TDMS 所有通道切片失敗"
+                logger.error(f"[TDMS Step 1] {error_msg}")
+                self._mark_error(analyze_uuid, error_msg, analysis_id=analysis_id)
+                return False
+
+            self.mongodb.save_slice_results(analyze_uuid, slice_records, analysis_id=analysis_id)
+            logger.debug(f"[TDMS Step 1] ✓ 多通道切片完成: {len(all_slices)} 個切片（來自 {len(channel_signals)} 通道）")
+
+            # Step 2: 統計特徵提取（所有切片統一處理）
+            logger.debug(f"[TDMS Step 2] 提取統計特徵...")
+            self.stat_extractor.apply_config({'sample_rate': sample_rate})
+            features_data = self.stat_extractor.extract_features(all_slices)
+
+            if not features_data:
+                error_msg = "統計特徵提取失敗"
+                logger.error(f"[TDMS Step 2] {error_msg}")
+                self._mark_error(analyze_uuid, error_msg, analysis_id=analysis_id)
+                return False
+
+            # 儲存特徵
+            processor_metadata = self.stat_extractor.get_feature_info()
+            processor_metadata['total_slices'] = len(all_slices)
+            processor_metadata['channels_used'] = list(channel_signals.keys())
+            self.mongodb.save_leaf_features(
+                analyze_uuid, features_data, processor_metadata, analysis_id=analysis_id
+            )
+            logger.debug(
+                f"[TDMS Step 2] ✓ 統計特徵提取完成: {len(features_data)} 個切片 x {processor_metadata['feature_dim']} 維"
+            )
+
+            # Step 3: 分類（所有切片的預測結果一起聚合）
+            logger.debug(f"[TDMS Step 3] 開始分類...")
+            classification_results = self.classifier.classify(features_data)
+
+            # 應用預測結果聚合
+            aggregation_method = self.current_config.get('classification', {}).get('rf_aggregation', 'combined')
+            if aggregation_method in ['ratio', 'consecutive', 'combined', 'strict', 'mean']:
+                predictions = classification_results.get('features_data', [])
+                aggregation_config = self.current_config.get('aggregation', {})
+                aggregated = self.classifier.aggregate_segment_predictions(
+                    predictions, method=aggregation_method, config=aggregation_config
+                )
+                # 更新 processor_metadata 中的聚合資訊
+                classification_results['processor_metadata'].update({
+                    'aggregation_method': aggregation_method,
+                    'final_prediction': aggregated['final_prediction'],
+                    'aggregation_confidence': aggregated['confidence'],
+                    'abnormal_ratio': aggregated.get('abnormal_ratio', 0),
+                    'total_segments': len(predictions),
+                    'channels_count': len(channel_signals)
+                })
+
+            self.mongodb.save_classification_results(
+                analyze_uuid, classification_results, analysis_id=analysis_id
+            )
+
+            processor_metadata = classification_results.get('processor_metadata', {})
+            logger.info(
+                f"[TDMS Step 3] ✓ 分類完成: {processor_metadata.get('final_prediction', 'unknown')} "
+                f"(正常: {processor_metadata.get('normal_count', 0)}, "
+                f"異常: {processor_metadata.get('abnormal_count', 0)}, "
+                f"總切片: {processor_metadata.get('total_segments', len(all_slices))}, "
+                f"通道: {len(channel_signals)})"
+            )
+
+            return True
+
+        except Exception as e:
+            logger.error(f"[TDMS Pipeline] 執行失敗: {e}")
+            logger.error(traceback.format_exc())
+            self._mark_error(analyze_uuid, f"TDMS 處理異常: {str(e)}", analysis_id=analysis_id)
+            return False
+
+    def _execute_step2_statistical(self, analyze_uuid: str, filepath: str, analysis_id: str) -> bool:
+        """
+        執行 Step 2: 統計特徵提取（用於非 TDMS 檔案但選擇統計特徵的情況）
+
+        Args:
+            analyze_uuid: 記錄 UUID
+            filepath: 音頻檔案路徑
+            analysis_id: 分析 run ID
+
+        Returns:
+            是否成功
+        """
+        try:
+            logger.debug(f"[Step 2] 開始統計特徵提取...")
+
+            # 獲取切割結果
+            record = self.mongodb.get_record_by_uuid(analyze_uuid)
+            if not record:
+                logger.error(f"[Step 2] 無法獲取記錄")
+                self._mark_error(analyze_uuid, "無法重新讀取記錄", analysis_id=analysis_id)
+                return False
+
+            run_doc = self._get_run_from_record(record, analysis_id)
+            slice_step = self._find_step_in_run(run_doc, StepNames.AUDIO_SLICING)
+
+            if not slice_step:
+                logger.error(f"[Step 2] 無切割資料")
+                self._mark_error(analyze_uuid, "找不到切割結果", analysis_id=analysis_id)
+                return False
+
+            slice_data = slice_step.get('features_data', [])
+            if not slice_data:
+                logger.error(f"[Step 2] 切割資料為空")
+                self._mark_error(analyze_uuid, "切割資料為空", analysis_id=analysis_id)
+                return False
+
+            # 從檔案讀取並切片
+            import librosa
+            audio, sr = librosa.load(filepath, sr=self.current_config['audio']['sample_rate'], mono=True)
+
+            # 根據切片資訊提取訊號片段
+            slices = []
+            for seg in slice_data:
+                start_sample = int(seg['start'] * sr)
+                end_sample = int(seg['end'] * sr)
+                if end_sample <= len(audio):
+                    slices.append({'data': audio[start_sample:end_sample]})
+
+            # 提取統計特徵
+            self.stat_extractor.apply_config({'sample_rate': sr})
+            features_data = self.stat_extractor.extract_features(slices)
+
+            if not features_data:
+                error_msg = "統計特徵提取失敗"
+                logger.error(f"[Step 2] {error_msg}")
+                self._mark_error(analyze_uuid, error_msg, analysis_id=analysis_id)
+                return False
+
+            # 儲存特徵
+            processor_metadata = self.stat_extractor.get_feature_info()
+            success = self.mongodb.save_leaf_features(
+                analyze_uuid, features_data, processor_metadata, analysis_id=analysis_id
+            )
+
+            if success:
+                logger.debug(
+                    f"[Step 2] ✓ 統計特徵提取完成: {len(features_data)} 個切片 (feature_dim={processor_metadata['feature_dim']})"
+                )
+                return True
+            else:
+                logger.error(f"[Step 2] ✗ 儲存統計特徵失敗")
+                return False
+
+        except Exception as e:
+            logger.error(f"[Step 2] 統計特徵執行失敗: {e}")
+            self._mark_error(analyze_uuid, f"Step 2 異常: {str(e)}", analysis_id=analysis_id)
+            return False
 
     @staticmethod
     def _extract_source_sample_rate(record: Dict[str, Any]) -> Optional[int]:

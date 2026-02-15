@@ -37,7 +37,15 @@
       "Bash(\".venv_test/Scripts/python.exe\" -m pytest CI_test/ -m \"unit\" --tb=no -q --timeout=120)",
       "Bash(.venv_test/Scripts/python.exe -m pytest CI_test/ -m \"unit\" --tb=short)",
       "WebSearch",
-      "WebFetch(domain:127.0.0.1)"
+      "WebFetch(domain:127.0.0.1)",
+      "Bash(docker volume:*)",
+      "Bash(while read vol)",
+      "Bash(do echo \"=== $vol ===\")",
+      "Bash(docker ps:*)",
+      "Bash(done)",
+      "Bash(python -m json.tool:*)",
+      "mcp__plugin_episodic-memory_episodic-memory__search",
+      "mcp__plugin_episodic-memory_episodic-memory__read"
     ],
     "additionalDirectories": [
       "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\debug_tools"

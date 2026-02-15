@@ -103,12 +103,17 @@ CLASSIFICATION_METHODS: List[Dict[str, Any]] = [
                 'label': '特徵聚合方式',
                 'type': 'select',
                 'description': '多片段特徵的聚合方法',
-                'default': 'mean',
+                'default': 'combined',
                 'options': [
-                    {'value': 'mean', 'label': '平均值'},
+                    {'value': 'mean', 'label': '平均機率'},
                     {'value': 'max', 'label': '最大值'},
                     {'value': 'median', 'label': '中位數'},
                     {'value': 'flatten', 'label': '展平 (串接)'},
+                    {'value': 'segments', 'label': '逐片段 (segments)'},
+                    {'value': 'ratio', 'label': '比例門檻 (30%)'},
+                    {'value': 'consecutive', 'label': '連續異常 (5個)'},
+                    {'value': 'combined', 'label': '組合 (比例或連續) - 推薦'},
+                    {'value': 'strict', 'label': '嚴格 (比例且高機率)'},
                 ],
             },
         ],
@@ -154,12 +159,17 @@ CLASSIFICATION_METHODS: List[Dict[str, Any]] = [
                 'label': '特徵聚合方式',
                 'type': 'select',
                 'description': '多片段特徵的聚合方法',
-                'default': 'mean',
+                'default': 'combined',
                 'options': [
-                    {'value': 'mean', 'label': '平均值'},
+                    {'value': 'mean', 'label': '平均機率'},
                     {'value': 'max', 'label': '最大值'},
                     {'value': 'median', 'label': '中位數'},
                     {'value': 'flatten', 'label': '展平 (串接)'},
+                    {'value': 'segments', 'label': '逐片段 (segments)'},
+                    {'value': 'ratio', 'label': '比例門檻 (30%)'},
+                    {'value': 'consecutive', 'label': '連續異常 (5個)'},
+                    {'value': 'combined', 'label': '組合 (比例或連續) - 推薦'},
+                    {'value': 'strict', 'label': '嚴格 (比例且高機率)'},
                 ],
             },
         ],
@@ -168,12 +178,58 @@ CLASSIFICATION_METHODS: List[Dict[str, Any]] = [
 
 
 # ==================== 參數群組定義 ====================
+# visible_when 定義：
+#   - 無此欄位：永遠顯示
+#   - {'field': 'input.format', 'values': ['wav', 'csv']}：當 input.format 為指定值時顯示
+#   - 多條件為 AND 邏輯
 PARAMETER_GROUPS: List[Dict[str, Any]] = [
+    {
+        'key': 'input',
+        'label': '輸入設定',
+        'description': '輸入檔案格式與來源設定',
+        'collapsed': False,
+        # 永遠顯示（無 visible_when）
+        'fields': [
+            {
+                'name': 'format',
+                'label': '輸入格式',
+                'type': 'select',
+                'description': '選擇輸入檔案格式',
+                'default': 'wav',
+                'options': [
+                    {'value': 'wav', 'label': 'WAV 音訊檔'},
+                    {'value': 'csv', 'label': 'CSV 資料檔'},
+                    {'value': 'tdms', 'label': 'TDMS 資料檔'},
+                ],
+            },
+        ],
+    },
+    {
+        'key': 'feature',
+        'label': '特徵設定',
+        'description': '特徵提取方法設定',
+        'collapsed': False,
+        # 永遠顯示（無 visible_when）
+        'fields': [
+            {
+                'name': 'method',
+                'label': '特徵方法',
+                'type': 'select',
+                'description': '選擇特徵提取方法',
+                'default': 'leaf',
+                'options': [
+                    {'value': 'leaf', 'label': 'LEAF 特徵 (40維)'},
+                    {'value': 'statistical', 'label': '統計特徵 (12維)'},
+                ],
+            },
+        ],
+    },
     {
         'key': 'classification',
         'label': '分類設定',
         'description': '基本分類參數',
         'collapsed': False,
+        # 永遠顯示（無 visible_when）
         'fields': [
             {
                 'name': 'classes',
@@ -186,10 +242,101 @@ PARAMETER_GROUPS: List[Dict[str, Any]] = [
         ],
     },
     {
+        'key': 'aggregation',
+        'label': '聚合設定',
+        'description': '預測結果聚合門檻設定',
+        'collapsed': True,
+        # 永遠顯示（無 visible_when）
+        'fields': [
+            {
+                'name': 'ratio_threshold',
+                'label': '異常比例門檻',
+                'type': 'number',
+                'description': '判定異常的比例門檻（0-1）',
+                'default': 0.3,
+                'min': 0,
+                'max': 1,
+                'step': 0.05,
+            },
+            {
+                'name': 'consecutive_threshold',
+                'label': '連續異常數量',
+                'type': 'number',
+                'description': '判定異常的連續片段數量',
+                'default': 5,
+                'min': 1,
+                'max': 100,
+                'step': 1,
+            },
+            {
+                'name': 'probability_threshold',
+                'label': '高機率門檻',
+                'type': 'number',
+                'description': '嚴格模式的機率門檻',
+                'default': 0.6,
+                'min': 0,
+                'max': 1,
+                'step': 0.05,
+            },
+            {
+                'name': 'mean_threshold',
+                'label': '平均機率門檻',
+                'type': 'number',
+                'description': '平均機率聚合的門檻',
+                'default': 0.5,
+                'min': 0,
+                'max': 1,
+                'step': 0.05,
+            },
+        ],
+    },
+    {
+        'key': 'tdms',
+        'label': 'TDMS 設定',
+        'description': 'TDMS 檔案讀取參數',
+        'collapsed': False,  # TDMS 時展開顯示
+        'visible_when': [
+            {'field': 'input.format', 'values': ['tdms']},
+        ],
+        'fields': [
+            {
+                'name': 'channels',
+                'label': '讀取通道',
+                'type': 'tags',
+                'description': 'TDMS 檔案中要讀取的通道名稱列表',
+                'default': ['Ch0-T1', 'Ch1-T5', 'Ch4-T3'],
+                'suggestions': ['Ch0-T1', 'Ch1-T5', 'Ch4-T3', 'Ch2-T2', 'Ch3-T4'],
+            },
+            {
+                'name': 'tdms_sample_rate',
+                'label': 'TDMS 取樣率（Hz）',
+                'type': 'number',
+                'description': 'TDMS 訊號的取樣率',
+                'default': 10000,
+                'min': 1000,
+                'max': 100000,
+                'step': 1000,
+            },
+            {
+                'name': 'slice_duration',
+                'label': 'TDMS 切片時長（秒）',
+                'type': 'number',
+                'description': 'TDMS 訊號每個切片的時長',
+                'default': 1.5,
+                'min': 0.1,
+                'max': 10.0,
+                'step': 0.1,
+            },
+        ],
+    },
+    {
         'key': 'audio',
         'label': '音訊處理',
-        'description': '音訊切片與取樣參數',
+        'description': '音訊切片與取樣參數（WAV/CSV 專用）',
         'collapsed': True,
+        'visible_when': [
+            {'field': 'input.format', 'values': ['wav', 'csv']},
+        ],
         'fields': [
             {
                 'name': 'slice_duration',
@@ -219,6 +366,7 @@ PARAMETER_GROUPS: List[Dict[str, Any]] = [
                 'default': 16000,
                 'options': [
                     {'value': 8000, 'label': '8000 Hz'},
+                    {'value': 10000, 'label': '10000 Hz'},
                     {'value': 16000, 'label': '16000 Hz'},
                     {'value': 22050, 'label': '22050 Hz'},
                     {'value': 44100, 'label': '44100 Hz'},
@@ -251,9 +399,20 @@ PARAMETER_GROUPS: List[Dict[str, Any]] = [
     {
         'key': 'conversion',
         'label': '檔案轉換',
-        'description': '輸入檔案轉換設定',
+        'description': 'CSV 檔案轉換設定',
         'collapsed': True,
+        'visible_when': [
+            {'field': 'input.format', 'values': ['csv']},
+        ],
         'fields': [
+            {
+                'name': 'supported_input_formats',
+                'label': '支援的輸入格式',
+                'type': 'tags',
+                'description': '允許的輸入檔案格式',
+                'default': ['.wav', '.csv', '.tdms'],
+                'suggestions': ['.wav', '.csv', '.tdms'],
+            },
             {
                 'name': 'csv_normalize',
                 'label': '正規化 CSV 數值',
@@ -277,8 +436,11 @@ PARAMETER_GROUPS: List[Dict[str, Any]] = [
     {
         'key': 'leaf',
         'label': 'LEAF 特徵擷取',
-        'description': 'LEAF 音訊前端參數',
+        'description': 'LEAF 音訊前端參數（僅 LEAF 特徵方法使用）',
         'collapsed': True,
+        'visible_when': [
+            {'field': 'feature.method', 'values': ['leaf']},
+        ],
         'fields': [
             {
                 'name': 'n_filters',

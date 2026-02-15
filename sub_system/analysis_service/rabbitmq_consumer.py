@@ -222,12 +222,24 @@ class RabbitMQConsumer:
                 channel.basic_ack(delivery_tag=method.delivery_tag)
                 logger.info(f"任務完成: {task_id}")
             else:
-                # 拒絕消息，重新入隊
-                channel.basic_nack(
-                    delivery_tag=method.delivery_tag,
-                    requeue=True
-                )
-                logger.error(f"任務失敗，重新入隊: {task_id}")
+                # 檢查重試次數
+                retry_count = task_data.get('retry_count', 0)
+                max_retries = self.config.get('max_retries', 3)
+
+                if retry_count < max_retries:
+                    # 重新入隊
+                    logger.warning(f"任務失敗，重新入隊 ({retry_count + 1}/{max_retries}): {task_id}")
+                    channel.basic_nack(
+                        delivery_tag=method.delivery_tag,
+                        requeue=True
+                    )
+                else:
+                    # 超過重試次數，丟棄消息
+                    logger.error(f"任務超過最大重試次數，丟棄: {task_id}")
+                    channel.basic_nack(
+                        delivery_tag=method.delivery_tag,
+                        requeue=False
+                    )
 
         except json.JSONDecodeError as e:
             logger.error(f"解析任務數據失敗: {e}")

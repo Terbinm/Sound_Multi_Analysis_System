@@ -18,6 +18,7 @@ function routingWizard() {
             mongodb_instance: 'default',
             conditions: '',
             backfill_enabled: false,
+            router_ids: '',
         },
 
         // 可用的分析方法列表
@@ -235,6 +236,10 @@ function routingWizard() {
                     }
                 ];
 
+                // 解析 router_ids（逗號分隔轉陣列）
+                const routerIdsStr = this.formData.router_ids ? this.formData.router_ids.trim() : '';
+                const routerIds = routerIdsStr ? routerIdsStr.split(',').map(s => s.trim()).filter(s => s) : [];
+
                 // 構建規則資料
                 const ruleData = {
                     rule_name: this.formData.rule_name,
@@ -243,7 +248,8 @@ function routingWizard() {
                     conditions: conditions,
                     actions: actions,
                     enabled: true,
-                    backfill_enabled: this.formData.backfill_enabled
+                    backfill_enabled: this.formData.backfill_enabled,
+                    router_ids: routerIds
                 };
 
                 // 建立規則

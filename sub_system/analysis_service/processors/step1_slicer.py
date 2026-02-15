@@ -242,3 +242,92 @@ class AudioSlicer:
         except Exception as e:
             logger.error(f"獲取音訊資訊失敗 {filepath}: {e}")
             return {}
+
+    def slice_signal(
+        self,
+        signal: np.ndarray,
+        slice_duration: Optional[float] = None,
+        sample_rate: Optional[int] = None,
+        overlap: bool = False
+    ) -> List[Dict[str, Any]]:
+        """
+        直接對 numpy array 進行切片（用於 TDMS 訊號）
+
+        與 slice_audio() 不同：
+        - slice_audio(): 從檔案讀取 + librosa + 滑動窗口
+        - slice_signal(): 直接對 array 切片 + 可選不重疊
+
+        參考 Models_training/data_preprocessing/tdms_preprocessing/tdms_loader.py
+
+        Args:
+            signal: numpy array 訊號數據 (1D)
+            slice_duration: 每個切片的時長（秒），預設使用配置中的值
+            sample_rate: 取樣率（Hz），預設使用配置中的值
+            overlap: 是否允許重疊，False 表示不重疊切片
+
+        Returns:
+            切片列表，格式：
+            [
+                {
+                    'selec': 切片編號 (從 1 開始),
+                    'data': numpy array 切片數據,
+                    'start': 開始時間(秒),
+                    'end': 結束時間(秒),
+                    'sample_start': 開始採樣點,
+                    'sample_end': 結束採樣點
+                },
+                ...
+            ]
+        """
+        try:
+            # 使用傳入參數或配置中的預設值
+            duration = slice_duration if slice_duration is not None else self.config['slice_duration']
+            sr = sample_rate if sample_rate is not None else self.config['sample_rate']
+
+            # 計算每個切片的採樣點數
+            slice_samples = int(duration * sr)
+
+            # 決定步進大小
+            if overlap:
+                interval = self.config.get('slice_interval', duration)
+                step_samples = int(interval * sr)
+            else:
+                step_samples = slice_samples  # 不重疊
+
+            total_samples = len(signal)
+            slices = []
+            selec = 1
+
+            logger.debug(
+                f"[Step 1] 訊號切片參數: "
+                f"總採樣點={total_samples}, 採樣率={sr}Hz, "
+                f"切片時長={duration}s ({slice_samples}採樣點), "
+                f"步進={step_samples}採樣點, 重疊={overlap}"
+            )
+
+            # 進行切片
+            for start in range(0, total_samples - slice_samples + 1, step_samples):
+                end = start + slice_samples
+
+                slice_data = signal[start:end]
+
+                slice_info = {
+                    'selec': selec,
+                    'data': slice_data,
+                    'start': round(start / sr, 6),
+                    'end': round(end / sr, 6),
+                    'sample_start': start,
+                    'sample_end': end
+                }
+                slices.append(slice_info)
+                selec += 1
+
+            logger.info(f"訊號切片完成: 共 {len(slices)} 個切片 (每片 {duration}s)")
+
+            return slices
+
+        except Exception as e:
+            logger.error(f"訊號切片失敗: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return []

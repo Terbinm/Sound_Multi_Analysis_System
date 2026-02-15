@@ -39,6 +39,7 @@ from mongodb_node_manager import MongoDBNodeManager
 from gridfs_handler import AnalysisGridFSHandler
 from model_cache_manager import ModelCacheManager, ModelCacheError
 from pymongo.collection import Collection
+from routing_rule_client import RoutingRuleClient
 
 class AnalysisServiceV2:
     """分析服務主類別 (V2 - RabbitMQ 版本)"""
@@ -58,6 +59,7 @@ class AnalysisServiceV2:
         self.analysis_configs_collection: Optional[Collection] = None
         self.gridfs_handler: Optional[AnalysisGridFSHandler] = None
         self.model_cache: Optional[ModelCacheManager] = None
+        self.routing_rule_client: Optional[RoutingRuleClient] = None
 
         # 任務追蹤
         self.processing_tasks = set()
@@ -128,6 +130,9 @@ class AnalysisServiceV2:
             self.mongodb_handler = MongoDBHandler()
             # 分析配置集合
             self.analysis_configs_collection = self.mongodb_handler.get_collection('analysis_configs')
+
+            # 初始化路由規則客戶端（用於查詢最新的 config_id）
+            self.routing_rule_client = RoutingRuleClient(self.mongodb_handler)
 
             # 初始化 GridFS Handler
             logger.info("初始化 GridFS Handler...")
@@ -275,10 +280,30 @@ class AnalysisServiceV2:
         task_id = task_data.get('task_id', 'unknown')
         analyze_uuid = task_data.get('analyze_uuid')
         mongodb_instance = task_data.get('mongodb_instance')
-        config_id = task_data.get('config_id')
         analysis_method_id = task_data.get('analysis_method_id') or (
             (self.node_manager.node_info.get('capabilities') or [None])[0] if self.node_manager else None
         )
+
+        # 從消息獲取原始 config_id 作為備選
+        original_config_id = task_data.get('config_id')
+
+        # 重新查詢路由規則獲取最新的 config_id
+        router_id = (task_data.get('metadata') or {}).get('router_id')
+        config_id = None
+
+        logger.info(f"嘗試查詢路由規則: router_id={router_id}, original_config_id={original_config_id}")
+
+        if router_id and self.routing_rule_client:
+            config_id = self.routing_rule_client.get_config_id_by_router_id(
+                router_id=router_id,
+                analysis_method_id=analysis_method_id
+            )
+            if config_id and config_id != original_config_id:
+                logger.info(f"config_id 已更新: {original_config_id} -> {config_id}")
+
+        # 如果查詢失敗，回退到原始 config_id
+        if not config_id:
+            config_id = original_config_id
 
         with analyze_uuid_context(analyze_uuid):
             try:
@@ -347,10 +372,8 @@ class AnalysisServiceV2:
                     self._update_task_status(task_id, 'failed', err_msg)
                     return False
 
-                # 獲取記錄
-                record = mongo_handler.get_collection('recordings').find_one({
-                    'AnalyzeUUID': analyze_uuid
-                })
+                # 獲取記錄（使用配置中的正確集合名稱）
+                record = mongo_handler.get_record_by_uuid(analyze_uuid)
 
                 if not record:
                     err_msg = f"找不到記錄: {analyze_uuid}"

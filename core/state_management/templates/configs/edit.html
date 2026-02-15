@@ -407,14 +407,67 @@ function renderParameterGroups() {
 
     // Bind field events
     bindFieldEvents(container);
+
+    // Bind visibility-controlling fields (input.format, feature.method)
+    bindVisibilityEvents(container);
+}
+
+// Check if a parameter group should be visible based on visible_when conditions
+function shouldShowGroup(group) {
+    const conditions = group.visible_when;
+    if (!conditions || conditions.length === 0) {
+        return true;  // No conditions = always show
+    }
+
+    // All conditions must be met (AND logic)
+    for (const condition of conditions) {
+        const fieldPath = condition.field;  // e.g., "input.format"
+        const allowedValues = condition.values;  // e.g., ["tdms"]
+
+        // Parse field path
+        const [groupKey, fieldName] = fieldPath.split('.');
+        const currentValue = getParameterValue(groupKey, fieldName, null);
+
+        if (!allowedValues.includes(currentValue)) {
+            return false;  // Condition not met
+        }
+    }
+
+    return true;  // All conditions met
+}
+
+// Bind events to fields that control visibility
+function bindVisibilityEvents(container) {
+    // Find input.format and feature.method selects and bind change events
+    container.querySelectorAll('select[data-field="format"], select[data-field="method"]').forEach(el => {
+        el.addEventListener('change', function() {
+            // Re-render all parameter groups to update visibility
+            updateGroupVisibility();
+        });
+    });
+}
+
+// Update visibility of all parameter groups
+function updateGroupVisibility() {
+    for (const group of SCHEMA.parameter_groups) {
+        const groupEl = document.getElementById(`group-${group.key}`);
+        if (groupEl) {
+            if (shouldShowGroup(group)) {
+                groupEl.classList.remove('hidden');
+            } else {
+                groupEl.classList.add('hidden');
+            }
+        }
+    }
 }
 
 function renderParameterGroup(group) {
     const isCollapsed = group.collapsed !== false;
     const collapseId = `group-${group.key}-content`;
+    const isVisible = shouldShowGroup(group);
 
     let html = `
-        <div class="border border-gray-200 rounded-lg overflow-hidden">
+        <div id="group-${group.key}" class="border border-gray-200 rounded-lg overflow-hidden ${isVisible ? '' : 'hidden'}">
             <button type="button" data-collapse-toggle="${collapseId}"
                 class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 text-left">
                 <div>
@@ -570,6 +623,12 @@ function updateParameterValue(element) {
 
     // Update hidden field
     document.getElementById('parameters').value = JSON.stringify(currentParameters);
+
+    // Update group visibility if this is a visibility-controlling field
+    if ((groupKey === 'input' && fieldName === 'format') ||
+        (groupKey === 'feature' && fieldName === 'method')) {
+        updateGroupVisibility();
+    }
 }
 
 // ==================== Model Files ====================

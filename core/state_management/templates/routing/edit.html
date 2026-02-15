@@ -92,6 +92,22 @@
                         </div>
                     </div>
 
+                    <!-- Router IDs -->
+                    <div class="col-span-full">
+                        <label for="router_ids" class="block text-sm font-medium leading-6 text-gray-900">
+                            Router IDs（選填，以逗號分隔）
+                        </label>
+                        <div class="mt-2">
+                            {{ form.router_ids(class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6") }}
+                            {% if form.router_ids.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.router_ids.errors[0] }}</p>
+                            {% endif %}
+                            <p class="mt-2 text-sm text-gray-500">
+                                指定此規則的 Router ID，用於外部系統觸發分析任務。若留空，將使用自動生成的 rule_id 作為 router_id。
+                            </p>
+                        </div>
+                    </div>
+
                     <!-- 啟用狀態 -->
                     <div class="sm:col-span-4">
                         <div class="flex items-center">
