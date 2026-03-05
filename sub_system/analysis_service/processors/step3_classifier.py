@@ -430,7 +430,7 @@ class AudioClassifier:
             logger.debug(f"[Step 3] RF 分類配置: 有效特徵={len(valid_features)}/{len(features_data)}, 聚合方式={aggregation}")
 
             # 解碼標籤
-            label_decoder = (self.metadata or {}).get('label_decoder', {0: 'normal', 1: 'anomaly'})
+            label_decoder = (self.metadata or {}).get('label_decoder', {0: 'normal', 1: 'abnormal'})
             if isinstance(label_decoder, dict):
                 # 處理 JSON 中字串鍵的情況（JSON 的鍵一定是字串）
                 label_decoder = {
@@ -694,7 +694,7 @@ class AudioClassifier:
         比例門檻聚合：異常比例 >= threshold 則判定異常
 
         Args:
-            predictions: 預測標籤列表 ['normal', 'anomaly', ...]
+            predictions: 預測標籤列表 ['normal', 'abnormal', ...]
             threshold: 異常比例門檻，預設 0.3 (30%)
 
         Returns:
@@ -703,12 +703,12 @@ class AudioClassifier:
         if not predictions:
             return 'unknown'
 
-        abnormal_count = sum(1 for p in predictions if p == 'anomaly')
+        abnormal_count = sum(1 for p in predictions if p == 'abnormal')
         abnormal_ratio = abnormal_count / len(predictions)
 
         logger.debug(f"[聚合-ratio] 異常比例: {abnormal_ratio:.2%} (門檻: {threshold:.0%})")
 
-        return 'anomaly' if abnormal_ratio >= threshold else 'normal'
+        return 'abnormal' if abnormal_ratio >= threshold else 'normal'
 
     def _aggregate_predictions_by_consecutive(
         self,
@@ -719,7 +719,7 @@ class AudioClassifier:
         連續異常聚合：連續 >= threshold 個異常則判定異常
 
         Args:
-            predictions: 預測標籤列表 ['normal', 'anomaly', ...]
+            predictions: 預測標籤列表 ['normal', 'abnormal', ...]
             threshold: 連續異常數量門檻，預設 5
 
         Returns:
@@ -732,7 +732,7 @@ class AudioClassifier:
         current_consecutive = 0
 
         for pred in predictions:
-            if pred == 'anomaly':
+            if pred == 'abnormal':
                 current_consecutive += 1
                 max_consecutive = max(max_consecutive, current_consecutive)
             else:
@@ -740,7 +740,7 @@ class AudioClassifier:
 
         logger.debug(f"[聚合-consecutive] 最大連續異常: {max_consecutive} (門檻: {threshold})")
 
-        return 'anomaly' if max_consecutive >= threshold else 'normal'
+        return 'abnormal' if max_consecutive >= threshold else 'normal'
 
     def _aggregate_predictions_combined(
         self,
@@ -764,7 +764,7 @@ class AudioClassifier:
         by_ratio = self._aggregate_predictions_by_ratio(predictions, ratio_threshold)
         by_consecutive = self._aggregate_predictions_by_consecutive(predictions, consecutive_threshold)
 
-        result = 'anomaly' if (by_ratio == 'anomaly' or by_consecutive == 'anomaly') else 'normal'
+        result = 'abnormal' if (by_ratio == 'abnormal' or by_consecutive == 'abnormal') else 'normal'
 
         logger.debug(f"[聚合-combined] ratio={by_ratio}, consecutive={by_consecutive} → {result}")
 
@@ -793,7 +793,7 @@ class AudioClassifier:
             return 'unknown'
 
         # 條件 1: 異常比例
-        abnormal_count = sum(1 for p in predictions if p == 'anomaly')
+        abnormal_count = sum(1 for p in predictions if p == 'abnormal')
         abnormal_ratio = abnormal_count / len(predictions)
         ratio_met = abnormal_ratio >= ratio_threshold
 
@@ -806,7 +806,7 @@ class AudioClassifier:
             f"avg_prob={avg_abnormal_prob:.2%} (門檻:{probability_threshold:.0%}, 滿足:{prob_met})"
         )
 
-        return 'anomaly' if (ratio_met and prob_met) else 'normal'
+        return 'abnormal' if (ratio_met and prob_met) else 'normal'
 
     def _aggregate_predictions_mean_probability(
         self,
@@ -829,7 +829,7 @@ class AudioClassifier:
         avg_prob = np.mean(probabilities)
         logger.debug(f"[聚合-mean] 平均異常機率: {avg_prob:.2%} (門檻: {threshold:.0%})")
 
-        return 'anomaly' if avg_prob >= threshold else 'normal'
+        return 'abnormal' if avg_prob >= threshold else 'normal'
 
     def aggregate_segment_predictions(
         self,
@@ -900,7 +900,7 @@ class AudioClassifier:
 
         # 計算信心度
         if abnormal_probs:
-            if final_pred == 'anomaly':
+            if final_pred == 'abnormal':
                 confidence = float(np.mean(abnormal_probs))
             else:
                 confidence = float(1.0 - np.mean(abnormal_probs))
@@ -908,7 +908,7 @@ class AudioClassifier:
             confidence = 0.5
 
         # 統計
-        abnormal_count = sum(1 for p in pred_labels if p == 'anomaly')
+        abnormal_count = sum(1 for p in pred_labels if p == 'abnormal')
         normal_count = sum(1 for p in pred_labels if p == 'normal')
 
         return {
@@ -988,7 +988,7 @@ class AudioClassifier:
 
         prediction = {
             'segment_id': segment_id,
-            'prediction': 'normal' if is_normal else 'anomaly',
+            'prediction': 'normal' if is_normal else 'abnormal',
             'confidence': np.random.uniform(0.6, 0.95)
         }
 
@@ -1020,8 +1020,8 @@ class AudioClassifier:
 
         # 統計各類別數量
         normal_count = sum(1 for p in predictions if p['prediction'] == 'normal')
-        abnormal_count = sum(1 for p in predictions if p['prediction'] == 'anomaly')
-        unknown_count = sum(1 for p in predictions if p['prediction'] == 'unknown')
+        abnormal_count = sum(1 for p in predictions if p['prediction'] == 'abnormal')
+        unknown_count = sum(1 for p in predictions if p['prediction'] not in ('normal', 'abnormal'))
 
         # 計算百分比
         normal_percentage = (normal_count / total) * 100
@@ -1029,7 +1029,7 @@ class AudioClassifier:
 
         # 決定最終判斷
         if abnormal_count > normal_count:
-            final_prediction = 'anomaly'
+            final_prediction = 'abnormal'
         elif normal_count > abnormal_count:
             final_prediction = 'normal'
         else:

@@ -741,7 +741,7 @@ class AnalysisPipeline:
             是否成功
         """
         try:
-            logger.debug(f"[Step 2] 開始統計特徵提取...")
+            logger.info(f"[Step 2] 開始統計特徵提取...")
 
             # 獲取切割結果
             record = self.mongodb.get_record_by_uuid(analyze_uuid)
@@ -793,7 +793,7 @@ class AnalysisPipeline:
             )
 
             if success:
-                logger.debug(
+                logger.info(
                     f"[Step 2] ✓ 統計特徵提取完成: {len(features_data)} 個切片 (feature_dim={processor_metadata['feature_dim']})"
                 )
                 return True
@@ -869,7 +869,7 @@ class AnalysisPipeline:
             供後續步驟使用的檔案路徑，若失敗則回傳 None
         """
         try:
-            logger.debug(f"[Step 0] 開始音訊轉檔/對齊流程...")
+            logger.info(f"[Step 0] 開始音訊轉檔/對齊流程...")
 
             source_sample_rate = self._extract_source_sample_rate(record)
             if source_sample_rate:
@@ -906,7 +906,7 @@ class AnalysisPipeline:
                 )
 
                 if success:
-                    logger.debug(f"[Step 0] ✓ 音訊轉檔完成: {conversion_info.get('original_format')} -> WAV")
+                    logger.info(f"[Step 0] ✓ 音訊轉檔完成: {conversion_info.get('original_format')} -> WAV")
                     return converted_path
 
                 logger.error(f"[Step 0] ✗ 儲存轉檔結果失敗")
@@ -929,7 +929,7 @@ class AnalysisPipeline:
             )
 
             if success:
-                logger.debug("[Step 0] ✓ 無需轉檔，已記錄 Pass")
+                logger.info("[Step 0] ✓ 無需轉檔，已記錄 Pass")
                 return filepath
 
             logger.error(f"[Step 0] ✗ 儲存 Pass 結果失敗")
@@ -955,8 +955,8 @@ class AnalysisPipeline:
             是否成功
         """
         try:
-            logger.debug(f"[Step 1] 開始音訊切割...")
-            logger.debug(f"[Step 1] 目標音軌: {target_channels if target_channels else '預設'}")
+            logger.info(f"[Step 1] 開始音訊切割...")
+            logger.info(f"[Step 1] 目標音軌: {target_channels if target_channels else '預設'}")
 
             # 執行切割（傳入 target_channels）
             segments = self.slicer.slice_audio(filepath, target_channels)
@@ -971,7 +971,7 @@ class AnalysisPipeline:
             success = self.mongodb.save_slice_results(analyze_uuid, segments, analysis_id=analysis_id)
 
             if success:
-                logger.debug(f"[Step 1] ✓ 音訊切割完成: {len(segments)} 個切片")
+                logger.info(f"[Step 1] ✓ 音訊切割完成: {len(segments)} 個切片")
                 return True
             else:
                 logger.error(f"[Step 1] ✗ 儲存切割結果失敗")
@@ -996,7 +996,7 @@ class AnalysisPipeline:
             是否成功
         """
         try:
-            logger.debug(f"[Step 2] 開始 LEAF 特徵提取...")
+            logger.info(f"[Step 2] 開始 LEAF 特徵提取...")
 
             # 獲取切割結果
             record = self.mongodb.get_record_by_uuid(analyze_uuid)
@@ -1036,7 +1036,7 @@ class AnalysisPipeline:
 
             if success:
                 feature_dim = processor_metadata.get('feature_dim', processor_metadata.get('n_filters', 'unknown'))
-                logger.debug(
+                logger.info(
                     f"[Step 2] ✓ LEAF 特徵提取完成: {len(features_data)} 個切片 (feature_dim={feature_dim})"
                 )
                 return True
@@ -1061,7 +1061,7 @@ class AnalysisPipeline:
             是否成功
         """
         try:
-            logger.debug(f"[Step 3] 開始分類...")
+            logger.info(f"[Step 3] 開始分類...")
 
             # 獲取 LEAF 特徵
             record = self.mongodb.get_record_by_uuid(analyze_uuid)
@@ -1088,6 +1088,22 @@ class AnalysisPipeline:
             # 執行分類（傳入簡化格式）
             classification_results = self.classifier.classify(leaf_data)
 
+            # 應用預測結果聚合（與 TDMS 流程一致）
+            aggregation_method = self.current_config.get('classification', {}).get('rf_aggregation', 'combined')
+            if aggregation_method in ['ratio', 'consecutive', 'combined', 'strict', 'mean']:
+                predictions = classification_results.get('features_data', [])
+                aggregation_config = self.current_config.get('aggregation', {})
+                aggregated = self.classifier.aggregate_segment_predictions(
+                    predictions, method=aggregation_method, config=aggregation_config
+                )
+                # 更新 processor_metadata 中的聚合資訊
+                classification_results['processor_metadata'].update({
+                    'aggregation_method': aggregation_method,
+                    'final_prediction': aggregated['final_prediction'],
+                    'aggregation_confidence': aggregated['confidence'],
+                    'abnormal_ratio': aggregated.get('abnormal_ratio', 0)
+                })
+
             # 儲存分類結果（統一格式）
             success = self.mongodb.save_classification_results(
                 analyze_uuid,
@@ -1097,7 +1113,7 @@ class AnalysisPipeline:
 
             if success:
                 processor_metadata = classification_results.get('processor_metadata', {})
-                logger.debug(
+                logger.info(
                     f"[Step 3] ✓ 分類完成: {processor_metadata.get('final_prediction', 'unknown')} "
                     f"(正常: {processor_metadata.get('normal_count', 0)}, "
                     f"異常: {processor_metadata.get('abnormal_count', 0)})"
