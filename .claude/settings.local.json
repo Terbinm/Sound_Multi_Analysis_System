@@ -45,7 +45,8 @@
       "Bash(done)",
       "Bash(python -m json.tool:*)",
       "mcp__plugin_episodic-memory_episodic-memory__search",
-      "mcp__plugin_episodic-memory_episodic-memory__read"
+      "mcp__plugin_episodic-memory_episodic-memory__read",
+      "Bash(cmd /c dir \"D:\\\\D_PycharmProjects\\\\Sound_Multi_Analysis_System\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\sixsn\\PycharmProjects\\Sound_Multi_Analysis_System\\debug_tools"
