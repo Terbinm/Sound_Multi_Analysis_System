@@ -226,3 +226,4 @@ __marimo__/
 /debug_tools/Integration_upload/reports/
 sub_system/analysis_service/model_cache/*
 debug_tools/mongo_query_tools/output/*
+/.claude/
