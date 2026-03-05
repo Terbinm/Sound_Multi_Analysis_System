@@ -436,6 +436,55 @@ function shouldShowGroup(group) {
     return true;  // All conditions met
 }
 
+// Check if a single field should be visible based on field_visible_when condition
+function shouldShowField(field, groupKey) {
+    const condition = field.field_visible_when;
+    if (!condition) {
+        return true;  // No condition = always show
+    }
+
+    const fieldPath = condition.field;  // e.g., "aggregation.method"
+    const allowedValues = condition.values;  // e.g., ["ratio", "combined", "strict"]
+
+    // Parse field path
+    const [targetGroupKey, targetFieldName] = fieldPath.split('.');
+
+    // Get the default value from schema if needed
+    let defaultValue = null;
+    if (SCHEMA && SCHEMA.parameter_groups) {
+        const targetGroup = SCHEMA.parameter_groups.find(g => g.key === targetGroupKey);
+        if (targetGroup) {
+            const targetField = targetGroup.fields.find(f => f.name === targetFieldName);
+            if (targetField) {
+                defaultValue = targetField.default;
+            }
+        }
+    }
+
+    const currentValue = getParameterValue(targetGroupKey, targetFieldName, defaultValue);
+
+    return allowedValues.includes(currentValue);
+}
+
+// Update field visibility within a specific group
+function updateFieldVisibility(groupKey) {
+    const group = SCHEMA.parameter_groups.find(g => g.key === groupKey);
+    if (!group) return;
+
+    for (const field of group.fields) {
+        if (field.field_visible_when) {
+            const fieldWrapper = document.getElementById(`field-wrapper-${groupKey}-${field.name}`);
+            if (fieldWrapper) {
+                if (shouldShowField(field, groupKey)) {
+                    fieldWrapper.classList.remove('hidden');
+                } else {
+                    fieldWrapper.classList.add('hidden');
+                }
+            }
+        }
+    }
+}
+
 // Bind events to fields that control visibility
 function bindVisibilityEvents(container) {
     // Find input.format and feature.method selects and bind change events
@@ -497,7 +546,11 @@ function renderParameterGroup(group) {
 // ==================== Field Rendering ====================
 function renderField(field, value, groupKey) {
     const fieldId = `param-${groupKey}-${field.name}`;
+    const wrapperId = `field-wrapper-${groupKey}-${field.name}`;
     const fieldName = `${groupKey}.${field.name}`;
+
+    // Check if field should be visible based on field_visible_when condition
+    const isVisible = shouldShowField(field, groupKey);
 
     let inputHtml = '';
 
@@ -558,8 +611,9 @@ function renderField(field, value, groupKey) {
             `;
     }
 
+    // Wrap field in a container with visibility control
     return `
-        <div class="space-y-1">
+        <div id="${wrapperId}" class="space-y-1 ${isVisible ? '' : 'hidden'}">
             <label for="${fieldId}" class="block text-sm font-medium text-gray-700">
                 ${field.label}
             </label>
@@ -573,6 +627,15 @@ function bindFieldEvents(container) {
     container.querySelectorAll('input, select').forEach(el => {
         el.addEventListener('change', function() {
             updateParameterValue(this);
+
+            // If this is a field that controls other fields' visibility, update them
+            const groupKey = this.dataset.group;
+            const fieldName = this.dataset.field;
+
+            // Handle aggregation method change - update related field visibility
+            if (groupKey === 'aggregation' && fieldName === 'method') {
+                updateFieldVisibility('aggregation');
+            }
         });
     });
 }

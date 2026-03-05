@@ -6,6 +6,7 @@
 import numpy as np
 from scipy import stats
 from scipy.signal import hilbert
+from scipy.fft import rfft, rfftfreq
 from typing import List, Dict, Any, Optional, Union
 from utils.logger import logger
 
@@ -123,7 +124,7 @@ class StatisticalFeatureExtractor:
         features = []
 
         try:
-            signal = np.asarray(signal, dtype=np.float32)
+            signal = np.asarray(signal, dtype=np.float64)
 
             # ===== 時域特徵 (5) =====
 
@@ -149,9 +150,9 @@ class StatisticalFeatureExtractor:
 
             # ===== 頻域特徵 (4) =====
 
-            # FFT 計算
-            fft = np.fft.rfft(signal)
-            freqs = np.fft.rfftfreq(len(signal), 1 / self.sample_rate)
+            # FFT 計算（使用 scipy.fft 與訓練環境一致）
+            fft = rfft(signal)
+            freqs = rfftfreq(len(signal), 1 / self.sample_rate)
             magnitude = np.abs(fft)
 
             magnitude_sum = np.sum(magnitude)
@@ -176,11 +177,12 @@ class StatisticalFeatureExtractor:
             dominant_frequency = float(freqs[np.argmax(magnitude)])
             features.append(dominant_frequency)
 
-            # 9. Spectral Rolloff (頻譜滾降點 85%)
-            cumsum = np.cumsum(magnitude)
-            if cumsum[-1] > 0:
-                rolloff_idx = np.searchsorted(cumsum, 0.85 * cumsum[-1])
-                spectral_rolloff = float(freqs[min(rolloff_idx, len(freqs) - 1)])
+            # 9. Spectral Rolloff (頻譜滾降點 85%，使用能量與訓練環境一致)
+            cumsum = np.cumsum(magnitude ** 2)
+            total = cumsum[-1]
+            if total > 0:
+                rolloff_idx = np.where(cumsum >= 0.85 * total)[0]
+                spectral_rolloff = float(freqs[rolloff_idx[0]]) if len(rolloff_idx) > 0 else 0.0
             else:
                 spectral_rolloff = 0.0
             features.append(spectral_rolloff)
@@ -199,8 +201,8 @@ class StatisticalFeatureExtractor:
             envelope_std = float(np.std(envelope))
             features.append(envelope_std)
 
-            # 12. Zero Crossing Rate (過零率)
-            zero_crossings = np.sum(np.abs(np.diff(np.sign(signal))) > 0)
+            # 12. Zero Crossing Rate (過零率，與訓練環境一致)
+            zero_crossings = np.sum(np.abs(np.diff(np.sign(signal)))) / 2
             zero_crossing_rate = float(zero_crossings / len(signal))
             features.append(zero_crossing_rate)
 
@@ -219,7 +221,7 @@ class StatisticalFeatureExtractor:
         """
         return {
             'extractor_type': 'StatisticalFeatures',
-            'feature_dtype': 'float32',
+            'feature_dtype': 'float64',
             'feature_dim': self.FEATURE_DIM,
             'feature_names': self.FEATURE_NAMES,
             'sample_rate': self.sample_rate,

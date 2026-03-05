@@ -244,49 +244,82 @@ PARAMETER_GROUPS: List[Dict[str, Any]] = [
     {
         'key': 'aggregation',
         'label': '聚合設定',
-        'description': '預測結果聚合門檻設定',
+        'description': '預測結果聚合方式與門檻設定（將多個切片預測合併為檔案級判斷）',
         'collapsed': True,
         # 永遠顯示（無 visible_when）
         'fields': [
             {
+                # 聚合方式選擇器 - 決定如何將多個切片的預測結果合併為最終判斷
+                # 不同聚合方式需要不同的門檻參數，下方欄位會根據此選擇動態顯示
+                'name': 'method',
+                'label': '聚合方式',
+                'type': 'select',
+                'description': '選擇如何將多個切片的預測結果聚合為最終判斷',
+                'default': 'combined',
+                'options': [
+                    # mean: 計算所有切片的平均異常機率，≥ 門檻則判定異常
+                    {'value': 'mean', 'label': '平均機率 - 平均異常機率 ≥ 門檻則判定異常'},
+                    # ratio: 計算異常切片佔總切片的比例，≥ 門檻則判定異常
+                    {'value': 'ratio', 'label': '異常比例 - 異常切片比例 ≥ 門檻則判定異常'},
+                    # consecutive: 檢查是否有連續 N 個異常切片，有則判定異常
+                    {'value': 'consecutive', 'label': '連續異常 - 連續異常切片數 ≥ 門檻則判定異常'},
+                    # combined: ratio OR consecutive，任一條件滿足即判定異常（推薦）
+                    {'value': 'combined', 'label': '組合（推薦）- 比例 OR 連續任一滿足則判定異常'},
+                    # strict: ratio AND 高機率，兩個條件都滿足才判定異常
+                    {'value': 'strict', 'label': '嚴格 - 比例 AND 高機率都滿足才判定異常'},
+                ],
+            },
+            {
+                # 異常比例門檻 - 用於 ratio、combined、strict 聚合方式
+                # 例如 0.3 表示異常切片佔總切片 30% 以上則觸發條件
                 'name': 'ratio_threshold',
                 'label': '異常比例門檻',
                 'type': 'number',
-                'description': '判定異常的比例門檻（0-1）',
+                'description': '異常切片佔總切片的比例（0-1），例如 0.3 = 30%',
                 'default': 0.3,
                 'min': 0,
                 'max': 1,
                 'step': 0.05,
+                'field_visible_when': {'field': 'aggregation.method', 'values': ['ratio', 'combined', 'strict']},
             },
             {
+                # 連續異常數量門檻 - 用於 consecutive、combined 聚合方式
+                # 例如 5 表示連續 5 個切片被判定為異常則觸發條件
                 'name': 'consecutive_threshold',
                 'label': '連續異常數量',
                 'type': 'number',
-                'description': '判定異常的連續片段數量',
+                'description': '連續被判定為異常的切片數量',
                 'default': 5,
                 'min': 1,
                 'max': 100,
                 'step': 1,
+                'field_visible_when': {'field': 'aggregation.method', 'values': ['consecutive', 'combined']},
             },
             {
+                # 高機率門檻 - 僅用於 strict 聚合方式
+                # 除了比例條件外，平均異常機率也需達到此門檻
                 'name': 'probability_threshold',
                 'label': '高機率門檻',
                 'type': 'number',
-                'description': '嚴格模式的機率門檻',
+                'description': '嚴格模式：平均異常機率需達此門檻',
                 'default': 0.6,
                 'min': 0,
                 'max': 1,
                 'step': 0.05,
+                'field_visible_when': {'field': 'aggregation.method', 'values': ['strict']},
             },
             {
+                # 平均機率門檻 - 僅用於 mean 聚合方式
+                # 所有切片的平均異常機率 ≥ 此門檻則判定異常
                 'name': 'mean_threshold',
                 'label': '平均機率門檻',
                 'type': 'number',
-                'description': '平均機率聚合的門檻',
+                'description': '平均機率模式：平均異常機率判定門檻',
                 'default': 0.5,
                 'min': 0,
                 'max': 1,
                 'step': 0.05,
+                'field_visible_when': {'field': 'aggregation.method', 'values': ['mean']},
             },
         ],
     },

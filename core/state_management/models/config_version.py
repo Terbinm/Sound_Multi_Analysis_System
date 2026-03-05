@@ -19,7 +19,7 @@ class ConfigVersion:
     def _get_collection_name():
         """從 config 獲取集合名稱"""
         config = get_config()
-        return config.COLLECTIONS['system_metadata']
+        return config.COLLECTIONS.get('config_version', 'config_version')
 
     @staticmethod
     def get_version() -> int:
